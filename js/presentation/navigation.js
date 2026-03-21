@@ -19,13 +19,14 @@ import { renderReports } from './pages/reports.js';
 import { renderCodeSigning, loadCodeSigning } from './pages/code-signing.js';
 import { renderXcodeCloud, loadXcodeCloud } from './pages/xcode-cloud.js';
 import { renderUsers, loadUsers } from './pages/users.js';
+import { renderIris, loadIris } from './pages/iris.js';
 
 const pageTitles = {
   dashboard: 'Dashboard', apps: 'Apps', versions: 'Versions', builds: 'Builds',
   testflight: 'TestFlight', submissions: 'Submissions', appinfo: 'App Info',
   screenshots: 'Screenshots', reviews: 'Customer Reviews', iap: 'In-App Purchases',
   subscriptions: 'Subscriptions', reports: 'Reports', codesigning: 'Code Signing',
-  xcodecloud: 'Xcode Cloud', users: 'Users & Roles',
+  xcodecloud: 'Xcode Cloud', users: 'Users & Roles', iris: 'Iris (Private API)',
 };
 
 const renderers = {
@@ -44,6 +45,7 @@ const renderers = {
   codesigning: renderCodeSigning,
   xcodecloud: renderXcodeCloud,
   users: renderUsers,
+  iris: renderIris,
 };
 
 const loaders = {
@@ -58,6 +60,7 @@ const loaders = {
   iap: loadIAP,
   subscriptions: loadSubscriptions,
   xcodecloud: loadXcodeCloud,
+  iris: loadIris,
 };
 
 export function navigate(page) {
