@@ -18,7 +18,9 @@ let simCaptures = []; // { name, dataUrl, timestamp, width, height }
 
 // Resolve the sim API base from DataProvider's detected server URL
 function getSimAPI() {
-  return (DataProvider._serverUrl || '') + '/api/sim';
+  const base = DataProvider._serverUrl || '';
+  console.log('[sim] getSimAPI:', base, '→', base + '/api/sim', 'mode:', DataProvider._mode);
+  return base + '/api/sim';
 }
 
 
