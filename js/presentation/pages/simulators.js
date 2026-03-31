@@ -53,10 +53,22 @@ export function renderSimulators() {
       <div class="card">
         <div class="card-header">
           <span class="card-title">iOS Simulators</span>
-          <button class="btn btn-sm btn-secondary" onclick="simRefresh()">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
-            Refresh
-          </button>
+          <div style="display:flex;align-items:center;gap:8px">
+            <input type="text" id="simSearchInput" placeholder="Search devices..." oninput="simApplyFilters()"
+              style="padding:6px 10px;border:1px solid var(--border);border-radius:6px;font-size:12px;width:180px;background:var(--bg);color:var(--text)">
+            <select id="simTypeFilter" onchange="simApplyFilters()"
+              style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg);color:var(--text)">
+              <option value="all">All Devices</option>
+              <option value="iphone" selected>iPhones</option>
+              <option value="ipad">iPads</option>
+            </select>
+            <select id="simRuntimeFilter" onchange="simApplyFilters()"
+              style="padding:6px 8px;border:1px solid var(--border);border-radius:6px;font-size:12px;background:var(--bg);color:var(--text)">
+              <option value="latest">Latest Runtime</option>
+              <option value="all">All Runtimes</option>
+            </select>
+            <button class="btn btn-sm btn-secondary" onclick="simRefresh()">Refresh</button>
+          </div>
         </div>
         <div class="card-body" id="simDeviceList">
           <div class="empty-state"><div class="spinner" style="margin: 24px auto"></div></div>
@@ -213,40 +225,89 @@ async function loadSimDeviceList() {
   }
 }
 
-function renderSimDeviceTable(sims) {
-  const el = document.getElementById('simDeviceList');
-  if (!sims.length) { el.innerHTML = '<div class="empty-state">No iOS simulators</div>'; return; }
+let allSimDevices = [];
 
-  // Group by displayRuntime
-  const groups = {};
-  for (const s of sims) {
-    const rt = s.displayRuntime || 'Unknown';
-    (groups[rt] = groups[rt] || []).push(s);
+function renderSimDeviceTable(sims) {
+  allSimDevices = sims;
+
+  // Populate runtime filter options
+  const runtimes = [...new Set(sims.map(s => s.displayRuntime || 'Unknown'))].sort();
+  const rtFilter = document.getElementById('simRuntimeFilter');
+  const currentRt = rtFilter.value;
+  rtFilter.innerHTML = '<option value="latest">Latest Runtime</option><option value="all">All Runtimes</option>';
+  for (const rt of runtimes) {
+    rtFilter.innerHTML += `<option value="${escapeHTML(rt)}">${escapeHTML(rt)}</option>`;
   }
+  rtFilter.value = currentRt;
+
+  simApplyFilters();
+}
+
+function simApplyFilters() {
+  const search = (document.getElementById('simSearchInput')?.value || '').toLowerCase();
+  const typeFilter = document.getElementById('simTypeFilter')?.value || 'all';
+  const rtFilter = document.getElementById('simRuntimeFilter')?.value || 'latest';
+  const el = document.getElementById('simDeviceList');
+
+  let sims = allSimDevices;
+
+  // Type filter
+  if (typeFilter === 'iphone') sims = sims.filter(s => s.name.includes('iPhone'));
+  else if (typeFilter === 'ipad') sims = sims.filter(s => s.name.includes('iPad'));
+
+  // Runtime filter
+  if (rtFilter === 'latest') {
+    const latestRt = [...new Set(sims.map(s => s.displayRuntime || ''))].sort().pop();
+    if (latestRt) sims = sims.filter(s => s.displayRuntime === latestRt);
+  } else if (rtFilter !== 'all') {
+    sims = sims.filter(s => s.displayRuntime === rtFilter);
+  }
+
+  // Search
+  if (search) sims = sims.filter(s => s.name.toLowerCase().includes(search) || (s.id || '').toLowerCase().includes(search));
+
+  if (!sims.length) { el.innerHTML = '<div class="empty-state" style="padding:32px">No simulators match filters</div>'; return; }
+
+  // Split: booted first, then shutdown
+  const booted = sims.filter(s => s.isBooted || s.state === 'Booted');
+  const shutdown = sims.filter(s => !(s.isBooted || s.state === 'Booted'));
 
   let html = '';
-  for (const [runtime, devices] of Object.entries(groups).sort()) {
-    html += `<div style="margin-bottom:4px"><span style="font-size:11px;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;padding:8px 16px;display:block">${escapeHTML(runtime)}</span>`;
-    html += `<table class="data-table"><thead><tr><th>Name</th><th>State</th><th>UDID</th><th style="text-align:right">Actions</th></tr></thead><tbody>`;
-    for (const s of devices) {
-      const booted = s.isBooted || s.state === 'Booted';
-      const dot = booted ? 'var(--success)' : 'var(--text-muted)';
-      html += `<tr>
-        <td><strong>${escapeHTML(s.name)}</strong></td>
-        <td><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${dot};margin-right:6px;vertical-align:middle"></span>${escapeHTML(s.state || '')}</td>
-        <td style="font-family:var(--font-mono);font-size:11px;color:var(--text-muted)">${escapeHTML(s.id)}</td>
-        <td style="text-align:right">
-          ${booted
-            ? `<button class="btn btn-primary btn-sm" onclick="simStartStream('${s.id}','${escapeHTML(s.name)}')">Stream</button>
-               <button class="btn btn-secondary btn-sm" style="margin-left:4px" onclick="simAction('shutdown','${s.id}')">Shutdown</button>`
-            : `<button class="btn btn-secondary btn-sm" onclick="simAction('boot','${s.id}')">Boot</button>`
-          }
-        </td>
-      </tr>`;
-    }
-    html += `</tbody></table></div>`;
+
+  if (booted.length) {
+    html += renderSimSection('Running', booted, true);
   }
+  if (shutdown.length) {
+    html += renderSimSection(booted.length ? 'Available' : '', shutdown, false);
+  }
+
   el.innerHTML = html;
+}
+
+function renderSimSection(title, devices, isBooted) {
+  let html = '';
+  if (title) {
+    html += `<span style="font-size:11px;color:var(--text-muted);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;padding:8px 16px;display:block">${escapeHTML(title)}</span>`;
+  }
+  html += `<table class="data-table"><thead><tr><th>Name</th><th>State</th><th>Runtime</th><th style="text-align:right">Actions</th></tr></thead><tbody>`;
+  for (const s of devices) {
+    const booted = s.isBooted || s.state === 'Booted';
+    const dot = booted ? 'var(--success)' : 'var(--text-muted)';
+    html += `<tr>
+      <td><strong>${escapeHTML(s.name)}</strong></td>
+      <td><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:${dot};margin-right:6px;vertical-align:middle"></span>${escapeHTML(s.state || '')}</td>
+      <td style="font-size:12px;color:var(--text-muted)">${escapeHTML(s.displayRuntime || '')}</td>
+      <td style="text-align:right">
+        ${booted
+          ? `<button class="btn btn-primary btn-sm" onclick="simStartStream('${s.id}','${escapeHTML(s.name)}')">Stream</button>
+             <button class="btn btn-secondary btn-sm" style="margin-left:4px" onclick="simAction('shutdown','${s.id}')">Shutdown</button>`
+          : `<button class="btn btn-secondary btn-sm" onclick="simAction('boot','${s.id}')">Boot</button>`
+        }
+      </td>
+    </tr>`;
+  }
+  html += `</tbody></table>`;
+  return html;
 }
 
 // === Stream Mode ===
@@ -365,6 +426,8 @@ function simLog(msg, isErr) {
 }
 
 // === Global handlers ===
+
+window.simApplyFilters = simApplyFilters;
 
 window.simRefresh = function () {
   showToast('Refreshing simulators...', 'info');
