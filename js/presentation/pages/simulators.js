@@ -18,9 +18,7 @@ let simCaptures = []; // { name, dataUrl, timestamp, width, height }
 
 // Resolve the sim API base from DataProvider's detected server URL
 function getSimAPI() {
-  const base = DataProvider._serverUrl || '';
-  console.log('[sim] getSimAPI:', base, '→', base + '/api/sim', 'mode:', DataProvider._mode);
-  return base + '/api/sim';
+  return (DataProvider._serverUrl || '') + '/api/sim';
 }
 
 
@@ -419,10 +417,10 @@ function viewToDevice(vx, vy, vw, vh) {
 async function simTapAt(vx, vy, vw, vh, el) {
   const { x, y } = viewToDevice(vx, vy, vw, vh);
   simLog(`tap(${Math.round(x)}, ${Math.round(y)})`);
-  // Ripple
+  // Ripple effect
   const r = document.createElement('div');
-  r.style.cssText = `position:absolute;width:30px;height:30px;border:2px solid var(--primary);border-radius:50%;transform:translate(-50%,-50%);pointer-events:none;left:${vx}px;top:${vy}px;animation:simRipple 0.4s ease-out forwards;`;
-  el.appendChild(r); setTimeout(() => r.remove(), 400);
+  r.style.cssText = `position:absolute;border:2px solid #6366f1;border-radius:50%;transform:translate(-50%,-50%);pointer-events:none;left:${vx}px;top:${vy}px;animation:simRipple 0.5s ease-out forwards;z-index:10;`;
+  el.appendChild(r); setTimeout(() => r.remove(), 500);
   try {
     await fetch(`${getSimAPI()}/tap`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ udid: simStreamUdid, x: Math.round(x), y: Math.round(y) }) });
   } catch (e) { simLog(e.message, true); }
@@ -566,23 +564,32 @@ window.simDescribeUI = async function () {
 
 // === Screenshot Capture ===
 
-window.simCapture = function () {
-  const img = document.getElementById('simStreamImg');
-  if (!img || !img.src || !img.naturalWidth) { simLog('No frame to capture', true); return; }
+window.simCapture = async function () {
+  if (!simStreamUdid) { simLog('No active stream', true); return; }
 
-  // Draw current frame to canvas at full resolution
-  const canvas = document.createElement('canvas');
-  canvas.width = img.naturalWidth;
-  canvas.height = img.naturalHeight;
-  const ctx = canvas.getContext('2d');
-  ctx.drawImage(img, 0, 0);
-  const dataUrl = canvas.toDataURL('image/png');
+  // Fetch screenshot directly as blob (avoids tainted canvas on cross-origin)
+  try {
+    const res = await fetch(`${getSimAPI()}/screenshot?udid=${simStreamUdid}&t=${Date.now()}`);
+    if (!res.ok) throw new Error('capture failed');
+    const blob = await res.blob();
+    const dataUrl = await new Promise(resolve => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result);
+      reader.readAsDataURL(blob);
+    });
 
-  const name = `Screen ${simCaptures.length + 1}`;
-  simCaptures.push({ name, dataUrl, timestamp: Date.now(), width: img.naturalWidth, height: img.naturalHeight });
+    const name = `Screen ${simCaptures.length + 1}`;
+    // Get dimensions from the current stream img
+    const img = document.getElementById('simStreamImg');
+    const w = img?.naturalWidth || 0;
+    const h = img?.naturalHeight || 0;
+    simCaptures.push({ name, dataUrl, timestamp: Date.now(), width: w, height: h });
 
-  simLog(`Captured: ${name} (${img.naturalWidth}x${img.naturalHeight})`);
-  simRenderGallery();
+    simLog(`Captured: ${name} (${w}x${h})`);
+    simRenderGallery();
+  } catch (e) {
+    simLog('Capture failed: ' + e.message, true);
+  }
 };
 
 window.simRenameCapture = function (index) {
@@ -645,6 +652,6 @@ function simRenderGallery() {
 if (!document.getElementById('simRippleStyle')) {
   const style = document.createElement('style');
   style.id = 'simRippleStyle';
-  style.textContent = '@keyframes simRipple { 0% { opacity:1;width:10px;height:10px } 100% { opacity:0;width:40px;height:40px } }';
+  style.textContent = '@keyframes simRipple { 0% { opacity:1;width:10px;height:10px;border-width:2px } 50% { opacity:0.7;width:30px;height:30px;border-width:2px } 100% { opacity:0;width:50px;height:50px;border-width:1px } }';
   document.head.appendChild(style);
 }
