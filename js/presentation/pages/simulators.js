@@ -15,7 +15,11 @@ let simAxeAvailable = false;
 let simDragStart = null;
 let simIsDragging = false;
 
-const SIM_API = '/api/sim';
+// Resolve the sim API base from DataProvider's detected server URL
+function getSimAPI() {
+  return (DataProvider._serverUrl || '') + '/api/sim';
+}
+
 
 export function renderSimulators() {
   return `
@@ -172,7 +176,7 @@ export function renderSimulators() {
 export async function loadSimulators() {
   // Load frame insets
   try {
-    const res = await fetch(`${SIM_API}/frame-insets`);
+    const res = await fetch(`${getSimAPI()}/frame-insets`);
     simFrameInsets = await res.json();
   } catch {}
 
@@ -188,7 +192,7 @@ async function loadSimDeviceList() {
 
       // Check AXe
       try {
-        const r = await fetch(`${SIM_API}/devices`);
+        const r = await fetch(`${getSimAPI()}/devices`);
         const d = await r.json();
         simAxeAvailable = d.axeAvailable;
       } catch {}
@@ -255,7 +259,7 @@ function buildDeviceFrame(name) {
   wrapper.style.cssText = 'position:relative;display:inline-block;max-height:70vh;';
 
   const frameImg = document.createElement('img');
-  frameImg.src = `${SIM_API}/frame?name=${encodeURIComponent(name)}`;
+  frameImg.src = `${getSimAPI()}/frame?name=${encodeURIComponent(name)}`;
   frameImg.draggable = false;
   frameImg.style.cssText = 'display:block;height:100%;max-height:70vh;pointer-events:none;position:relative;z-index:2;';
   frameImg.onerror = () => {
@@ -334,7 +338,7 @@ async function simTapAt(vx, vy, vw, vh, el) {
   r.style.cssText = `position:absolute;width:30px;height:30px;border:2px solid var(--primary);border-radius:50%;transform:translate(-50%,-50%);pointer-events:none;left:${vx}px;top:${vy}px;animation:simRipple 0.4s ease-out forwards;`;
   el.appendChild(r); setTimeout(() => r.remove(), 400);
   try {
-    await fetch(`${SIM_API}/tap`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ udid: simStreamUdid, x: Math.round(x), y: Math.round(y) }) });
+    await fetch(`${getSimAPI()}/tap`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ udid: simStreamUdid, x: Math.round(x), y: Math.round(y) }) });
   } catch (e) { simLog(e.message, true); }
 }
 
@@ -344,7 +348,7 @@ async function simSwipeAt(vx1, vy1, vx2, vy2, vw, vh, durationMs) {
   const dist = Math.sqrt((to.x - from.x) ** 2 + (to.y - from.y) ** 2);
   simLog(`swipe(${Math.round(from.x)},${Math.round(from.y)} → ${Math.round(to.x)},${Math.round(to.y)})`);
   try {
-    await fetch(`${SIM_API}/swipe`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ udid: simStreamUdid, fromX: Math.round(from.x), fromY: Math.round(from.y), toX: Math.round(to.x), toY: Math.round(to.y), duration: Math.max(0.1, (durationMs || 300) / 1000), delta: Math.max(1, Math.round(dist / 10)) }) });
+    await fetch(`${getSimAPI()}/swipe`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ udid: simStreamUdid, fromX: Math.round(from.x), fromY: Math.round(from.y), toX: Math.round(to.x), toY: Math.round(to.y), duration: Math.max(0.1, (durationMs || 300) / 1000), delta: Math.max(1, Math.round(dist / 10)) }) });
   } catch (e) { simLog(e.message, true); }
 }
 
@@ -388,7 +392,7 @@ window.simStartStream = async function (udid, name) {
 
   // Start capture
   try {
-    const res = await fetch(`${SIM_API}/stream-start`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ udid }) });
+    const res = await fetch(`${getSimAPI()}/stream-start`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ udid }) });
     const data = await res.json();
     simLog(`Stream: ${data.method}`);
     await new Promise(r => setTimeout(r, 500));
@@ -397,7 +401,7 @@ window.simStartStream = async function (udid, name) {
   // Frame polling
   const loadFrame = () => {
     if (!simStreamUdid) return;
-    const url = `${SIM_API}/screenshot?udid=${udid}&t=${Date.now()}`;
+    const url = `${getSimAPI()}/screenshot?udid=${udid}&t=${Date.now()}`;
     const tmp = new Image();
     tmp.onload = () => {
       if (tmp.naturalWidth > 0) { simImgNaturalW = tmp.naturalWidth; simImgNaturalH = tmp.naturalHeight; }
@@ -421,7 +425,7 @@ window.simStopStream = function () {
   simStreamUdid = null; simStreamName = null;
   if (simStreamTimer) { clearTimeout(simStreamTimer); simStreamTimer = null; }
   if (simFpsTimer) { clearInterval(simFpsTimer); simFpsTimer = null; }
-  fetch(`${SIM_API}/stream-stop`, { method: 'POST' }).catch(() => {});
+  fetch(`${getSimAPI()}/stream-stop`, { method: 'POST' }).catch(() => {});
   document.getElementById('simStreamView').style.display = 'none';
   document.getElementById('simListView').style.display = '';
   loadSimDeviceList();
@@ -429,13 +433,13 @@ window.simStopStream = function () {
 
 window.simButton = async function (button) {
   simLog(`button(${button})`);
-  try { await fetch(`${SIM_API}/button`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ udid: simStreamUdid, button }) }); }
+  try { await fetch(`${getSimAPI()}/button`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ udid: simStreamUdid, button }) }); }
   catch (e) { simLog(e.message, true); }
 };
 
 window.simGesture = async function (gesture) {
   simLog(`gesture(${gesture})`);
-  try { await fetch(`${SIM_API}/gesture`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ udid: simStreamUdid, gesture }) }); }
+  try { await fetch(`${getSimAPI()}/gesture`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ udid: simStreamUdid, gesture }) }); }
   catch (e) { simLog(e.message, true); }
 };
 
@@ -443,7 +447,7 @@ window.simSendText = async function () {
   const input = document.getElementById('simTextInput');
   const text = input.value; if (!text) return;
   simLog(`type("${text.length > 20 ? text.slice(0, 20) + '...' : text}")`);
-  try { await fetch(`${SIM_API}/type`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ udid: simStreamUdid, text }) }); }
+  try { await fetch(`${getSimAPI()}/type`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ udid: simStreamUdid, text }) }); }
   catch (e) { simLog(e.message, true); }
   input.value = ''; input.focus();
 };
@@ -451,21 +455,21 @@ window.simSendText = async function () {
 window.simKey = async function (keycode) {
   const names = { 40: 'Return', 42: 'Backspace', 43: 'Tab', 41: 'Escape' };
   simLog(`key(${names[keycode] || keycode})`);
-  try { await fetch(`${SIM_API}/key`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ udid: simStreamUdid, keycode }) }); }
+  try { await fetch(`${getSimAPI()}/key`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ udid: simStreamUdid, keycode }) }); }
   catch (e) { simLog(e.message, true); }
 };
 
 window.simTapById = async function () {
   const id = document.getElementById('simTapIdInput').value; if (!id) return;
   simLog(`tap(id: "${id}")`);
-  try { await fetch(`${SIM_API}/tap`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ udid: simStreamUdid, id }) }); }
+  try { await fetch(`${getSimAPI()}/tap`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ udid: simStreamUdid, id }) }); }
   catch (e) { simLog(e.message, true); }
 };
 
 window.simDescribeUI = async function () {
   simLog('describe-ui...');
   try {
-    const res = await fetch(`${SIM_API}/describe?udid=${simStreamUdid}`);
+    const res = await fetch(`${getSimAPI()}/describe?udid=${simStreamUdid}`);
     const data = await res.json();
     if (data.tree) { simLog(`UI tree: ${data.tree.length} chars`); console.log('=== UI Tree ===\n' + data.tree); }
   } catch (e) { simLog(e.message, true); }
