@@ -14,6 +14,7 @@ let simFrameInsets = {};
 let simAxeAvailable = false;
 let simDragStart = null;
 let simIsDragging = false;
+let simCaptures = []; // { name, dataUrl, timestamp, width, height }
 
 // Resolve the sim API base from DataProvider's detected server URL
 function getSimAPI() {
@@ -102,6 +103,12 @@ export function renderSimulators() {
         </button>
         <span style="font-weight:600" id="simStreamTitle"></span>
         <span style="color:var(--text-muted);font-size:12px;font-variant-numeric:tabular-nums" id="simStreamFps"></span>
+        <div style="margin-left:auto;display:flex;gap:8px">
+          <button class="btn btn-primary btn-sm" onclick="simCapture()" style="gap:6px">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="14" height="14"><path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"/><circle cx="12" cy="13" r="4"/></svg>
+            Capture
+          </button>
+        </div>
       </div>
 
       <div style="display:flex;gap:20px;align-items:flex-start">
@@ -170,6 +177,22 @@ export function renderSimulators() {
                 <button class="btn btn-secondary btn-sm" onclick="simTapById()">ID</button>
               </div>
               <button class="btn btn-secondary btn-sm" style="width:100%;margin-top:6px" onclick="simDescribeUI()">&#128270; Describe UI</button>
+            </div>
+          </div>
+
+          <!-- Captured Screenshots -->
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title" style="font-size:12px">Screenshots <span id="simCaptureCount" style="color:var(--text-muted)"></span></span>
+              <div style="display:flex;gap:4px">
+                <button class="btn btn-secondary btn-sm" style="font-size:10px;padding:2px 6px" onclick="simDownloadAll()" id="simDownloadAllBtn" disabled>Download All</button>
+                <button class="btn btn-secondary btn-sm" style="font-size:10px;padding:2px 6px" onclick="simClearCaptures()" id="simClearBtn" disabled>Clear</button>
+              </div>
+            </div>
+            <div class="card-body" style="padding:8px">
+              <div id="simCaptureGallery" style="display:flex;flex-wrap:wrap;gap:6px;min-height:32px">
+                <div style="color:var(--text-muted);font-size:11px;padding:8px">No captures yet</div>
+              </div>
             </div>
           </div>
 
@@ -445,6 +468,7 @@ window.simAction = async function (action, udid) {
 
 window.simStartStream = async function (udid, name) {
   simStreamUdid = udid; simStreamName = name;
+  simCaptures = [];
   document.getElementById('simListView').style.display = 'none';
   document.getElementById('simStreamView').style.display = '';
   document.getElementById('simStreamTitle').textContent = name;
@@ -537,6 +561,83 @@ window.simDescribeUI = async function () {
     if (data.tree) { simLog(`UI tree: ${data.tree.length} chars`); console.log('=== UI Tree ===\n' + data.tree); }
   } catch (e) { simLog(e.message, true); }
 };
+
+// === Screenshot Capture ===
+
+window.simCapture = function () {
+  const img = document.getElementById('simStreamImg');
+  if (!img || !img.src || !img.naturalWidth) { simLog('No frame to capture', true); return; }
+
+  // Draw current frame to canvas at full resolution
+  const canvas = document.createElement('canvas');
+  canvas.width = img.naturalWidth;
+  canvas.height = img.naturalHeight;
+  const ctx = canvas.getContext('2d');
+  ctx.drawImage(img, 0, 0);
+  const dataUrl = canvas.toDataURL('image/png');
+
+  const name = `Screen ${simCaptures.length + 1}`;
+  simCaptures.push({ name, dataUrl, timestamp: Date.now(), width: img.naturalWidth, height: img.naturalHeight });
+
+  simLog(`Captured: ${name} (${img.naturalWidth}x${img.naturalHeight})`);
+  simRenderGallery();
+};
+
+window.simRenameCapture = function (index) {
+  const newName = prompt('Screenshot name:', simCaptures[index].name);
+  if (newName !== null && newName.trim()) {
+    simCaptures[index].name = newName.trim();
+    simRenderGallery();
+  }
+};
+
+window.simDeleteCapture = function (index) {
+  simCaptures.splice(index, 1);
+  simRenderGallery();
+};
+
+window.simDownloadCapture = function (index) {
+  const c = simCaptures[index];
+  const a = document.createElement('a');
+  a.href = c.dataUrl;
+  a.download = `${c.name.replace(/\s+/g, '_')}_${simStreamName || 'sim'}.png`;
+  a.click();
+};
+
+window.simDownloadAll = function () {
+  for (let i = 0; i < simCaptures.length; i++) simDownloadCapture(i);
+};
+
+window.simClearCaptures = function () {
+  if (!confirm(`Delete all ${simCaptures.length} captures?`)) return;
+  simCaptures = [];
+  simRenderGallery();
+};
+
+function simRenderGallery() {
+  const gallery = document.getElementById('simCaptureGallery');
+  const countEl = document.getElementById('simCaptureCount');
+  const dlBtn = document.getElementById('simDownloadAllBtn');
+  const clrBtn = document.getElementById('simClearBtn');
+  if (!gallery) return;
+
+  countEl.textContent = simCaptures.length ? `(${simCaptures.length})` : '';
+  dlBtn.disabled = !simCaptures.length;
+  clrBtn.disabled = !simCaptures.length;
+
+  if (!simCaptures.length) {
+    gallery.innerHTML = '<div style="color:var(--text-muted);font-size:11px;padding:8px">No captures yet</div>';
+    return;
+  }
+
+  gallery.innerHTML = simCaptures.map((c, i) => `
+    <div style="position:relative;width:56px;cursor:pointer" title="${escapeHTML(c.name)}">
+      <img src="${c.dataUrl}" style="width:56px;border-radius:4px;border:1px solid var(--border);display:block" onclick="simDownloadCapture(${i})">
+      <div style="font-size:9px;color:var(--text-muted);text-align:center;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:56px" ondblclick="simRenameCapture(${i})">${escapeHTML(c.name)}</div>
+      <button onclick="simDeleteCapture(${i})" style="position:absolute;top:-4px;right:-4px;width:14px;height:14px;border-radius:50%;border:none;background:var(--danger);color:white;font-size:9px;line-height:14px;text-align:center;cursor:pointer;padding:0">&times;</button>
+    </div>
+  `).join('');
+}
 
 // Ripple animation (injected once)
 if (!document.getElementById('simRippleStyle')) {
