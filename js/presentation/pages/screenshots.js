@@ -13,6 +13,24 @@ let screenshotSets = {}; // localizationId → [sets]
 let screenshots = {};    // setId → [screenshots]
 let expandedSetId = null;
 
+// --- Resolve screenshot image URL ---
+// CLI outputs `sourceUrl` (template with {w}/{h}/{f} placeholders) and computed `imageUrl` is NOT in JSON.
+// Mock data provides `imageUrl` directly. Handle both.
+function resolveImageUrl(sc) {
+  if (sc.imageUrl) return sc.imageUrl;
+  if (sc.sourceUrl && sc.imageWidth && sc.imageHeight) {
+    // Use smaller thumbnail size (capped at 400px wide) to avoid loading full-res
+    const scale = Math.min(1, 400 / sc.imageWidth);
+    const tw = Math.round(sc.imageWidth * scale);
+    const th = Math.round(sc.imageHeight * scale);
+    return sc.sourceUrl
+      .replace('{w}', tw)
+      .replace('{h}', th)
+      .replace('{f}', 'png');
+  }
+  return null;
+}
+
 // --- Aspect ratio + grid sizing per display type ---
 
 const aspectRatioForType = {
@@ -247,11 +265,12 @@ function renderScreenshotGrid(setId, displayType, shotsList) {
           const dims = sc.imageWidth && sc.imageHeight ? `${sc.imageWidth}\u00d7${sc.imageHeight}` : '';
           const stateClass = sc.assetState === 'COMPLETE' ? 'live' : sc.assetState === 'AWAITING_UPLOAD' ? 'pending' : 'processing';
           const stateLabel = sc.assetState === 'COMPLETE' ? 'Ready' : sc.assetState === 'AWAITING_UPLOAD' ? 'Awaiting' : 'Processing';
-          const hasImage = !!sc.imageUrl;
+          const imgUrl = resolveImageUrl(sc);
+          const hasImage = !!imgUrl;
           return `
             <div style="border:1px solid var(--border);border-radius:8px;overflow:hidden;background:var(--bg)">
               ${hasImage
-                ? `<div style="aspect-ratio:${ratio};overflow:hidden;background:var(--border)"><img src="${escapeHTML(sc.imageUrl)}" alt="${escapeHTML(sc.fileName)}" style="width:100%;height:100%;object-fit:cover" loading="lazy" onerror="this.parentElement.innerHTML='<div style=\\'display:flex;align-items:center;justify-content:center;height:100%;font-size:11px;color:var(--text-muted)\\'>${dims || 'No preview'}</div>'"></div>`
+                ? `<div style="aspect-ratio:${ratio};overflow:hidden;background:var(--border)"><img src="${escapeHTML(imgUrl)}" alt="${escapeHTML(sc.fileName)}" style="width:100%;height:100%;object-fit:cover" loading="lazy" onerror="this.parentElement.innerHTML='<div style=\\'display:flex;align-items:center;justify-content:center;height:100%;font-size:11px;color:var(--text-muted)\\'>${dims || 'No preview'}</div>'"></div>`
                 : `<div style="aspect-ratio:${ratio};background:var(--border);display:flex;align-items:center;justify-content:center;font-size:11px;color:var(--text-muted)">${dims || 'No preview'}</div>`
               }
               <div style="padding:8px">
