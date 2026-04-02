@@ -21,6 +21,7 @@ import { renderXcodeCloud, loadXcodeCloud } from './pages/xcode-cloud.js';
 import { renderUsers, loadUsers } from './pages/users.js';
 import { renderIris, loadIris } from './pages/iris.js';
 import { renderSimulators, loadSimulators } from './pages/simulators.js';
+import { renderPlugins, loadPlugins } from './pages/plugins.js';
 
 const pageTitles = {
   dashboard: 'Dashboard', apps: 'Apps', versions: 'Versions', builds: 'Builds',
@@ -29,6 +30,7 @@ const pageTitles = {
   subscriptions: 'Subscriptions', reports: 'Reports', codesigning: 'Code Signing',
   xcodecloud: 'Xcode Cloud', users: 'Users & Roles', iris: 'Iris (Private API)',
   simulators: 'Simulators',
+  plugins: 'Plugins',
 };
 
 const renderers = {
@@ -49,6 +51,7 @@ const renderers = {
   users: renderUsers,
   iris: renderIris,
   simulators: renderSimulators,
+  plugins: renderPlugins,
 };
 
 const loaders = {
@@ -66,6 +69,7 @@ const loaders = {
   screenshots: loadScreenshots,
   iris: loadIris,
   simulators: loadSimulators,
+  plugins: loadPlugins,
 };
 
 export function navigate(page) {
