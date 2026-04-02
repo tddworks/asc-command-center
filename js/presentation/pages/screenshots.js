@@ -38,23 +38,26 @@ let selectedProviderId = 'app-shots';
 
 function renderProviderSection(appId, appName) {
   const providers = window.screenshotProviders || [];
+  console.log('[screenshots] renderProviderSection: providers=', providers.length, providers.map(p => p.id));
   if (providers.length === 0) return '';
 
   const selected = providers.find(p => p.id === selectedProviderId) || providers[0];
-  const pickerHTML = providers.length > 1
-    ? `<select id="ssProviderPicker" onchange="ssPickProvider(this.value)" style="font-size:12px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text)">
+  const showPicker = providers.length > 1;
+
+  const providerName = showPicker
+    ? `<select id="ssProviderPicker" onchange="ssPickProvider(this.value)"
+              style="font-size:13px;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg);color:var(--text-primary);cursor:pointer;vertical-align:baseline">
         ${providers.map(p => `<option value="${escapeHTML(p.id)}" ${p.id === selected.id ? 'selected' : ''}>${escapeHTML(p.name)}</option>`).join('')}
        </select>`
-    : '';
+    : `<code>${escapeHTML(selected.name)}</code>`;
 
   return `
     <div class="card mt-24">
-      <div class="card-header" style="display:flex;align-items:center;justify-content:space-between">
+      <div class="card-header">
         <span class="card-title">AI Screenshot Generation</span>
-        ${pickerHTML}
       </div>
       <div class="card-body padded">
-        <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">${selected.description}</p>
+        <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Generate marketing screenshots with AI using ${providerName}</p>
         <div id="ssProviderContent">${selected.render(appId, appName)}</div>
       </div>
     </div>`;
@@ -66,9 +69,7 @@ window.ssPickProvider = function(providerId) {
   const selected = providers.find(p => p.id === providerId);
   if (!selected) return;
 
-  const descEl = document.querySelector('#ssContent + .card .card-body > p');
   const contentEl = document.getElementById('ssProviderContent');
-  if (descEl) descEl.innerHTML = selected.description;
   if (contentEl) {
     const appId = state.selectedApp?.id || '';
     const appName = state.selectedApp?.name || '';
@@ -166,7 +167,7 @@ export function renderScreenshots() {
       <div class="card"><div class="empty-state"><div class="spinner" style="margin:24px auto"></div></div></div>
     </div>
 
-    ${renderProviderSection(state.selectedApp?.id || '', appName)}`;
+    <div id="ssProviderSection">${renderProviderSection(state.selectedApp?.id || '', appName)}</div>`;
 }
 
 export async function loadScreenshots() {
@@ -423,18 +424,47 @@ let pluginScriptsLoaded = false;
 async function loadPluginScripts() {
   if (pluginScriptsLoaded) return;
   pluginScriptsLoaded = true;
+
+  const providerCountBefore = (window.screenshotProviders || []).length;
+  console.log('[screenshots] loadPluginScripts: serverUrl=', DataProvider._serverUrl, 'providers before=', providerCountBefore);
+
   try {
     const res = await fetch(`${DataProvider._serverUrl || ''}/api/plugins`);
     const data = await res.json();
+    console.log('[screenshots] plugins response:', data);
+    const loadPromises = [];
     for (const plugin of (data.plugins || [])) {
       for (const url of (plugin.ui || [])) {
         const fullUrl = `${DataProvider._serverUrl || ''}${url}`;
-        if (document.querySelector(`script[src="${fullUrl}"]`)) continue;
-        const script = document.createElement('script');
-        script.src = fullUrl;
-        script.async = true;
-        document.head.appendChild(script);
+        const alreadyLoaded = !!document.querySelector(`script[src="${fullUrl}"]`);
+        console.log('[screenshots] script:', fullUrl, 'alreadyLoaded=', alreadyLoaded);
+        if (alreadyLoaded) continue;
+        loadPromises.push(new Promise(resolve => {
+          const script = document.createElement('script');
+          script.src = fullUrl;
+          script.async = true;
+          script.onload = () => { console.log('[screenshots] loaded:', fullUrl); resolve(); };
+          script.onerror = (e) => { console.log('[screenshots] error loading:', fullUrl, e); resolve(); };
+          document.head.appendChild(script);
+        }));
       }
     }
-  } catch {}
+    await Promise.all(loadPromises);
+  } catch (e) {
+    console.error('[screenshots] loadPluginScripts failed:', e);
+  }
+
+  const providerCountAfter = (window.screenshotProviders || []).length;
+  console.log('[screenshots] providers after=', providerCountAfter, 'providers=', window.screenshotProviders?.map(p => p.id));
+
+  // Re-render provider section if new providers were registered
+  if (providerCountAfter > providerCountBefore) {
+    const container = document.getElementById('ssProviderSection');
+    console.log('[screenshots] re-rendering provider section, container=', !!container);
+    if (container) {
+      const appId = state.selectedApp?.id || '';
+      const appName = state.selectedApp?.name || '';
+      container.innerHTML = renderProviderSection(appId, appName);
+    }
+  }
 }
