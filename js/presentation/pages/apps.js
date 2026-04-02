@@ -46,8 +46,11 @@ function renderAppCards(apps) {
         ${app.primaryLocale ? `<span class="app-meta-item">${app.primaryLocale}</span>` : ''}
         <span class="app-meta-item" style="margin-left:auto"><span class="cell-mono">${app.id}</span></span>
       </div>
-      <div style="margin-top:8px;font-size:10px;color:var(--text-muted);display:flex;flex-wrap:wrap;gap:4px">
-        ${Object.entries(app.affordances || {}).map(([k]) => `<span class="platform-badge">${k}</span>`).join('')}
+      <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px;align-items:center">
+        ${Object.entries(app.affordances || {}).filter(([k]) => !k.startsWith('list')).map(([key, cmd]) => {
+          const label = key.charAt(0).toUpperCase() + key.slice(1);
+          return `<button class="btn btn-sm btn-secondary" style="font-size:10px;padding:2px 8px" onclick="event.stopPropagation();appAffordance('${escapeHTML(key)}','${app.id}','${escapeHTML(app.name || '')}','${escapeHTML(cmd)}')">${escapeHTML(label)}</button>`;
+        }).join('')}
       </div>
     </div>`).join('') : '<div class="empty-state"><h3>No apps found</h3><p>Run <code>asc apps list</code> to fetch your apps</p></div>';
 }
@@ -101,6 +104,23 @@ export async function loadAppsForSelector() {
     updateAppNav();
   }
 }
+
+// --- Affordance Handler Registry (plugins extend this) ---
+
+window.appAffordanceHandlers = window.appAffordanceHandlers || {};
+
+window.appAffordance = function (key, id, name, cmd) {
+  const handler = window.appAffordanceHandlers[key];
+  if (handler) {
+    handler(id, name, cmd);
+  } else {
+    // Default: execute command via CLI
+    showToast(`Running: ${cmd}...`, 'info');
+    DataProvider.fetch(cmd.replace(/^asc\s+/, ''))
+      .then(() => showToast(`${key} succeeded`, 'success'))
+      .catch(() => showToast(`${key} failed`, 'error'));
+  }
+};
 
 // Expose to window for inline onclick
 window.selectApp = selectApp;
