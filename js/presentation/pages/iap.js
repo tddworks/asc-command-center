@@ -1,5 +1,6 @@
 // Page: In-App Purchases
 import { DataProvider } from '../../../../shared/infrastructure/data-provider.js';
+import { enrichIAP } from '../../../../shared/domain/enrichers.js';
 import { state } from '../state.js';
 import { showToast } from '../toast.js';
 import { escapeHTML, statusBadge } from '../helpers.js';
@@ -21,9 +22,10 @@ export function renderIAP() {
 
 export async function loadIAP() {
   const appId = state.selectedApp?.id || '6449071230';
-  const result = await DataProvider.fetch(`iap list --app-id ${appId}`);
+  const result = await DataProvider.get(`/api/v1/apps/${appId}/iap`);
   if (result?.data) {
-    document.getElementById('iapTable').innerHTML = `<table><thead><tr><th>Name</th><th>Product ID</th><th>Type</th><th>State</th><th style="text-align:right">Actions</th></tr></thead><tbody>${result.data.map(p => `<tr>
+    const items = result.data.map(enrichIAP);
+    document.getElementById('iapTable').innerHTML = `<table><thead><tr><th>Name</th><th>Product ID</th><th>Type</th><th>State</th><th style="text-align:right">Actions</th></tr></thead><tbody>${items.map(p => `<tr>
       <td><span class="cell-primary">${escapeHTML(p.referenceName)}</span></td>
       <td><span class="cell-mono">${p.productId}</span></td>
       <td><span class="platform-badge">${p.type}</span></td>

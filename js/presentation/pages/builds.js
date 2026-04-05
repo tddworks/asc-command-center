@@ -1,5 +1,6 @@
 // Page: Builds
 import { DataProvider } from '../../../../shared/infrastructure/data-provider.js';
+import { enrichBuild } from '../../../../shared/domain/enrichers.js';
 import { state } from '../state.js';
 import { escapeHTML, statusBadge, formatDate } from '../helpers.js';
 
@@ -27,10 +28,10 @@ export function renderBuilds() {
 
 export async function loadBuilds() {
   const appId = state.selectedApp?.id || '6449071230';
-  const result = await DataProvider.fetch(`builds list --app-id ${appId}`);
+  const result = await DataProvider.get(`/api/v1/apps/${appId}/builds`);
   if (result?.data) {
-    state.builds = result.data;
-    document.getElementById('buildsTable').innerHTML = `<table><thead><tr><th>Build</th><th>Version</th><th>Usable</th><th>Status</th><th>Expired</th><th>Uploaded</th><th style="text-align:right">Actions</th></tr></thead><tbody>${result.data.map(b => `<tr>
+    state.builds = result.data.map(enrichBuild);
+    document.getElementById('buildsTable').innerHTML = `<table><thead><tr><th>Build</th><th>Version</th><th>Usable</th><th>Status</th><th>Expired</th><th>Uploaded</th><th style="text-align:right">Actions</th></tr></thead><tbody>${state.builds.map(b => `<tr>
       <td><span class="cell-primary">#${b.buildNumber}</span></td>
       <td>${b.version}</td>
       <td>${b.isUsable ? '<span class="status live">Yes</span>' : '<span class="status draft">No</span>'}</td>

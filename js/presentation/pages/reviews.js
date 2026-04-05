@@ -1,5 +1,6 @@
 // Page: Customer Reviews
 import { DataProvider } from '../../../../shared/infrastructure/data-provider.js';
+import { enrichReview } from '../../../../shared/domain/enrichers.js';
 import { state } from '../state.js';
 import { escapeHTML, formatDate } from '../helpers.js';
 
@@ -23,9 +24,13 @@ export function renderReviews() {
 
 export async function loadReviews() {
   const appId = state.selectedApp?.id || '6449071230';
-  const result = await DataProvider.fetch(`reviews list --app-id ${appId}`);
+  const app = state.selectedApp;
+  const result = app?.affordances?.listReviews
+    ? await DataProvider.follow(app.affordances.listReviews)
+    : await DataProvider.get(`/api/v1/apps/${appId}/reviews`);
   if (result?.data) {
-    document.getElementById('reviewsList').innerHTML = result.data.map(r => `
+    const reviews = result.data.map(enrichReview);
+    document.getElementById('reviewsList').innerHTML = reviews.map(r => `
       <div style="padding:16px 20px;border-bottom:1px solid var(--border-light)">
         <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
           <span style="font-weight:600;font-size:13px">${escapeHTML(r.title)}</span>

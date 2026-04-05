@@ -1,5 +1,6 @@
 // Page: TestFlight
 import { DataProvider } from '../../../../shared/infrastructure/data-provider.js';
+import { enrichBetaGroup } from '../../../../shared/domain/enrichers.js';
 import { state } from '../state.js';
 import { showToast } from '../toast.js';
 import { escapeHTML } from '../helpers.js';
@@ -40,9 +41,10 @@ export function renderTestFlight() {
 
 export async function loadTestFlight() {
   const appId = state.selectedApp?.id || '6449071230';
-  const result = await DataProvider.fetch(`testflight groups list --app-id ${appId}`);
+  const result = await DataProvider.get(`/api/v1/apps/${appId}/testflight`);
   if (result?.data) {
-    document.getElementById('betaGroupsList').innerHTML = `<table><thead><tr><th>Group</th><th>Type</th><th>Public Link</th><th style="text-align:right">Actions</th></tr></thead><tbody>${result.data.map(g => `<tr>
+    const groups = result.data.map(enrichBetaGroup);
+    document.getElementById('betaGroupsList').innerHTML = `<table><thead><tr><th>Group</th><th>Type</th><th>Public Link</th><th style="text-align:right">Actions</th></tr></thead><tbody>${groups.map(g => `<tr>
       <td><span class="cell-primary">${escapeHTML(g.name)}</span></td>
       <td>${g.isInternalGroup ? '<span class="status draft">Internal</span>' : '<span class="status processing">External</span>'}</td>
       <td>${g.publicLinkEnabled ? '<span class="status live">Enabled</span>' : '<span class="status draft">Off</span>'}</td>
