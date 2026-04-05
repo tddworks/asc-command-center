@@ -31,17 +31,9 @@ export function renderVersions() {
 
 export async function loadVersions() {
   const app = state.selectedApp;
-  const appId = app?.id || '6449071230';
+  if (!app?.affordances?.listVersions) return;
 
-  // REST mode: follow the app's _links.listVersions if available
-  let result;
-  if (DataProvider._mode === 'rest' && app?.affordances?.listVersions) {
-    const link = app.affordances.listVersions;
-    result = await DataProvider.follow(typeof link === 'object' ? link : { href: `/api/v1/apps/${appId}/versions`, method: 'GET' });
-  } else {
-    result = await DataProvider.fetch(`versions list --app-id ${appId}`);
-  }
-
+  const result = await DataProvider.follow(app.affordances.listVersions);
   if (result?.data) {
     state.versions = result.data.map(v => enrichVersion(v));
     renderVersionRows(state.versions);

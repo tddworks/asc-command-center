@@ -26,10 +26,7 @@ export function renderApps() {
 function getAppColor(i) { return appColors[i % appColors.length]; }
 
 export async function loadApps() {
-  // Prefer REST API (in-process, HATEOAS links) over CLI bridge (subprocess)
-  const result = DataProvider._mode === 'rest'
-    ? await DataProvider.get('/api/v1/apps')
-    : await DataProvider.fetch('apps list');
+  const result = await DataProvider.get('/api/v1/apps');
   if (result?.data) {
     state.apps = result.data.map(app => enrichApp(app));
     renderAppCards(state.apps);
@@ -101,9 +98,7 @@ function updateAppNav() {
 }
 
 export async function loadAppsForSelector() {
-  const result = DataProvider._mode === 'rest'
-    ? await DataProvider.get('/api/v1/apps')
-    : await DataProvider.fetch('apps list');
+  const result = await DataProvider.get('/api/v1/apps');
   if (result?.data) {
     state.apps = result.data.map(app => enrichApp(app));
     if (state.apps.length && !state.selectedApp) {
@@ -117,27 +112,16 @@ export async function loadAppsForSelector() {
 
 window.appAffordanceHandlers = window.appAffordanceHandlers || {};
 
-window.appAffordance = function (key, id, name, cmdOrLink) {
+window.appAffordance = function (key, id, name, linkJson) {
   const handler = window.appAffordanceHandlers[key];
   if (handler) {
-    handler(id, name, cmdOrLink);
+    handler(id, name, linkJson);
   } else {
-    // Try to parse as REST link first
     let link = null;
-    try { link = JSON.parse(cmdOrLink); } catch {}
-    if (link?.href) {
-      // REST mode: follow the HATEOAS link
-      showToast(`Following: ${link.method} ${link.href}...`, 'info');
+    try { link = JSON.parse(linkJson); } catch {}
+    if (link) {
       DataProvider.follow(link)
-        .then(result => {
-          if (result) showToast(`${key} succeeded`, 'success');
-        })
-        .catch(() => showToast(`${key} failed`, 'error'));
-    } else {
-      // CLI mode: execute command
-      showToast(`Running: ${cmdOrLink}...`, 'info');
-      DataProvider.fetch(cmdOrLink.replace(/^asc\s+/, ''))
-        .then(() => showToast(`${key} succeeded`, 'success'))
+        .then(result => { if (result) showToast(`${key} done`, 'success'); })
         .catch(() => showToast(`${key} failed`, 'error'));
     }
   }
