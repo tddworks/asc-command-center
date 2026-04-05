@@ -1,5 +1,6 @@
 // Page: Subscriptions
 import { DataProvider } from '../../../../shared/infrastructure/data-provider.js';
+import { enrichSubGroup } from '../../../../shared/domain/enrichers.js';
 import { state } from '../state.js';
 import { showToast } from '../toast.js';
 import { escapeHTML } from '../helpers.js';
@@ -31,9 +32,10 @@ export function renderSubscriptions() {
 
 export async function loadSubscriptions() {
   const appId = state.selectedApp?.id || '6449071230';
-  const result = await DataProvider.fetch(`subscription-groups list --app-id ${appId}`);
+  const result = await DataProvider.get(`/api/v1/apps/${appId}/subscription-groups`);
   if (result?.data) {
-    document.getElementById('subGroupsTable').innerHTML = `<table><thead><tr><th>Group</th><th>App ID</th><th style="text-align:right">Actions</th></tr></thead><tbody>${result.data.map(g => `<tr>
+    const groups = result.data.map(enrichSubGroup);
+    document.getElementById('subGroupsTable').innerHTML = `<table><thead><tr><th>Group</th><th>App ID</th><th style="text-align:right">Actions</th></tr></thead><tbody>${groups.map(g => `<tr>
       <td><span class="cell-primary">${escapeHTML(g.referenceName)}</span></td>
       <td><span class="cell-mono">${g.appId}</span></td>
       <td class="text-right">
