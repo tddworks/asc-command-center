@@ -1,5 +1,6 @@
 // Page: Apps
 import { DataProvider } from '../../../../shared/infrastructure/data-provider.js';
+import { enrichApp } from '../../../../shared/domain/enrichers.js';
 import { state } from '../state.js';
 import { showToast } from '../toast.js';
 import { escapeHTML, appColors } from '../helpers.js';
@@ -25,10 +26,13 @@ export function renderApps() {
 function getAppColor(i) { return appColors[i % appColors.length]; }
 
 export async function loadApps() {
-  const result = await DataProvider.fetch('apps list');
+  // Prefer REST API (in-process, HATEOAS links) over CLI bridge (subprocess)
+  const result = DataProvider._mode === 'rest'
+    ? await DataProvider.get('/api/v1/apps')
+    : await DataProvider.fetch('apps list');
   if (result?.data) {
-    state.apps = result.data;
-    renderAppCards(result.data);
+    state.apps = result.data.map(app => enrichApp(app));
+    renderAppCards(state.apps);
   }
 }
 
@@ -47,9 +51,11 @@ function renderAppCards(apps) {
         <span class="app-meta-item" style="margin-left:auto"><span class="cell-mono">${app.id}</span></span>
       </div>
       <div style="margin-top:8px;display:flex;flex-wrap:wrap;gap:4px;align-items:center">
-        ${Object.entries(app.affordances || {}).filter(([k]) => !k.startsWith('list')).map(([key, cmd]) => {
+        ${Object.entries(app.affordances || {}).filter(([k]) => !k.startsWith('list')).map(([key, value]) => {
           const label = key.charAt(0).toUpperCase() + key.slice(1);
-          return `<button class="btn btn-sm btn-secondary" style="font-size:10px;padding:2px 8px" onclick="event.stopPropagation();appAffordance('${escapeHTML(key)}','${app.id}','${escapeHTML(app.name || '')}','${escapeHTML(cmd)}')">${escapeHTML(label)}</button>`;
+          // REST mode: value is {href, method}. CLI mode: value is command string.
+          const cmdStr = typeof value === 'object' ? JSON.stringify(value) : value;
+          return `<button class="btn btn-sm btn-secondary" style="font-size:10px;padding:2px 8px" onclick="event.stopPropagation();appAffordance('${escapeHTML(key)}','${app.id}','${escapeHTML(app.name || '')}','${escapeHTML(cmdStr)}')">${escapeHTML(label)}</button>`;
         }).join('')}
       </div>
     </div>`).join('') : '<div class="empty-state"><h3>No apps found</h3><p>Run <code>asc apps list</code> to fetch your apps</p></div>';
@@ -95,11 +101,13 @@ function updateAppNav() {
 }
 
 export async function loadAppsForSelector() {
-  const result = await DataProvider.fetch('apps list');
+  const result = DataProvider._mode === 'rest'
+    ? await DataProvider.get('/api/v1/apps')
+    : await DataProvider.fetch('apps list');
   if (result?.data) {
-    state.apps = result.data;
-    if (result.data.length && !state.selectedApp) {
-      state.selectedApp = result.data[0];
+    state.apps = result.data.map(app => enrichApp(app));
+    if (state.apps.length && !state.selectedApp) {
+      state.selectedApp = state.apps[0];
     }
     updateAppNav();
   }
@@ -109,16 +117,29 @@ export async function loadAppsForSelector() {
 
 window.appAffordanceHandlers = window.appAffordanceHandlers || {};
 
-window.appAffordance = function (key, id, name, cmd) {
+window.appAffordance = function (key, id, name, cmdOrLink) {
   const handler = window.appAffordanceHandlers[key];
   if (handler) {
-    handler(id, name, cmd);
+    handler(id, name, cmdOrLink);
   } else {
-    // Default: execute command via CLI
-    showToast(`Running: ${cmd}...`, 'info');
-    DataProvider.fetch(cmd.replace(/^asc\s+/, ''))
-      .then(() => showToast(`${key} succeeded`, 'success'))
-      .catch(() => showToast(`${key} failed`, 'error'));
+    // Try to parse as REST link first
+    let link = null;
+    try { link = JSON.parse(cmdOrLink); } catch {}
+    if (link?.href) {
+      // REST mode: follow the HATEOAS link
+      showToast(`Following: ${link.method} ${link.href}...`, 'info');
+      DataProvider.follow(link)
+        .then(result => {
+          if (result) showToast(`${key} succeeded`, 'success');
+        })
+        .catch(() => showToast(`${key} failed`, 'error'));
+    } else {
+      // CLI mode: execute command
+      showToast(`Running: ${cmdOrLink}...`, 'info');
+      DataProvider.fetch(cmdOrLink.replace(/^asc\s+/, ''))
+        .then(() => showToast(`${key} succeeded`, 'success'))
+        .catch(() => showToast(`${key} failed`, 'error'));
+    }
   }
 };
 
