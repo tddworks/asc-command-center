@@ -37,8 +37,8 @@ export async function loadPlugins() {
 
   // Load both counts for stats
   const [installed, market] = await Promise.all([
-    DataProvider.fetch('plugins list --pretty'),
-    DataProvider.fetch('plugins market list --pretty'),
+    DataProvider.get('/api/v1/plugins'),
+    DataProvider.get('/api/v1/plugins/market'),
   ]);
   const installedCount = installed?.data?.length || 0;
   const availableCount = market?.data?.length || 0;
@@ -77,10 +77,10 @@ async function switchTab(tab) {
   document.getElementById('pluginSearch').value = '';
   document.getElementById('pluginsContent').innerHTML = `<div class="empty-state"><div class="spinner" style="margin:24px auto"></div></div>`;
   if (tab === 'installed') {
-    const result = await DataProvider.fetch('plugins list --pretty');
+    const result = await DataProvider.get('/api/v1/plugins');
     renderInstalledCards(result?.data || []);
   } else {
-    const result = await DataProvider.fetch('plugins market list --pretty');
+    const result = await DataProvider.get('/api/v1/plugins/market');
     renderMarketCards(result?.data || []);
   }
 }
@@ -152,8 +152,8 @@ function pluginCard(p, i) {
 async function refreshAll() {
   // Refresh stats + current tab
   const [installed, market] = await Promise.all([
-    DataProvider.fetch('plugins list --pretty'),
-    DataProvider.fetch('plugins market list --pretty'),
+    DataProvider.get('/api/v1/plugins'),
+    DataProvider.get('/api/v1/plugins/market'),
   ]);
   const installedCount = installed?.data?.length || 0;
   const availableCount = market?.data?.length || 0;
