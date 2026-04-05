@@ -98,9 +98,26 @@ export function refreshCurrentPage() {
   renderPage(state.currentPage);
 }
 
+import { DataProvider } from '../../../shared/infrastructure/data-provider.js';
+
 export function runAffordance(cmd) {
   showToast(cmd, 'info');
   logCommand(cmd);
+}
+
+/// Follow an affordance — supports both CLI command strings and REST links.
+export function followAffordance(cmdOrLink) {
+  if (typeof cmdOrLink === 'object' && cmdOrLink.href) {
+    // REST link: follow it
+    showToast(`${cmdOrLink.method} ${cmdOrLink.href}`, 'info');
+    logCommand(`${cmdOrLink.method} ${cmdOrLink.href}`);
+    DataProvider.follow(cmdOrLink).then(result => {
+      if (result) showToast('Done', 'success');
+    });
+  } else {
+    // CLI command string
+    runAffordance(cmdOrLink);
+  }
 }
 
 // Setup nav click handlers
@@ -114,3 +131,4 @@ export function setupNavigation() {
 window.navigate = navigate;
 window.refreshCurrentPage = refreshCurrentPage;
 window.runAffordance = runAffordance;
+window.followAffordance = followAffordance;

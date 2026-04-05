@@ -1,7 +1,14 @@
 // Page: Code Signing
 import { DataProvider } from '../../../../shared/infrastructure/data-provider.js';
+import { enrichBundleId, enrichCert, enrichProfile } from '../../../../shared/domain/enrichers.js';
 import { showToast } from '../toast.js';
 import { escapeHTML, formatDate } from '../helpers.js';
+
+function fetchResource(restPath, cliCommand) {
+  return DataProvider._mode === 'rest'
+    ? DataProvider.get(restPath)
+    : DataProvider.fetch(cliCommand);
+}
 
 export function renderCodeSigning() {
   return `
@@ -36,7 +43,7 @@ async function switchCSTab(tab, btn) {
   tableEl.innerHTML = '<div class="empty-state"><div class="spinner" style="margin:24px auto"></div></div>';
 
   if (tab === 'bundles') {
-    const result = await DataProvider.fetch('bundle-ids list');
+    const result = await fetchResource('/api/v1/bundle-ids', 'bundle-ids list');
     if (result?.data) {
       tableEl.innerHTML = `<table><thead><tr><th>Name</th><th>Identifier</th><th>Platform</th><th>Seed ID</th><th style="text-align:right">Actions</th></tr></thead><tbody>${result.data.map(b => `<tr>
         <td><span class="cell-primary">${escapeHTML(b.name)}</span></td>
@@ -51,7 +58,7 @@ async function switchCSTab(tab, btn) {
     }
   }
   else if (tab === 'certs') {
-    const result = await DataProvider.fetch('certificates list');
+    const result = await fetchResource('/api/v1/certificates', 'certificates list');
     if (result?.data) {
       tableEl.innerHTML = `<table><thead><tr><th>Name</th><th>Type</th><th>Serial</th><th>Expires</th><th>Status</th><th style="text-align:right">Actions</th></tr></thead><tbody>${result.data.map(c => `<tr>
         <td><span class="cell-primary">${escapeHTML(c.displayName || c.name)}</span></td>
@@ -66,7 +73,7 @@ async function switchCSTab(tab, btn) {
     }
   }
   else if (tab === 'devices') {
-    const result = await DataProvider.fetch('devices list');
+    const result = await fetchResource('/api/v1/devices', 'devices list');
     if (result?.data) {
       tableEl.innerHTML = `<table><thead><tr><th>Name</th><th>UDID</th><th>Class</th><th>Model</th><th>Status</th></tr></thead><tbody>${result.data.map(d => `<tr>
         <td><span class="cell-primary">${escapeHTML(d.name)}</span></td>
@@ -78,7 +85,7 @@ async function switchCSTab(tab, btn) {
     }
   }
   else if (tab === 'profiles') {
-    const result = await DataProvider.fetch('profiles list');
+    const result = await fetchResource('/api/v1/profiles', 'profiles list');
     if (result?.data) {
       tableEl.innerHTML = `<table><thead><tr><th>Name</th><th>Type</th><th>State</th><th>Expires</th><th style="text-align:right">Actions</th></tr></thead><tbody>${result.data.map(p => `<tr>
         <td><span class="cell-primary">${escapeHTML(p.name)}</span></td>

@@ -1,5 +1,6 @@
 // Page: Versions
 import { DataProvider } from '../../../../shared/infrastructure/data-provider.js';
+import { enrichVersion } from '../../../../shared/domain/enrichers.js';
 import { state } from '../state.js';
 import { showToast } from '../toast.js';
 import { escapeHTML, statusBadge, formatDate } from '../helpers.js';
@@ -29,11 +30,21 @@ export function renderVersions() {
 }
 
 export async function loadVersions() {
-  const appId = state.selectedApp?.id || '6449071230';
-  const result = await DataProvider.fetch(`versions list --app-id ${appId}`);
+  const app = state.selectedApp;
+  const appId = app?.id || '6449071230';
+
+  // REST mode: follow the app's _links.listVersions if available
+  let result;
+  if (DataProvider._mode === 'rest' && app?.affordances?.listVersions) {
+    const link = app.affordances.listVersions;
+    result = await DataProvider.follow(typeof link === 'object' ? link : { href: `/api/v1/apps/${appId}/versions`, method: 'GET' });
+  } else {
+    result = await DataProvider.fetch(`versions list --app-id ${appId}`);
+  }
+
   if (result?.data) {
-    state.versions = result.data;
-    renderVersionRows(result.data);
+    state.versions = result.data.map(v => enrichVersion(v));
+    renderVersionRows(state.versions);
   }
 }
 
@@ -45,9 +56,9 @@ function renderVersionRows(versions) {
     <td>${v.buildId ? `<span class="cell-mono">${v.buildId}</span>` : '<span style="color:var(--text-muted)">No build</span>'}</td>
     <td>${formatDate(v.createdDate)}</td>
     <td class="text-right">
-      ${v.affordances?.checkReadiness ? `<button class="btn btn-sm btn-secondary" onclick="runAffordance('${escapeHTML(v.affordances.checkReadiness)}')">Check</button>` : ''}
-      ${v.affordances?.submitForReview ? `<button class="btn btn-sm btn-success" onclick="runAffordance('${escapeHTML(v.affordances.submitForReview)}')">Submit</button>` : ''}
-      ${v.affordances?.listLocalizations ? `<button class="btn btn-sm btn-secondary" onclick="runAffordance('${escapeHTML(v.affordances.listLocalizations)}')">Localizations</button>` : ''}
+      ${v.affordances?.checkReadiness ? `<button class="btn btn-sm btn-secondary" onclick="followAffordance(${escapeHTML(JSON.stringify(v.affordances.checkReadiness))})">Check</button>` : ''}
+      ${v.affordances?.submitForReview ? `<button class="btn btn-sm btn-success" onclick="followAffordance(${escapeHTML(JSON.stringify(v.affordances.submitForReview))})">Submit</button>` : ''}
+      ${v.affordances?.listLocalizations ? `<button class="btn btn-sm btn-secondary" onclick="followAffordance(${escapeHTML(JSON.stringify(v.affordances.listLocalizations))})">Localizations</button>` : ''}
     </td>
   </tr>`).join('')}</tbody></table>`;
 }
