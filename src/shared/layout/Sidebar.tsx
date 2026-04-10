@@ -6,7 +6,7 @@ export function Sidebar() {
   const pluginItems = registry.getSidebarItems();
 
   return (
-    <aside className="sidebar">
+    <aside className="sidebar" id="sidebar">
       <div className="sidebar-brand">
         <img src="../shared/static/logo.png" alt="ASC" style={{width:'36px',height:'36px',borderRadius:'var(--radius)',flexShrink:0}} />
         <div>

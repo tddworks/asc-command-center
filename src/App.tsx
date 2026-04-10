@@ -1,4 +1,4 @@
-import { Suspense, lazy, useState, useCallback } from 'react';
+import { Suspense, lazy, useState } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { PluginProvider } from './plugin/PluginContext.tsx';
 import { pluginRegistry } from './plugin/PluginRegistry.ts';
@@ -9,8 +9,10 @@ import {
   useToggleMode,
   useCommandLog,
 } from './shared/api-client.tsx';
+import { ThemeProvider, useTheme } from './shared/components/ThemeProvider.tsx';
 import { Sidebar } from './shared/layout/Sidebar.tsx';
 import { Header } from './shared/layout/Header.tsx';
+import { CommandLogModal } from './shared/components/CommandLogModal.tsx';
 
 const DashboardPage = lazy(() => import('./dashboard/pages/DashboardPage.tsx'));
 const AppList = lazy(() => import('./app/pages/AppList.tsx'));
@@ -28,22 +30,13 @@ function LoadingSpinner() {
   return <div className="spinner">Loading...</div>;
 }
 
-/** Inner shell that can use context hooks (must be rendered inside providers) */
 function AppShell() {
   const mode = useDataMode();
   const toggleMode = useToggleMode();
-  const { entries: _commandLogEntries } = useCommandLog();
+  const { entries: commandLogEntries } = useCommandLog();
+  const { toggleTheme } = useTheme();
 
   const [commandLogOpen, setCommandLogOpen] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-
-  const handleToggleTheme = useCallback(() => {
-    document.documentElement.classList.toggle('light');
-  }, []);
-
-  const handleRefresh = useCallback(() => {
-    window.location.reload();
-  }, []);
 
   const pluginPages = pluginRegistry.getPages();
 
@@ -54,13 +47,15 @@ function AppShell() {
           <Sidebar />
           <div className="main">
             <Header
-              title="Command Center"
+              title="Dashboard"
               mode={mode}
               onToggleMode={toggleMode}
-              onToggleTheme={handleToggleTheme}
-              onRefresh={handleRefresh}
-              onOpenCommandLog={() => setCommandLogOpen(!commandLogOpen)}
-              onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
+              onToggleTheme={toggleTheme}
+              onRefresh={() => window.location.reload()}
+              onOpenCommandLog={() => setCommandLogOpen(true)}
+              onToggleSidebar={() => {
+                document.getElementById('sidebar')?.classList.toggle('open');
+              }}
             />
             <div className="content">
               <Suspense fallback={<LoadingSpinner />}>
@@ -96,6 +91,12 @@ function AppShell() {
             </div>
           </div>
         </div>
+
+        <CommandLogModal
+          isOpen={commandLogOpen}
+          onClose={() => setCommandLogOpen(false)}
+          entries={commandLogEntries}
+        />
       </PluginProvider>
     </BrowserRouter>
   );
@@ -103,10 +104,12 @@ function AppShell() {
 
 export function App() {
   return (
-    <DataModeProviderComponent>
-      <CommandLogProvider>
-        <AppShell />
-      </CommandLogProvider>
-    </DataModeProviderComponent>
+    <ThemeProvider>
+      <DataModeProviderComponent>
+        <CommandLogProvider>
+          <AppShell />
+        </CommandLogProvider>
+      </DataModeProviderComponent>
+    </ThemeProvider>
   );
 }

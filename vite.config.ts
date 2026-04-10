@@ -15,9 +15,9 @@ export default defineConfig({
     open: '/index-react.html',
     proxy: {
       '/api': {
-        target: 'https://localhost:8421',
-        secure: false,
+        target: 'http://localhost:8420',
         changeOrigin: true,
+        ws: true,
       },
     },
   },
