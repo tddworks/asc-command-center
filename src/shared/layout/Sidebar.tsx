@@ -17,7 +17,6 @@ const coreItems: { section: string; items: NavItem[] }[] = [
   {
     section: 'Release',
     items: [
-      { path: '/versions', label: 'Versions' },
       { path: '/builds', label: 'Builds' },
       { path: '/submissions', label: 'Submissions' },
     ],
@@ -25,7 +24,6 @@ const coreItems: { section: string; items: NavItem[] }[] = [
   {
     section: 'Metadata',
     items: [
-      { path: '/screenshots', label: 'Screenshots' },
       { path: '/reviews', label: 'Reviews' },
     ],
   },
@@ -37,6 +35,12 @@ const coreItems: { section: string; items: NavItem[] }[] = [
       { path: '/xcode-cloud', label: 'Xcode Cloud' },
     ],
   },
+  {
+    section: 'Analytics',
+    items: [
+      { path: '/reports', label: 'Reports' },
+    ],
+  },
 ];
 
 export function Sidebar() {
@@ -45,13 +49,18 @@ export function Sidebar() {
 
   return (
     <nav className="sidebar">
+      <div style={{ padding: '12px 16px 16px', borderBottom: '1px solid var(--border)' }}>
+        <span style={{ fontWeight: 700, fontSize: 15 }}>ASC</span>
+        <span style={{ color: 'var(--text-secondary)', fontSize: 13, marginLeft: 6 }}>Command Center</span>
+      </div>
+
       {coreItems.map(({ section, items }) => (
         <div key={section} className="sidebar-section">
           <h4 className="sidebar-section-title">{section}</h4>
           <ul>
             {items.map((item) => (
               <li key={item.path}>
-                <NavLink to={item.path} className={({ isActive }) => isActive ? 'active' : ''}>
+                <NavLink to={item.path} className={({ isActive }) => isActive ? 'active' : ''} end={item.path === '/'}>
                   {item.label}
                 </NavLink>
               </li>
@@ -74,22 +83,6 @@ export function Sidebar() {
           </ul>
         </div>
       )}
-
-      <div className="sidebar-section">
-        <h4 className="sidebar-section-title">System</h4>
-        <ul>
-          <li>
-            <NavLink to="/plugins" className={({ isActive }) => isActive ? 'active' : ''}>
-              Plugins
-            </NavLink>
-          </li>
-          <li>
-            <NavLink to="/reports" className={({ isActive }) => isActive ? 'active' : ''}>
-              Reports
-            </NavLink>
-          </li>
-        </ul>
-      </div>
     </nav>
   );
 }
