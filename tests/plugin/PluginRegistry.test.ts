@@ -1,7 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { PluginRegistry } from '../../src/plugin/PluginRegistry.ts';
-import type { PluginRegistration } from '../../src/plugin/Plugin.ts';
-
 function dummyComponent() {
   return Promise.resolve({ default: () => null });
 }
