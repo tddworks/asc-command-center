@@ -11,6 +11,13 @@ const DashboardPage = lazy(() => import('./dashboard/pages/DashboardPage.tsx'));
 const AppList = lazy(() => import('./app/pages/AppList.tsx'));
 const AppDetail = lazy(() => import('./app/pages/AppDetail.tsx'));
 const VersionList = lazy(() => import('./version/pages/VersionList.tsx'));
+const BuildList = lazy(() => import('./build/pages/BuildList.tsx'));
+const ReviewList = lazy(() => import('./review/pages/ReviewList.tsx'));
+const TestFlightPage = lazy(() => import('./testflight/pages/TestFlightPage.tsx'));
+const CodeSigningPage = lazy(() => import('./code-signing/pages/CodeSigningPage.tsx'));
+const SubmissionPage = lazy(() => import('./submission/pages/SubmissionPage.tsx'));
+const XcodeCloudPage = lazy(() => import('./xcode-cloud/pages/XcodeCloudPage.tsx'));
+const ReportsPage = lazy(() => import('./report/pages/ReportsPage.tsx'));
 
 function LoadingSpinner() {
   return <div className="spinner">Loading...</div>;
@@ -34,6 +41,13 @@ export function App() {
                     <Route path="/apps" element={<AppList />} />
                     <Route path="/apps/:appId" element={<AppDetail />} />
                     <Route path="/apps/:appId/versions" element={<VersionList />} />
+                    <Route path="/builds" element={<BuildList />} />
+                    <Route path="/reviews" element={<ReviewList />} />
+                    <Route path="/testflight" element={<TestFlightPage />} />
+                    <Route path="/code-signing" element={<CodeSigningPage />} />
+                    <Route path="/submissions" element={<SubmissionPage />} />
+                    <Route path="/xcode-cloud" element={<XcodeCloudPage />} />
+                    <Route path="/reports" element={<ReportsPage />} />
 
                     {pluginPages.map((page) => {
                       const LazyComponent = lazy(page.component);
