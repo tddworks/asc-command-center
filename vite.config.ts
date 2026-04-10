@@ -4,6 +4,7 @@ import path from 'path';
 
 export default defineConfig({
   plugins: [react()],
+  root: '.',
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'src'),
@@ -11,6 +12,7 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    open: '/index-react.html',
     proxy: {
       '/api': {
         target: 'https://localhost:8421',
@@ -21,5 +23,8 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
+    rollupOptions: {
+      input: path.resolve(__dirname, 'index-react.html'),
+    },
   },
 });
