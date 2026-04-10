@@ -6,6 +6,7 @@ export class Simulator {
     readonly name: string,
     readonly state: string,
     readonly runtime: string,
+    readonly displayRuntime: string,
     readonly affordances: Affordances,
   ) {}
 
@@ -14,10 +15,11 @@ export class Simulator {
 
   static fromJSON(json: Record<string, unknown>): Simulator {
     return new Simulator(
-      (json.udid as string) ?? '',
+      (json.udid ?? json.id ?? '') as string,
       (json.name as string) ?? '',
       (json.state as string) ?? 'Shutdown',
       (json.runtime as string) ?? '',
+      (json.displayRuntime as string) ?? (json.runtime as string) ?? '',
       (json.affordances as Affordances) ?? {},
     );
   }

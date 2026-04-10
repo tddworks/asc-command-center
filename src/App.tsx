@@ -55,7 +55,6 @@ function AppShell() {
           <Sidebar />
           <div className="main">
             <Header
-              title="Dashboard"
               mode={mode}
               onToggleMode={toggleMode}
               onToggleTheme={toggleTheme}
