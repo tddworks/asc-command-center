@@ -1,7 +1,34 @@
+import { useLocation } from 'react-router-dom';
 import type { DataMode } from '../api-client.tsx';
 
+const pageTitles: Record<string, string> = {
+  '/': 'Dashboard',
+  '/apps': 'Apps',
+  '/builds': 'Builds',
+  '/reviews': 'Reviews',
+  '/testflight': 'TestFlight',
+  '/submissions': 'Submissions',
+  '/app-info': 'App Info',
+  '/screenshots': 'Screenshots',
+  '/iap': 'In-App Purchases',
+  '/subscriptions': 'Subscriptions',
+  '/reports': 'Reports',
+  '/iris': 'Iris',
+  '/code-signing': 'Code Signing',
+  '/xcode-cloud': 'Xcode Cloud',
+  '/users': 'Users & Roles',
+  '/simulators': 'Simulators',
+  '/plugins': 'Plugins',
+};
+
+function getPageTitle(pathname: string): string {
+  if (pageTitles[pathname]) return pageTitles[pathname];
+  if (pathname.includes('/versions')) return 'Versions';
+  if (pathname.startsWith('/apps/')) return 'App Detail';
+  return 'Dashboard';
+}
+
 interface Props {
-  title: string;
   mode: DataMode;
   onToggleMode: () => void;
   onToggleTheme: () => void;
@@ -11,7 +38,6 @@ interface Props {
 }
 
 export function Header({
-  title,
   mode,
   onToggleMode,
   onToggleTheme,
@@ -19,6 +45,9 @@ export function Header({
   onOpenCommandLog,
   onToggleSidebar,
 }: Props) {
+  const location = useLocation();
+  const title = getPageTitle(location.pathname);
+
   return (
     <header className="header">
       <div className="header-left">
