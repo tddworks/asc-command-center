@@ -27,6 +27,15 @@ On mount, `DataModeProviderComponent` probes `GET /api/v1` with a 2s timeout and
 
 `apiClient.runCommand(cmd)` POSTs `{ command: "asc <cmd>" }` to `/api/run` — this is how UI actions invoke the CLI. Output should flow into the `CommandLogContext` (surfaced via the header's command-log modal).
 
+### TDD & rich domain design
+
+This codebase follows **Chicago-school (state-based) TDD** over a **rich domain model**. The domain class owns the behavior; components and infrastructure are thin.
+
+- **Rich domain** — `src/<feature>/<Feature>.ts` is the only place business rules live. Components do not compute `build.processingState === 'VALID' && !build.expired`; they read `build.isUsable`. Route handlers do not inspect `_links` directly; they check `build.canAddToTestFlight`. If you catch yourself writing domain logic inside a `.tsx`, move it onto the class and expose it as a getter.
+- **State-based tests, no mocks of your own code** — see `tests/build/Build.test.ts`: construct the real object with raw state, call a getter, assert the boolean. Do not mock the domain class, and do not assert on method call sequences. Mocking is reserved for infrastructure boundaries (network, the `asc` CLI via `apiClient`).
+- **TDD loop** — red/green/refactor per behavior. Add one failing test that expresses the intent in domain terms (`isUsable`, `canDoX`, `displayName`), make it pass with the minimum change, then refactor. Each `<Feature>.test.ts` should have three groupings mirroring the domain: semantic booleans, capability checks, and `fromJSON` hydration (including the permissive shape that tolerates mock vs REST field-name differences).
+- **Hooks and infra are integration-covered, not unit-tested** — `<Feature>.hooks.ts` is a thin wrapper over `fetchX(mode)`; exercise it through page-level tests when needed rather than mocking React.
+
 ### Feature module layout
 
 Every domain area under `src/` (e.g., `build/`, `version/`, `testflight/`, `iap/`, `code-signing/`, ~20 total) follows this pattern:
