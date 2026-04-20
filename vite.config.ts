@@ -12,7 +12,6 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    open: '/index-react.html',
     proxy: {
       '/api': {
         target: 'http://localhost:8420',
@@ -23,8 +22,5 @@ export default defineConfig({
   },
   build: {
     outDir: 'dist',
-    rollupOptions: {
-      input: path.resolve(__dirname, 'index-react.html'),
-    },
   },
 });
