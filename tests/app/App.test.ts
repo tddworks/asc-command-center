@@ -1,5 +1,18 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { App } from '../../src/app/App.ts';
+import { Build, BuildProcessingState } from '../../src/build/Build.ts';
+import { Version, VersionState } from '../../src/version/Version.ts';
+import type { AppRepository } from '../../src/app/AppRepository.ts';
+
+function stubRepo(overrides: Partial<AppRepository> = {}): AppRepository {
+  return {
+    list: vi.fn(),
+    get: vi.fn(),
+    builds: vi.fn(),
+    versions: vi.fn(),
+    ...overrides,
+  };
+}
 
 describe('App', () => {
 
@@ -43,6 +56,75 @@ describe('App', () => {
     expect(app.canViewBuilds).toBe(true);
   });
 
+  // ── Navigation: loadBuilds ──
+
+  it('loadBuilds delegates to repository and returns builds', async () => {
+    const expected = [
+      new Build('b-1', 'a-1', '100', '2.0', BuildProcessingState.Valid, false, false, '2024-01-15', {}),
+    ];
+    const repo = stubRepo({ builds: vi.fn().mockResolvedValue(expected) });
+    const app = new App('a-1', 'App', 'com.x', 'SKU', 'en-US', true, {
+      getBuilds: 'asc builds list --app-id a-1',
+    }, undefined, repo);
+
+    await expect(app.loadBuilds()).resolves.toEqual(expected);
+    expect(repo.builds).toHaveBeenCalledWith(app);
+  });
+
+  it('loadBuilds short-circuits to empty when affordance missing', async () => {
+    const repo = stubRepo({ builds: vi.fn() });
+    const app = new App('a-1', 'App', 'com.x', 'SKU', 'en-US', true, {}, undefined, repo);
+
+    await expect(app.loadBuilds()).resolves.toEqual([]);
+    expect(repo.builds).not.toHaveBeenCalled();
+  });
+
+  it('loadBuilds throws when no repository is attached', async () => {
+    const app = new App('a-1', 'App', 'com.x', 'SKU', 'en-US', true, {
+      getBuilds: 'asc builds list --app-id a-1',
+    });
+    await expect(app.loadBuilds()).rejects.toThrow(/no repository attached/);
+  });
+
+  // ── Navigation: loadVersions ──
+
+  it('loadVersions delegates to repository and returns versions', async () => {
+    const expected = [
+      new Version('v-1', 'a-1', '1.0', VersionState.PrepareForSubmission, 'IOS', {}),
+    ];
+    const repo = stubRepo({ versions: vi.fn().mockResolvedValue(expected) });
+    const app = new App('a-1', 'App', 'com.x', 'SKU', 'en-US', true, {
+      getVersions: 'asc versions list --app-id a-1',
+    }, undefined, repo);
+
+    await expect(app.loadVersions()).resolves.toEqual(expected);
+    expect(repo.versions).toHaveBeenCalledWith(app);
+  });
+
+  it('loadVersions short-circuits to empty when affordance missing', async () => {
+    const repo = stubRepo({ versions: vi.fn() });
+    const app = new App('a-1', 'App', 'com.x', 'SKU', 'en-US', true, {}, undefined, repo);
+
+    await expect(app.loadVersions()).resolves.toEqual([]);
+    expect(repo.versions).not.toHaveBeenCalled();
+  });
+
+  // ── withRepository ──
+
+  it('withRepository attaches a repository to an existing App', async () => {
+    const repo = stubRepo({ builds: vi.fn().mockResolvedValue([]) });
+    const app = new App('a-1', 'App', 'com.x', 'SKU', 'en-US', true, {
+      getBuilds: 'asc builds list --app-id a-1',
+    });
+
+    const attached = app.withRepository(repo);
+
+    expect(attached).not.toBe(app);
+    expect(attached.id).toBe(app.id);
+    await attached.loadBuilds();
+    expect(repo.builds).toHaveBeenCalledWith(attached);
+  });
+
   // ── Hydration ──
 
   it('hydrates from API JSON', () => {
@@ -82,5 +164,17 @@ describe('App', () => {
     expect(app.affordances).toEqual({});
     expect(app.canViewVersions).toBe(false);
     expect(app.contentRightsDeclaration).toBeUndefined();
+  });
+
+  it('fromJSON accepts a repository so the hydrated App can navigate', async () => {
+    const repo = stubRepo({ builds: vi.fn().mockResolvedValue([]) });
+    const app = App.fromJSON({
+      id: 'a-1', name: 'App', bundleId: 'com.x', sku: 'SKU', primaryLocale: 'en-US',
+      isAvailableInNewTerritories: true,
+      affordances: { getBuilds: 'asc builds list --app-id a-1' },
+    }, repo);
+
+    await app.loadBuilds();
+    expect(repo.builds).toHaveBeenCalledWith(app);
   });
 });
