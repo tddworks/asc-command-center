@@ -3,6 +3,7 @@ import { useDashboard } from '../Dashboard.hooks.ts';
 import { Dashboard } from '../Dashboard.ts';
 import { BuildRow } from '../../build/components/BuildRow.tsx';
 import type { Certificate } from '../../code-signing/Certificate.ts';
+import { useCurrentApp } from '../../shared/current-app.tsx';
 
 // ─── Icons (stroke-2, matching the sidebar icon grammar) ─────────────────────
 
@@ -133,21 +134,30 @@ function CertificateRow({ cert }: { cert: Certificate }) {
 
 export default function DashboardPage() {
   const { dashboard, loading, error } = useDashboard();
+  const { currentApp } = useCurrentApp();
   const navigate = useNavigate();
 
-  if (loading || !dashboard) {
+  if (error) {
     return (
-      <div className="empty-state">
-        <div className="spinner" style={{ margin: '24px auto' }} />
+      <div className="card">
+        <div className="empty-state">
+          <h3>Couldn't load the dashboard</h3>
+          <p style={{ marginBottom: 4 }}>{error.message}</p>
+          <p style={{ fontSize: 11, fontFamily: 'monospace', color: 'var(--text-muted)' }}>
+            Check that the asc backend is running on localhost:8420, or toggle to mock data.
+          </p>
+        </div>
       </div>
     );
   }
 
-  if (error) {
+  if (loading || !dashboard) {
     return (
-      <div className="empty-state">
-        <h3>Couldn't load the dashboard</h3>
-        <p>{error.message}</p>
+      <div className="card">
+        <div className="empty-state">
+          <div className="spinner" style={{ margin: '16px auto 12px' }} />
+          <p style={{ fontSize: 13, color: 'var(--text-muted)' }}>Loading fleet briefing…</p>
+        </div>
       </div>
     );
   }
@@ -195,6 +205,16 @@ export default function DashboardPage() {
               )}
             </p>
           )}
+          <p style={{
+            margin: '8px 0 0', fontSize: 11,
+            fontFamily: 'SF Mono, Menlo, monospace',
+            color: 'var(--text-muted)', letterSpacing: '0.02em',
+          }}>
+            {currentApp
+              ? <>Submissions scoped to <strong style={{ color: 'var(--text-secondary)' }}>{currentApp.name}</strong> <span style={{ opacity: 0.7 }}>({currentApp.bundleId})</span>. Builds &amp; certificates are fleet-wide.</>
+              : <>No app pinned — submission tiles will show zero. Pin an app from the sidebar to scope them.</>
+            }
+          </p>
         </div>
       </div>
 

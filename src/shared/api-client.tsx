@@ -96,22 +96,41 @@ function normalizeLinks(data: unknown): unknown {
   return data;
 }
 
+const DEFAULT_TIMEOUT_MS = 10_000;
+
+function withTimeout(ms: number): { signal: AbortSignal; cancel: () => void } {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(new DOMException('Timeout', 'AbortError')), ms);
+  return { signal: controller.signal, cancel: () => clearTimeout(timer) };
+}
+
 export const apiClient = {
   async get<T>(path: string): Promise<T> {
-    const res = await fetch(path);
-    if (!res.ok) throw new ApiError(res.status, await res.text());
-    const json = await res.json();
-    return normalizeLinks(json) as T;
+    const { signal, cancel } = withTimeout(DEFAULT_TIMEOUT_MS);
+    try {
+      const res = await fetch(path, { signal });
+      if (!res.ok) throw new ApiError(res.status, await res.text());
+      const json = await res.json();
+      return normalizeLinks(json) as T;
+    } finally {
+      cancel();
+    }
   },
 
   async post<T>(path: string, body: unknown): Promise<T> {
-    const res = await fetch(path, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
-    if (!res.ok) throw new ApiError(res.status, await res.text());
-    return res.json();
+    const { signal, cancel } = withTimeout(DEFAULT_TIMEOUT_MS);
+    try {
+      const res = await fetch(path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+        signal,
+      });
+      if (!res.ok) throw new ApiError(res.status, await res.text());
+      return res.json();
+    } finally {
+      cancel();
+    }
   },
 
   async runCommand(command: string): Promise<{ stdout: string; stderr: string; exit_code: number }> {

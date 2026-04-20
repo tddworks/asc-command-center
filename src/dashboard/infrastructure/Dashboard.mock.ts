@@ -10,7 +10,7 @@ function daysFromNow(days: number): string {
 }
 
 export class MockDashboardRepository implements DashboardRepository {
-  async load(): Promise<Dashboard> {
+  async load(_currentAppId: string | null): Promise<Dashboard> {
     const expiringCertificates = [
       new Certificate(
         'cert-1',

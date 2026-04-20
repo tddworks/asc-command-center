@@ -10,6 +10,9 @@ type ListResponse = {
 };
 
 const EXPIRY_WINDOW_DAYS = 14;
+const RECENT_BUILDS_LIMIT = 5;
+const AWAITING_STATES = 'WAITING_FOR_REVIEW,IN_REVIEW,READY_FOR_REVIEW';
+const ISSUE_STATES = 'UNRESOLVED_ISSUES';
 
 function isoDaysFromNow(days: number): string {
   const d = new Date();
@@ -17,44 +20,56 @@ function isoDaysFromNow(days: number): string {
   return d.toISOString();
 }
 
+function countOf(resp: ListResponse): number {
+  return resp.meta?.paging?.total ?? resp.data.length;
+}
+
+const EMPTY: ListResponse = { data: [] };
+
 /**
- * Four fleet-wide queries, all backed by corresponding `asc` CLI commands:
+ * Four calls, regardless of fleet size:
  *
- *   1. asc review-submissions list --state WAITING_FOR_REVIEW,IN_REVIEW,READY_FOR_REVIEW
- *   2. asc review-submissions list --state UNRESOLVED_ISSUES
- *   3. asc certificates list --before <now+14d>     (server-side expiry filter)
- *   4. asc builds list --sort -uploadedDate --limit 5
+ *   1. GET /api/v1/builds?sort=-uploadedDate&limit=5               (fleet)
+ *   2. GET /api/v1/certificates?before=<now+14d>&limit=200         (fleet, server-side expiry filter)
+ *   3. GET /api/v1/apps/{currentAppId}/review-submissions?state=A  (per pinned app)
+ *   4. GET /api/v1/apps/{currentAppId}/review-submissions?state=I  (per pinned app)
  *
- * Everything runs in parallel. Counts come from the response's paging meta
- * when provided, otherwise the returned array length (capped at limit=200).
+ * Review-submissions are scoped to the pinned app because Apple requires
+ * `filter[app]` on `/v1/reviewSubmissions` — fleet listing is impossible at
+ * the platform level, not just our backend's. When no app is pinned, tiles
+ * 3 and 4 are skipped and show zero with a helper hint.
+ *
+ * Every call has a graceful fallback; one 404/500 won't nuke the dashboard.
  */
 export class RestDashboardRepository implements DashboardRepository {
-  async load(): Promise<Dashboard> {
+  async load(currentAppId: string | null): Promise<Dashboard> {
     const expiryCutoff = encodeURIComponent(isoDaysFromNow(EXPIRY_WINDOW_DAYS));
 
-    const [awaiting, issues, certs, builds] = await Promise.all([
-      apiClient.get<ListResponse>(
-        '/api/v1/reviewSubmissions?filter[state]=WAITING_FOR_REVIEW,IN_REVIEW,READY_FOR_REVIEW&limit=200',
-      ),
-      apiClient.get<ListResponse>(
-        '/api/v1/reviewSubmissions?filter[state]=UNRESOLVED_ISSUES&limit=200',
-      ),
-      apiClient.get<ListResponse>(`/api/v1/certificates?before=${expiryCutoff}&limit=200`),
-      apiClient.get<ListResponse>('/api/v1/builds?sort=-uploadedDate&limit=5'),
+    const safeGet = (path: string): Promise<ListResponse> =>
+      apiClient.get<ListResponse>(path).catch(() => EMPTY);
+
+    const [buildsResp, certsResp, awaitingResp, issuesResp] = await Promise.all([
+      safeGet(`/api/v1/builds?sort=-uploadedDate&limit=${RECENT_BUILDS_LIMIT}`),
+      safeGet(`/api/v1/certificates?before=${expiryCutoff}&limit=200`),
+      currentAppId
+        ? safeGet(`/api/v1/apps/${currentAppId}/review-submissions?state=${AWAITING_STATES}&limit=200`)
+        : Promise.resolve(EMPTY),
+      currentAppId
+        ? safeGet(`/api/v1/apps/${currentAppId}/review-submissions?state=${ISSUE_STATES}&limit=200`)
+        : Promise.resolve(EMPTY),
     ]);
 
-    // Belt-and-suspenders: the server-side `before` filter narrows the payload,
-    // but we still run isExpiringSoon() to enforce the isValid gate (no expired
-    // or revoked certs on the dashboard).
-    const expiringCertificates = certs.data
+    // Belt-and-suspenders: server-side ?before= narrows the payload, client
+    // filter enforces the isValid gate (no expired/revoked certs show up).
+    const expiringCertificates = certsResp.data
       .map((row) => Certificate.fromJSON(row))
       .filter((c) => c.isExpiringSoon(EXPIRY_WINDOW_DAYS));
 
-    const recentBuilds = builds.data.map(Build.fromJSON);
+    const recentBuilds = buildsResp.data.map(Build.fromJSON);
 
     return new Dashboard(
-      awaiting.meta?.paging?.total ?? awaiting.data.length,
-      issues.meta?.paging?.total ?? issues.data.length,
+      countOf(awaitingResp),
+      countOf(issuesResp),
       expiringCertificates,
       recentBuilds,
     );

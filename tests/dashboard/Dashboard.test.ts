@@ -81,12 +81,21 @@ describe('Dashboard', () => {
 
   // ── Repository delegation shape (shape test, not the repo's own logic) ──
 
-  it('repository load shape — hook consumers delegate here', async () => {
+  it('repository load receives currentAppId and returns a Dashboard', async () => {
     const expected = new Dashboard(3, 1, [certExpiringIn(5)], [someBuild('b-1')]);
     const repo: DashboardRepository = {
       load: vi.fn().mockResolvedValue(expected),
     };
-    await expect(repo.load()).resolves.toBe(expected);
-    expect(repo.load).toHaveBeenCalledOnce();
+    await expect(repo.load('app-1')).resolves.toBe(expected);
+    expect(repo.load).toHaveBeenCalledWith('app-1');
+  });
+
+  it('repository load accepts null currentAppId (no app pinned)', async () => {
+    const expected = new Dashboard(0, 0, [], []);
+    const repo: DashboardRepository = {
+      load: vi.fn().mockResolvedValue(expected),
+    };
+    await expect(repo.load(null)).resolves.toBe(expected);
+    expect(repo.load).toHaveBeenCalledWith(null);
   });
 });
