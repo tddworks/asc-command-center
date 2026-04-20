@@ -8,7 +8,7 @@ export function Sidebar() {
   return (
     <aside className="sidebar" id="sidebar">
       <div className="sidebar-brand">
-        <img src="../shared/static/logo.png" alt="ASC" style={{width:'36px',height:'36px',borderRadius:'var(--radius)',flexShrink:0}} />
+        <img src="/logo.png" alt="ASC" style={{width:'36px',height:'36px',borderRadius:'var(--radius)',flexShrink:0}} />
         <div>
           <h1>ASC Manager</h1>
           <p>App Store Connect</p>
