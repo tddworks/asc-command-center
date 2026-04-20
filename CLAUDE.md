@@ -36,21 +36,23 @@ This codebase follows **Chicago-school (state-based) TDD** over a **rich domain 
 - **TDD loop** — red/green/refactor per behavior. Add one failing test that expresses the intent in domain terms (`isUsable`, `canDoX`, `displayName`), make it pass with the minimum change, then refactor. Each `<Feature>.test.ts` should have three groupings mirroring the domain: semantic booleans, capability checks, and `fromJSON` hydration (including the permissive shape that tolerates mock vs REST field-name differences).
 - **Hooks and infra are integration-covered, not unit-tested** — `<Feature>.hooks.ts` is a thin wrapper over `fetchX(mode)`; exercise it through page-level tests when needed rather than mocking React.
 
-### Feature module layout
+### Feature module layout — cake-slice (vertical slice) pattern
 
-Every domain area under `src/` (e.g., `build/`, `version/`, `testflight/`, `iap/`, `code-signing/`, ~20 total) follows this pattern:
+The codebase is sliced **by feature, not by layer**. Each `src/<feature>/` is a self-contained cake slice that cuts through all layers — domain, application (hooks), infrastructure, and UI — for one capability. There is no top-level `controllers/`, `services/`, `repositories/`, or `components/`; those concerns live *inside* the slice they belong to. Slices depend on `src/shared/` and on each other's *domain class only* (never reach into another slice's `infrastructure/` or `pages/`).
+
+Every domain area (e.g., `build/`, `version/`, `testflight/`, `iap/`, `code-signing/`, ~20 total) follows the same five-file shape:
 
 ```
-src/<feature>/
-  <Feature>.ts              # Domain class: readonly fields, semantic booleans,
-                            # capability getters (check `affordances`), `fromJSON` factory.
-  <Feature>.hooks.ts        # React hooks (e.g. useBuilds) — reads useDataMode(),
-                            # delegates to infrastructure/*.api.ts
+src/<feature>/                  ← one cake slice
+  <Feature>.ts              # Domain layer: class with readonly fields, semantic
+                            # booleans, capability getters, `fromJSON` factory.
+  <Feature>.hooks.ts        # Application layer: React hooks (e.g. useBuilds)
+                            # — read useDataMode(), delegate to infrastructure.
   infrastructure/
-    <Feature>.api.ts        # `if (mode === 'mock') { import mock } else apiClient.get(...)`
-    <Feature>.mock.ts       # Deterministic fixtures
-  pages/                    # Route-level components (lazy-loaded in App.tsx)
-  components/               # Leaf UI for that feature
+    <Feature>.api.ts        # Infrastructure: `if (mock) import mock; else apiClient.get(...)`
+    <Feature>.mock.ts       # Infrastructure: deterministic fixtures
+  pages/                    # UI: route-level components (lazy-loaded in App.tsx)
+  components/               # UI: leaf components for this feature
 ```
 
 Domain classes (e.g., `src/build/Build.ts`) are the canonical place for business logic. They expose three kinds of members:
@@ -58,7 +60,7 @@ Domain classes (e.g., `src/build/Build.ts`) are the canonical place for business
 2. **Capability checks** — `canAddToTestFlight` → `'addToTestFlight' in this.affordances`. These gate UI actions based on what the backend says is allowed.
 3. **`static fromJSON(json)`** factory — tolerant of alternate field names (`version ?? buildNumber`), so both mock and REST shapes deserialize cleanly.
 
-Adding a new feature: scaffold the same five-file shape. Tests live in `tests/<feature>/` and primarily exercise the domain class.
+**Adding a new feature** = add a new slice with the same five-file shape, register its page route in `src/App.tsx`, and add its `tests/<feature>/<Feature>.test.ts` alongside. Keep the slice closed: don't spread one feature's concerns across other folders.
 
 ### Routing & pages
 
