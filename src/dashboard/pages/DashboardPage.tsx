@@ -4,179 +4,227 @@ import { Dashboard } from '../Dashboard.ts';
 import { BuildRow } from '../../build/components/BuildRow.tsx';
 import type { Certificate } from '../../code-signing/Certificate.ts';
 
-type Tone = 'urgent' | 'warn' | 'info' | 'calm';
+// ─── Icons (stroke-2, matching the sidebar icon grammar) ─────────────────────
 
-interface TileProps {
-  label: string;
+const IconAlert = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+    <line x1="12" y1="9" x2="12" y2="13"/>
+    <line x1="12" y1="17" x2="12.01" y2="17"/>
+  </svg>
+);
+
+const IconClock = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="12" cy="12" r="10"/>
+    <polyline points="12 6 12 12 16 14"/>
+  </svg>
+);
+
+const IconShield = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+  </svg>
+);
+
+const IconCube = () => (
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+    <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+    <line x1="12" y1="22.08" x2="12" y2="12"/>
+  </svg>
+);
+
+// ─── StatCard — mirrors reference `.stat-card` markup ────────────────────────
+
+type IconColor = 'blue' | 'green' | 'purple' | 'orange';
+
+interface StatCardProps {
+  icon: React.ReactNode;
+  iconColor: IconColor;
   value: string;
-  hint: string;
-  tone: Tone;
+  label: string;
+  change?: { text: string; variant: 'up' | 'down' };
   onClick?: () => void;
 }
 
-const TONE_STYLES: Record<Tone, { bg: string; fg: string; border: string }> = {
-  urgent: { bg: 'rgba(220,38,38,0.08)',  fg: '#B91C1C', border: 'rgba(220,38,38,0.25)' },
-  warn:   { bg: 'rgba(217,119,6,0.08)',  fg: '#B45309', border: 'rgba(217,119,6,0.25)' },
-  info:   { bg: 'rgba(37,99,235,0.08)',  fg: '#1D4ED8', border: 'rgba(37,99,235,0.25)' },
-  calm:   { bg: 'rgba(5,150,105,0.06)',  fg: '#047857', border: 'rgba(5,150,105,0.20)' },
-};
-
-function Tile({ label, value, hint, tone, onClick }: TileProps) {
-  const s = TONE_STYLES[tone];
+function StatCard({ icon, iconColor, value, label, change, onClick }: StatCardProps) {
+  const Tag = onClick ? 'button' : 'div';
   return (
-    <button
+    <Tag
       className="stat-card"
       onClick={onClick}
-      disabled={!onClick}
-      style={{
-        background: s.bg,
-        border: `1px solid ${s.border}`,
-        textAlign: 'left',
-        cursor: onClick ? 'pointer' : 'default',
-      }}
+      style={onClick ? { textAlign: 'left', cursor: 'pointer', font: 'inherit' } : undefined}
     >
-      <div className="stat-value" style={{ color: s.fg }}>{value}</div>
-      <div className="stat-label" style={{ fontWeight: 600 }}>{label}</div>
-      <div style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 4 }}>{hint}</div>
-    </button>
+      <div className="stat-header">
+        <div className={`stat-icon ${iconColor}`}>{icon}</div>
+        {change && <span className={`stat-change ${change.variant}`}>{change.text}</span>}
+      </div>
+      <div className="stat-value">{value}</div>
+      <div className="stat-label">{label}</div>
+    </Tag>
   );
 }
 
-function tilesFrom(dashboard: Dashboard) {
-  const awaiting = dashboard.submissionsAwaitingReview;
+// ─── Derive tile props from the Dashboard aggregate ──────────────────────────
+
+function tilesFor(dashboard: Dashboard): StatCardProps[] {
   const issues = dashboard.submissionsWithIssues;
+  const awaiting = dashboard.submissionsAwaitingReview;
   const critical = dashboard.criticalCertificates.length;
   const warning = dashboard.warningCertificates.length;
 
   return [
     {
-      key: 'issues',
+      icon: <IconAlert />,
+      iconColor: 'orange',
+      value: String(issues),
       label: 'Unresolved submissions',
-      value: issues === 0 ? '—' : String(issues),
-      hint: issues === 0 ? 'Nothing rejected.' : `Need attention before resubmit.`,
-      tone: (issues > 0 ? 'urgent' : 'calm') as Tone,
+      change: issues > 0 ? { text: 'Action', variant: 'down' } : undefined,
     },
     {
-      key: 'awaiting',
+      icon: <IconClock />,
+      iconColor: 'purple',
+      value: String(awaiting),
       label: 'Awaiting Apple review',
-      value: awaiting === 0 ? '—' : String(awaiting),
-      hint: awaiting === 0 ? 'Nothing in the queue.' : 'In review or waiting for review.',
-      tone: (awaiting > 0 ? 'warn' : 'calm') as Tone,
+      change: awaiting > 0 ? { text: 'In queue', variant: 'up' } : undefined,
     },
     {
-      key: 'certs',
+      icon: <IconShield />,
+      iconColor: 'orange',
+      value: String(critical + warning),
       label: 'Certificates expiring',
-      value: critical + warning === 0 ? '—' : String(critical + warning),
-      hint: critical > 0
-        ? `${critical} within 7 days.`
-        : warning > 0
-          ? `${warning} within 14 days.`
-          : 'All valid for 14+ days.',
-      tone: (critical > 0 ? 'urgent' : warning > 0 ? 'warn' : 'calm') as Tone,
+      change:
+        critical > 0
+          ? { text: 'Critical', variant: 'down' }
+          : warning > 0
+            ? { text: 'Soon', variant: 'up' }
+            : undefined,
     },
     {
-      key: 'builds',
-      label: 'Recent builds',
+      icon: <IconCube />,
+      iconColor: 'blue',
       value: String(dashboard.recentBuilds.length),
-      hint: dashboard.recentBuilds.length === 0
-        ? 'No builds uploaded recently.'
-        : 'Across all apps, last 5.',
-      tone: 'info' as Tone,
+      label: 'Recent builds',
+      change: dashboard.recentBuilds.length > 0 ? { text: 'Last 5', variant: 'up' } : undefined,
     },
   ];
 }
 
+// ─── Certificate row ─────────────────────────────────────────────────────────
+
 function CertificateRow({ cert }: { cert: Certificate }) {
   const days = cert.daysUntilExpiration();
-  const statusClass = cert.isExpiringCritical() ? 'rejected' : 'draft';
+  const statusClass = cert.isExpiringCritical() ? 'rejected' : 'pending';
+  const statusText = days <= 0
+    ? 'Expired'
+    : `${days} day${days === 1 ? '' : 's'}`;
   return (
     <tr>
-      <td className="cell-primary">{cert.name}</td>
-      <td style={{ fontFamily: 'monospace', fontSize: 12, color: 'var(--text-muted)' }}>
-        {cert.certificateType}
-      </td>
-      <td><span className={`status ${statusClass}`}>
-        {days <= 0 ? 'Expired today' : `${days} day${days === 1 ? '' : 's'}`}
-      </span></td>
-      <td style={{ fontSize: 12, color: 'var(--text-muted)' }}>
-        {cert.expirationDate.slice(0, 10)}
-      </td>
+      <td><span className="cell-primary">{cert.name}</span></td>
+      <td><span className="cell-mono">{cert.certificateType}</span></td>
+      <td><span className={`status ${statusClass}`}>{statusText}</span></td>
+      <td>{cert.expirationDate.slice(0, 10)}</td>
     </tr>
   );
 }
+
+// ─── Page ────────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
   const { dashboard, loading, error } = useDashboard();
   const navigate = useNavigate();
 
-  if (loading || !dashboard) return <div className="spinner">Loading dashboard...</div>;
-  if (error) return <div className="error">Error: {error.message}</div>;
+  if (loading || !dashboard) {
+    return (
+      <div className="empty-state">
+        <div className="spinner" style={{ margin: '24px auto' }} />
+      </div>
+    );
+  }
 
-  const tiles = tilesFrom(dashboard);
+  if (error) {
+    return (
+      <div className="empty-state">
+        <h3>Couldn't load the dashboard</h3>
+        <p>{error.message}</p>
+      </div>
+    );
+  }
+
+  const tiles = tilesFor(dashboard);
+
+  const tileTargets: (string | undefined)[] = [
+    '/submissions',
+    '/submissions',
+    '/code-signing',
+    '/builds',
+  ];
 
   return (
     <div>
-      <h2>Dashboard</h2>
-
-      {/* Briefing — one-liner answering "what needs my attention?" */}
-      <div className="card" style={{ marginBottom: 16, padding: '16px 20px' }}>
-        {dashboard.allClear ? (
-          <p style={{ margin: 0, fontSize: 14 }}>
-            <strong>All clear.</strong> Nothing awaiting review, no unresolved submissions, all certificates valid for at least 14 days.
-          </p>
-        ) : (
-          <p style={{ margin: 0, fontSize: 14 }}>
-            <strong>What needs you:</strong>{' '}
-            {dashboard.submissionsWithIssues > 0 && (
-              <span>
-                <strong style={{ color: '#B91C1C' }}>{dashboard.submissionsWithIssues}</strong> submission
-                {dashboard.submissionsWithIssues === 1 ? '' : 's'} with unresolved issues.{' '}
-              </span>
-            )}
-            {dashboard.submissionsAwaitingReview > 0 && (
-              <span>
-                <strong>{dashboard.submissionsAwaitingReview}</strong> awaiting Apple review.{' '}
-              </span>
-            )}
-            {dashboard.expiringCertificates.length > 0 && (
-              <span>
-                <strong>{dashboard.expiringCertificates.length}</strong> certificate
-                {dashboard.expiringCertificates.length === 1 ? '' : 's'} expiring within 14 days.
-              </span>
-            )}
-          </p>
-        )}
+      {/* Briefing — one-liner answering "what needs me?" */}
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="card-body padded">
+          {dashboard.allClear ? (
+            <p style={{ margin: 0, fontSize: 13, color: 'var(--text-secondary)' }}>
+              <strong style={{ color: 'var(--text-primary)' }}>All clear.</strong>{' '}
+              Nothing awaiting review, no unresolved submissions, all certificates valid for at least 14 days.
+            </p>
+          ) : (
+            <p style={{ margin: 0, fontSize: 13, color: 'var(--text-secondary)' }}>
+              <strong style={{ color: 'var(--text-primary)' }}>What needs you:</strong>{' '}
+              {dashboard.submissionsWithIssues > 0 && (
+                <>
+                  <strong style={{ color: 'var(--danger-text)' }}>
+                    {dashboard.submissionsWithIssues}
+                  </strong>{' '}
+                  submission{dashboard.submissionsWithIssues === 1 ? '' : 's'} with unresolved issues.{' '}
+                </>
+              )}
+              {dashboard.submissionsAwaitingReview > 0 && (
+                <>
+                  <strong>{dashboard.submissionsAwaitingReview}</strong> awaiting Apple review.{' '}
+                </>
+              )}
+              {dashboard.expiringCertificates.length > 0 && (
+                <>
+                  <strong>{dashboard.expiringCertificates.length}</strong> certificate
+                  {dashboard.expiringCertificates.length === 1 ? '' : 's'} expiring within 14 days.
+                </>
+              )}
+            </p>
+          )}
+        </div>
       </div>
 
-      {/* Attention tiles */}
+      {/* 4 stat cards */}
       <div className="dashboard-stats">
-        {tiles.map((t) => (
-          <Tile
-            key={t.key}
-            label={t.label}
-            value={t.value}
-            hint={t.hint}
-            tone={t.tone}
-            onClick={
-              t.key === 'issues' || t.key === 'awaiting'
-                ? () => navigate('/submissions')
-                : t.key === 'certs'
-                  ? () => navigate('/code-signing')
-                  : t.key === 'builds'
-                    ? () => navigate('/builds')
-                    : undefined
-            }
+        {tiles.map((props, i) => (
+          <StatCard
+            key={props.label}
+            {...props}
+            onClick={tileTargets[i] ? () => navigate(tileTargets[i]!) : undefined}
           />
         ))}
       </div>
 
-      {/* Two-column: expiring certs + recent builds */}
+      {/* grid-2: expiring certs + recent builds */}
       <div className="grid-2">
         <div className="card">
-          <h3>Expiring certificates</h3>
+          <div className="card-header">
+            <span className="card-title">Expiring certificates</span>
+            <button
+              className="btn btn-sm btn-secondary"
+              onClick={() => navigate('/code-signing')}
+            >
+              View all
+            </button>
+          </div>
           {dashboard.expiringCertificates.length === 0 ? (
-            <div style={{ padding: 16, color: 'var(--text-muted)', fontSize: 13 }}>
-              No certificates expiring in the next 14 days.
+            <div className="empty-state">
+              <h3>All valid</h3>
+              <p>No certificates expire in the next 14 days.</p>
             </div>
           ) : (
             <div className="table-wrapper">
@@ -200,10 +248,19 @@ export default function DashboardPage() {
         </div>
 
         <div className="card">
-          <h3>Recent builds</h3>
+          <div className="card-header">
+            <span className="card-title">Recent builds</span>
+            <button
+              className="btn btn-sm btn-secondary"
+              onClick={() => navigate('/builds')}
+            >
+              View all
+            </button>
+          </div>
           {dashboard.recentBuilds.length === 0 ? (
-            <div style={{ padding: 16, color: 'var(--text-muted)', fontSize: 13 }}>
-              No recent build uploads. Kick off an archive or upload with <code>asc builds upload</code>.
+            <div className="empty-state">
+              <h3>No recent builds</h3>
+              <p>Kick off an upload with <code>asc builds upload</code>.</p>
             </div>
           ) : (
             <div className="table-wrapper">
