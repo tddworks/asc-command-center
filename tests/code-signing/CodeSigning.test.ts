@@ -56,6 +56,45 @@ describe('Certificate', () => {
     expect(c.affordances).toEqual({});
     expect(c.isExpired).toBe(true);
   });
+
+  // ── Expiration math ──
+
+  const now = new Date('2026-04-20T00:00:00Z');
+  function certExpiring(days: number, status: 'VALID' | 'EXPIRED' | 'REVOKED' = 'VALID') {
+    const d = new Date(now);
+    d.setDate(d.getDate() + days);
+    return new Certificate('c', 'Dist', 'DISTRIBUTION', 'SN', d.toISOString(), status, {});
+  }
+
+  it('daysUntilExpiration returns days between now and expirationDate', () => {
+    expect(certExpiring(10).daysUntilExpiration(now)).toBe(10);
+    expect(certExpiring(0).daysUntilExpiration(now)).toBe(0);
+  });
+
+  it('daysUntilExpiration is negative when already expired', () => {
+    expect(certExpiring(-5).daysUntilExpiration(now)).toBeLessThan(0);
+  });
+
+  it('isExpiringSoon is true within 14 days by default', () => {
+    expect(certExpiring(5).isExpiringSoon(14, now)).toBe(true);
+    expect(certExpiring(14).isExpiringSoon(14, now)).toBe(true);
+    expect(certExpiring(20).isExpiringSoon(14, now)).toBe(false);
+  });
+
+  it('isExpiringSoon is false when already expired (negative days)', () => {
+    expect(certExpiring(-1).isExpiringSoon(14, now)).toBe(false);
+  });
+
+  it('isExpiringSoon is false when status is not VALID', () => {
+    expect(certExpiring(3, 'EXPIRED').isExpiringSoon(14, now)).toBe(false);
+    expect(certExpiring(3, 'REVOKED').isExpiringSoon(14, now)).toBe(false);
+  });
+
+  it('isExpiringCritical is true within 7 days', () => {
+    expect(certExpiring(3).isExpiringCritical(now)).toBe(true);
+    expect(certExpiring(7).isExpiringCritical(now)).toBe(true);
+    expect(certExpiring(10).isExpiringCritical(now)).toBe(false);
+  });
 });
 
 describe('BundleID', () => {

@@ -23,6 +23,27 @@ export class Certificate {
     return this.status === 'EXPIRED';
   }
 
+  // ── Expiration math ──
+
+  /** Days between now and expirationDate. Negative when expired. */
+  daysUntilExpiration(now: Date = new Date()): number {
+    const exp = new Date(this.expirationDate).getTime();
+    const diff = exp - now.getTime();
+    return Math.floor(diff / (1000 * 60 * 60 * 24));
+  }
+
+  /** True when expiry is within `withinDays` (default 14) and the cert is still valid. */
+  isExpiringSoon(withinDays: number = 14, now: Date = new Date()): boolean {
+    if (!this.isValid) return false;
+    const days = this.daysUntilExpiration(now);
+    return days >= 0 && days <= withinDays;
+  }
+
+  /** True when expiry is within 7 days — warrants a red tile, not amber. */
+  isExpiringCritical(now: Date = new Date()): boolean {
+    return this.isExpiringSoon(7, now);
+  }
+
   // ── Capability Checks ──
 
   get canRevoke(): boolean {
