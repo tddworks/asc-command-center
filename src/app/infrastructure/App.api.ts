@@ -1,23 +1,40 @@
 import { App } from '../App.ts';
-import { apiClient } from '../../shared/api-client.tsx';
-import type { DataMode } from '../../shared/api-client.tsx';
+import { Build } from '../../build/Build.ts';
+import { Version } from '../../version/Version.ts';
+import { apiClient, type DataMode } from '../../shared/api-client.tsx';
+import type { AppRepository } from '../AppRepository.ts';
 
-export async function fetchApps(mode: DataMode): Promise<App[]> {
-  if (mode === 'mock') {
-    const { mockApps } = await import('./App.mock.ts');
-    return mockApps();
+export class RestAppRepository implements AppRepository {
+  async list(): Promise<App[]> {
+    const json = await apiClient.get<{ data: Record<string, unknown>[] }>('/api/v1/apps');
+    return json.data.map((row) => App.fromJSON(row, this));
   }
-  const json = await apiClient.get<{ data: Record<string, unknown>[] }>('/api/v1/apps');
-  return json.data.map(App.fromJSON);
+
+  async get(id: string): Promise<App> {
+    const json = await apiClient.get<{ data: Record<string, unknown> }>(`/api/v1/apps/${id}`);
+    return App.fromJSON(json.data, this);
+  }
+
+  async builds(app: App): Promise<Build[]> {
+    const json = await apiClient.get<{ data: Record<string, unknown>[] }>(
+      `/api/v1/apps/${app.id}/builds`,
+    );
+    return json.data.map(Build.fromJSON);
+  }
+
+  async versions(app: App): Promise<Version[]> {
+    const json = await apiClient.get<{ data: Record<string, unknown>[] }>(
+      `/api/v1/apps/${app.id}/versions`,
+    );
+    return json.data.map(Version.fromJSON);
+  }
 }
 
-export async function fetchApp(appId: string, mode: DataMode): Promise<App> {
+/** Resolve the AppRepository implementation for the current data mode. */
+export async function repositoryFor(mode: DataMode): Promise<AppRepository> {
   if (mode === 'mock') {
-    const { mockApps } = await import('./App.mock.ts');
-    const app = mockApps().find((a) => a.id === appId);
-    if (!app) throw new Error(`App ${appId} not found`);
-    return app;
+    const { MockAppRepository } = await import('./App.mock.ts');
+    return new MockAppRepository();
   }
-  const json = await apiClient.get<{ data: Record<string, unknown> }>(`/api/v1/apps/${appId}`);
-  return App.fromJSON(json.data);
+  return new RestAppRepository();
 }

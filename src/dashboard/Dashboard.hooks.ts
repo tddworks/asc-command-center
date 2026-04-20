@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { App } from '../app/App.ts';
 import { Build } from '../build/Build.ts';
 import { Version } from '../version/Version.ts';
-import { fetchApps } from '../app/infrastructure/App.api.ts';
+import { Apps } from '../app/Apps.ts';
+import { repositoryFor } from '../app/infrastructure/App.api.ts';
 import { fetchBuilds } from '../build/infrastructure/Build.api.ts';
 import { fetchVersions } from '../version/infrastructure/Version.api.ts';
 import { useDataMode } from '../shared/api-client.tsx';
@@ -23,22 +24,30 @@ export function useDashboard() {
   const mode = useDataMode();
 
   useEffect(() => {
+    let cancelled = false;
     setLoading(true);
-    Promise.all([
-      fetchApps(mode),
-      fetchBuilds('app-1', mode),
-      fetchVersions('app-1', mode),
-    ]).then(([apps, builds, versions]) => {
-      setData({
-        apps,
-        builds,
-        versions,
-        totalApps: apps.length,
-        liveVersions: versions.filter((v) => v.isLive).length,
-        recentBuilds: builds.filter((b) => b.isValid).length,
-        pendingReviews: versions.filter((v) => v.isPending).length,
-      });
-    }).finally(() => setLoading(false));
+
+    repositoryFor(mode)
+      .then((repo) => Promise.all([
+        new Apps(repo).list(),
+        fetchBuilds('app-1', mode),
+        fetchVersions('app-1', mode),
+      ]))
+      .then(([apps, builds, versions]) => {
+        if (cancelled) return;
+        setData({
+          apps,
+          builds,
+          versions,
+          totalApps: apps.length,
+          liveVersions: versions.filter((v) => v.isLive).length,
+          recentBuilds: builds.filter((b) => b.isValid).length,
+          pendingReviews: versions.filter((v) => v.isPending).length,
+        });
+      })
+      .finally(() => { if (!cancelled) setLoading(false); });
+
+    return () => { cancelled = true; };
   }, [mode]);
 
   return { data, loading };

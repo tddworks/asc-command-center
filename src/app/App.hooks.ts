@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { App } from './App.ts';
-import { fetchApps, fetchApp } from './infrastructure/App.api.ts';
+import { Apps } from './Apps.ts';
+import { repositoryFor } from './infrastructure/App.api.ts';
 import { useDataMode } from '../shared/api-client.tsx';
 
 export function useApps() {
@@ -10,11 +11,14 @@ export function useApps() {
   const mode = useDataMode();
 
   useEffect(() => {
+    let cancelled = false;
     setLoading(true);
-    fetchApps(mode)
-      .then(setApps)
-      .catch(setError)
-      .finally(() => setLoading(false));
+    repositoryFor(mode)
+      .then((repo) => new Apps(repo).list())
+      .then((list) => { if (!cancelled) setApps(list); })
+      .catch((e) => { if (!cancelled) setError(e); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [mode]);
 
   return { apps, loading, error };
@@ -27,11 +31,14 @@ export function useApp(appId: string) {
   const mode = useDataMode();
 
   useEffect(() => {
+    let cancelled = false;
     setLoading(true);
-    fetchApp(appId, mode)
-      .then(setApp)
-      .catch(setError)
-      .finally(() => setLoading(false));
+    repositoryFor(mode)
+      .then((repo) => new Apps(repo).get(appId))
+      .then((found) => { if (!cancelled) setApp(found); })
+      .catch((e) => { if (!cancelled) setError(e); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
   }, [appId, mode]);
 
   return { app, loading, error };
