@@ -96,11 +96,11 @@ export class Dashboard {
     readonly recentBuilds: Build[],
   ) {}
 
-  get allClear(): boolean   // every count is zero, no certs expiring
-  get hasWork(): boolean    // = !allClear
-  get isUrgent(): boolean   // unresolved submissions, or a cert ≤7d
-  get criticalCertificates(): Certificate[]  // ≤7 days
-  get warningCertificates():  Certificate[]  // 8–14 days
+  get allClear(): boolean { /* every count is zero, no certs expiring */ }
+  get hasWork(): boolean  { /* = !allClear */ }
+  get isUrgent(): boolean { /* unresolved submissions, or a cert ≤7d */ }
+  get criticalCertificates(): Certificate[] { /* ≤7 days */ }
+  get warningCertificates():  Certificate[] { /* 8–14 days */ }
 }
 ```
 
