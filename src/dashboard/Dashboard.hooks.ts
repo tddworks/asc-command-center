@@ -1,54 +1,24 @@
-import { useState, useEffect } from 'react';
-import { App } from '../app/App.ts';
-import { Build } from '../build/Build.ts';
-import { Version } from '../version/Version.ts';
-import { Apps } from '../app/Apps.ts';
-import { repositoryFor } from '../app/infrastructure/App.api.ts';
-import { fetchBuilds } from '../build/infrastructure/Build.api.ts';
-import { fetchVersions } from '../version/infrastructure/Version.api.ts';
+import { useEffect, useState } from 'react';
+import { Dashboard } from './Dashboard.ts';
+import { repositoryFor } from './infrastructure/Dashboard.api.ts';
 import { useDataMode } from '../shared/api-client.tsx';
 
-interface DashboardData {
-  apps: App[];
-  builds: Build[];
-  versions: Version[];
-  totalApps: number;
-  liveVersions: number;
-  recentBuilds: number;
-  pendingReviews: number;
-}
-
 export function useDashboard() {
-  const [data, setData] = useState<DashboardData | null>(null);
+  const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
   const mode = useDataMode();
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-
     repositoryFor(mode)
-      .then((repo) => Promise.all([
-        new Apps(repo).list(),
-        fetchBuilds('app-1', mode),
-        fetchVersions('app-1', mode),
-      ]))
-      .then(([apps, builds, versions]) => {
-        if (cancelled) return;
-        setData({
-          apps,
-          builds,
-          versions,
-          totalApps: apps.length,
-          liveVersions: versions.filter((v) => v.isLive).length,
-          recentBuilds: builds.filter((b) => b.isValid).length,
-          pendingReviews: versions.filter((v) => v.isPending).length,
-        });
-      })
+      .then((repo) => repo.load())
+      .then((d) => { if (!cancelled) setDashboard(d); })
+      .catch((e) => { if (!cancelled) setError(e); })
       .finally(() => { if (!cancelled) setLoading(false); });
-
     return () => { cancelled = true; };
   }, [mode]);
 
-  return { data, loading };
+  return { dashboard, loading, error };
 }
