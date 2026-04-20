@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Release · Domain Model — ASC Command Center</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #faf7f2;
+    --paper-2: #f2ede4;
+    --ink: #1c1917;
+    --muted: #57534e;
+    --soft: #78716c;
+    --rule: rgba(28, 25, 23, 0.12);
+    --rule-solid: rgba(120, 113, 108, 0.25);
+    --accent: #b5523a;
+    --accent-tint: rgba(181, 82, 58, 0.08);
+    --accent-tint-2: rgba(181, 82, 58, 0.12);
+    --link: #2563eb;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0;
+    background: var(--paper); color: var(--ink);
+    font-family: 'Geist', system-ui, sans-serif;
+    font-size: 15px; line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .page { max-width: 960px; margin: 0 auto; padding: 80px 32px 96px; }
+  .eyebrow {
+    font-family: 'Geist Mono', monospace; font-size: 8px; font-weight: 500;
+    letter-spacing: 0.18em; text-transform: uppercase; color: var(--soft);
+    margin: 0 0 16px;
+  }
+  h1.title {
+    font-family: 'Instrument Serif', serif; font-size: 1.75rem; font-weight: 400;
+    line-height: 1.2; margin: 0 0 12px; color: var(--ink); letter-spacing: -0.01em;
+  }
+  .subtitle {
+    font-family: 'Instrument Serif', serif; font-style: italic; font-size: 1rem;
+    color: var(--muted); margin: 0 0 40px; max-width: 64ch;
+  }
+  .diagram-wrap {
+    background: var(--paper-2); border: 1px solid var(--rule);
+    border-radius: 8px; padding: 24px; overflow-x: auto;
+  }
+  .diagram-wrap svg { display: block; width: 100%; height: auto; max-width: 880px; margin: 0 auto; }
+  .cards {
+    margin-top: 32px; display: grid;
+    grid-template-columns: 1.1fr 1fr 0.9fr; gap: 20px;
+  }
+  @media (max-width: 760px) { .cards { grid-template-columns: 1fr; } }
+  .card {
+    padding: 18px 20px; background: var(--paper);
+    border: 1px solid var(--rule); border-radius: 6px;
+  }
+  .card h3 {
+    margin: 0 0 8px;
+    font-family: 'Geist Mono', monospace; font-size: 8px; font-weight: 500;
+    letter-spacing: 0.16em; text-transform: uppercase; color: var(--soft);
+  }
+  .card p { margin: 0 0 8px; font-size: 13px; line-height: 1.5; color: var(--ink); }
+  .card p em {
+    font-family: 'Instrument Serif', serif; font-style: italic;
+    font-size: 14px; color: var(--accent);
+  }
+  .card code {
+    font-family: 'Geist Mono', monospace; font-size: 11px;
+    background: var(--paper-2); padding: 1px 4px; border-radius: 2px;
+  }
+  .footer {
+    margin-top: 64px; padding-top: 16px; border-top: 1px solid var(--rule);
+    font-family: 'Geist Mono', monospace; font-size: 9px;
+    color: var(--soft); letter-spacing: 0.04em;
+  }
+</style>
+</head>
+<body>
+<main class="page">
+
+  <p class="eyebrow">ASC Command Center · Domain Design</p>
+  <h1 class="title">Domain Model · Release</h1>
+  <p class="subtitle">Four aggregates inside the Release context and how they reference each other — the most complex core context, worth its own zoom. ID references only, never embedded pointers. External aggregates from App Catalog and Xcode Cloud sit at the edges.</p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 880 640" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Release bounded context domain model">
+      <defs>
+        <pattern id="dots" width="22" height="22" patternUnits="userSpaceOnUse">
+          <circle cx="1" cy="1" r="0.9" fill="rgba(28,25,23,0.10)"/>
+        </pattern>
+        <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto-start-reverse">
+          <polygon points="0 0, 8 3, 0 6" fill="#57534e"/>
+        </marker>
+        <marker id="arrow-dashed" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto-start-reverse">
+          <polygon points="0 0, 8 3, 0 6" fill="#78716c"/>
+        </marker>
+      </defs>
+
+      <rect width="100%" height="100%" fill="#faf7f2"/>
+      <rect width="100%" height="100%" fill="url(#dots)" opacity="0.55"/>
+
+      <!-- ═════════ RELATIONSHIPS (drawn first so boxes overlap) ═════════ -->
+
+      <!-- 1. App (ext) → AppStoreVersion : dashed ownership from App Catalog -->
+      <line x1="160" y1="92" x2="340" y2="200" stroke="#78716c" stroke-width="1"
+            stroke-dasharray="4,3" marker-end="url(#arrow-dashed)"/>
+      <rect x="206" y="130" width="68" height="14" rx="2" fill="#faf7f2"/>
+      <text x="240" y="140" fill="#78716c" font-size="8" font-family="'Geist Mono', monospace"
+            text-anchor="middle" letter-spacing="0.06em">owns · 1..*</text>
+
+      <!-- 2. AppStoreVersion → ReviewSubmission : horizontal solid -->
+      <line x1="340" y1="240" x2="260" y2="240" stroke="#57534e" stroke-width="1"
+            marker-start="url(#arrow)" marker-end="url(#arrow)"/>
+      <rect x="266" y="226" width="68" height="14" rx="2" fill="#faf7f2"/>
+      <text x="300" y="236" fill="#57534e" font-size="8" font-family="'Geist Mono', monospace"
+            text-anchor="middle" letter-spacing="0.06em">submitted · 0..*</text>
+      <!-- Cardinality at ends -->
+      <rect x="250" y="246" width="14" height="12" rx="2" fill="#faf7f2"/>
+      <text x="257" y="255" fill="#78716c" font-size="8" font-family="'Geist Mono', monospace"
+            text-anchor="middle">N</text>
+      <rect x="342" y="246" width="14" height="12" rx="2" fill="#faf7f2"/>
+      <text x="349" y="255" fill="#78716c" font-size="8" font-family="'Geist Mono', monospace"
+            text-anchor="middle">1</text>
+
+      <!-- 3. AppStoreVersion → Build : vertical solid -->
+      <line x1="440" y1="300" x2="440" y2="360" stroke="#57534e" stroke-width="1"
+            marker-end="url(#arrow)"/>
+      <rect x="416" y="322" width="48" height="14" rx="2" fill="#faf7f2"/>
+      <text x="440" y="332" fill="#57534e" font-size="8" font-family="'Geist Mono', monospace"
+            text-anchor="middle" letter-spacing="0.06em">attached · 1</text>
+
+      <!-- 4. BetaGroup → Build : L-bend (down then left) -->
+      <polyline points="710,300 710,420 540,420" fill="none" stroke="#57534e" stroke-width="1"
+                marker-end="url(#arrow)"/>
+      <rect x="598" y="408" width="100" height="14" rx="2" fill="#faf7f2"/>
+      <text x="648" y="418" fill="#57534e" font-size="8" font-family="'Geist Mono', monospace"
+            text-anchor="middle" letter-spacing="0.06em">distributes · 1..*</text>
+
+      <!-- 5. CiBuildRun (ext) → Build : dashed diagonal from bottom-right -->
+      <line x1="700" y1="520" x2="540" y2="440" stroke="#78716c" stroke-width="1"
+            stroke-dasharray="4,3" marker-end="url(#arrow-dashed)"/>
+      <rect x="586" y="470" width="72" height="14" rx="2" fill="#faf7f2"/>
+      <text x="622" y="480" fill="#78716c" font-size="8" font-family="'Geist Mono', monospace"
+            text-anchor="middle" letter-spacing="0.06em">uploads · 0..1</text>
+
+      <!-- ═════════ CONTEXT BOUNDARY ═════════ -->
+      <rect x="40" y="100" width="800" height="400" rx="12" fill="transparent"
+            stroke="#b5523a" stroke-width="1" stroke-dasharray="6,4" opacity="0.5"/>
+      <rect x="52" y="92" width="148" height="16" rx="2" fill="#faf7f2"/>
+      <text x="126" y="103" fill="#b5523a" font-size="8" font-family="'Geist Mono', monospace"
+            text-anchor="middle" letter-spacing="0.14em">CONTEXT · RELEASE</text>
+
+      <!-- ═════════ EXTERNAL: App (from App Catalog, top-left) ═════════ -->
+      <rect x="60" y="40" width="200" height="52" rx="6" fill="rgba(28,25,23,0.03)"
+            stroke="rgba(28,25,23,0.28)" stroke-width="1" stroke-dasharray="4,3"/>
+      <rect x="70" y="48" width="132" height="12" rx="2" fill="transparent"
+            stroke="rgba(120,113,108,0.35)" stroke-width="0.6"/>
+      <text x="136" y="57" fill="#78716c" font-size="7" font-family="'Geist Mono', monospace"
+            text-anchor="middle" letter-spacing="0.14em">EXTERNAL · APP CATALOG</text>
+      <text x="160" y="80" fill="#1c1917" font-size="13" font-weight="600"
+            font-family="'Geist', sans-serif" text-anchor="middle">App</text>
+
+      <!-- ═════════ EXTERNAL: CiBuildRun (from Xcode Cloud, bottom-right) ═════════ -->
+      <rect x="600" y="520" width="200" height="52" rx="6" fill="rgba(28,25,23,0.03)"
+            stroke="rgba(28,25,23,0.28)" stroke-width="1" stroke-dasharray="4,3"/>
+      <rect x="610" y="528" width="130" height="12" rx="2" fill="transparent"
+            stroke="rgba(120,113,108,0.35)" stroke-width="0.6"/>
+      <text x="675" y="537" fill="#78716c" font-size="7" font-family="'Geist Mono', monospace"
+            text-anchor="middle" letter-spacing="0.14em">EXTERNAL · XCODE CLOUD</text>
+      <text x="700" y="560" fill="#1c1917" font-size="13" font-weight="600"
+            font-family="'Geist', sans-serif" text-anchor="middle">CiBuildRun</text>
+
+      <!-- ═════════ ReviewSubmission (left) ═════════ -->
+      <rect x="60" y="200" width="200" height="100" rx="8" fill="#faf7f2"/>
+      <rect x="60" y="200" width="200" height="100" rx="8" fill="transparent"
+            stroke="#1c1917" stroke-width="1"/>
+      <rect x="70" y="208" width="40" height="12" rx="2" fill="transparent"
+            stroke="rgba(28,25,23,0.35)" stroke-width="0.6"/>
+      <text x="90" y="217" fill="#57534e" font-size="7" font-family="'Geist Mono', monospace"
+            text-anchor="middle" letter-spacing="0.14em">AGG</text>
+      <text x="160" y="246" fill="#1c1917" font-size="14" font-weight="600"
+            font-family="'Geist', sans-serif" text-anchor="middle">ReviewSubmission</text>
+      <text x="160" y="268" fill="#57534e" font-size="9" font-family="'Geist Mono', monospace"
+            text-anchor="middle">id · state · items</text>
+      <text x="160" y="284" fill="#78716c" font-size="8" font-family="'Geist Mono', monospace"
+            text-anchor="middle" font-style="italic">batch — versions, IAPs, events</text>
+
+      <!-- ═════════ AppStoreVersion (center — CORE coral) ═════════ -->
+      <rect x="340" y="180" width="200" height="120" rx="8" fill="#faf7f2"/>
+      <rect x="340" y="180" width="200" height="120" rx="8" fill="rgba(181,82,58,0.12)"
+            stroke="#b5523a" stroke-width="1.4"/>
+      <rect x="350" y="188" width="70" height="12" rx="2" fill="transparent"
+            stroke="#b5523a" stroke-width="0.8"/>
+      <text x="385" y="197" fill="#b5523a" font-size="7" font-family="'Geist Mono', monospace"
+            text-anchor="middle" letter-spacing="0.14em">AGG · CORE</text>
+      <text x="440" y="230" fill="#1c1917" font-size="16" font-weight="600"
+            font-family="'Geist', sans-serif" text-anchor="middle">AppStoreVersion</text>
+      <line x1="360" y1="244" x2="520" y2="244" stroke="rgba(28,25,23,0.12)" stroke-width="1"/>
+      <text x="440" y="264" fill="#57534e" font-size="10" font-family="'Geist Mono', monospace"
+            text-anchor="middle">id · versionString · state</text>
+      <text x="440" y="280" fill="#57534e" font-size="10" font-family="'Geist Mono', monospace"
+            text-anchor="middle">releaseType · phasedRelease</text>
+
+      <!-- ═════════ BetaGroup (right) ═════════ -->
+      <rect x="620" y="200" width="180" height="100" rx="8" fill="#faf7f2"/>
+      <rect x="620" y="200" width="180" height="100" rx="8" fill="transparent"
+            stroke="#1c1917" stroke-width="1"/>
+      <rect x="630" y="208" width="40" height="12" rx="2" fill="transparent"
+            stroke="rgba(28,25,23,0.35)" stroke-width="0.6"/>
+      <text x="650" y="217" fill="#57534e" font-size="7" font-family="'Geist Mono', monospace"
+            text-anchor="middle" letter-spacing="0.14em">AGG</text>
+      <text x="710" y="246" fill="#1c1917" font-size="14" font-weight="600"
+            font-family="'Geist', sans-serif" text-anchor="middle">BetaGroup</text>
+      <text x="710" y="268" fill="#57534e" font-size="9" font-family="'Geist Mono', monospace"
+            text-anchor="middle">id · name · kind</text>
+      <text x="710" y="284" fill="#78716c" font-size="8" font-family="'Geist Mono', monospace"
+            text-anchor="middle" font-style="italic">internal (≤100) or external (≤10k)</text>
+
+      <!-- ═════════ Build (bottom-center) ═════════ -->
+      <rect x="340" y="360" width="200" height="100" rx="8" fill="#faf7f2"/>
+      <rect x="340" y="360" width="200" height="100" rx="8" fill="transparent"
+            stroke="#1c1917" stroke-width="1"/>
+      <rect x="350" y="368" width="40" height="12" rx="2" fill="transparent"
+            stroke="rgba(28,25,23,0.35)" stroke-width="0.6"/>
+      <text x="370" y="377" fill="#57534e" font-size="7" font-family="'Geist Mono', monospace"
+            text-anchor="middle" letter-spacing="0.14em">AGG</text>
+      <text x="440" y="406" fill="#1c1917" font-size="14" font-weight="600"
+            font-family="'Geist', sans-serif" text-anchor="middle">Build</text>
+      <text x="440" y="428" fill="#57534e" font-size="9" font-family="'Geist Mono', monospace"
+            text-anchor="middle">id · buildNumber · state</text>
+      <text x="440" y="444" fill="#78716c" font-size="8" font-family="'Geist Mono', monospace"
+            text-anchor="middle" font-style="italic">.ipa / .pkg · beta clock: 90d</text>
+
+      <!-- ═════════ LEGEND ═════════ -->
+      <g transform="translate(60, 584)">
+        <text x="0" y="0" fill="#78716c" font-size="8" font-family="'Geist Mono', monospace"
+              letter-spacing="0.14em">LEGEND</text>
+        <g transform="translate(0, 14)">
+          <rect x="0" y="0" width="14" height="10" rx="2" fill="rgba(181,82,58,0.12)" stroke="#b5523a"/>
+          <text x="20" y="9" fill="#57534e" font-size="9" font-family="'Geist Mono', monospace">core aggregate</text>
+          <rect x="120" y="0" width="14" height="10" rx="2" fill="transparent" stroke="#1c1917"/>
+          <text x="140" y="9" fill="#57534e" font-size="9" font-family="'Geist Mono', monospace">aggregate</text>
+          <rect x="216" y="0" width="14" height="10" rx="2" fill="rgba(28,25,23,0.03)" stroke="rgba(28,25,23,0.28)" stroke-dasharray="2,2"/>
+          <text x="236" y="9" fill="#57534e" font-size="9" font-family="'Geist Mono', monospace">external (other context)</text>
+          <line x1="384" y1="5" x2="404" y2="5" stroke="#57534e" stroke-width="1"/>
+          <text x="410" y="9" fill="#57534e" font-size="9" font-family="'Geist Mono', monospace">id reference</text>
+          <line x1="488" y1="5" x2="508" y2="5" stroke="#78716c" stroke-width="1" stroke-dasharray="3,2"/>
+          <text x="514" y="9" fill="#57534e" font-size="9" font-family="'Geist Mono', monospace">cross-context reference</text>
+        </g>
+      </g>
+
+    </svg>
+  </div>
+
+  <div class="cards">
+    <div class="card">
+      <h3>Where the drama is</h3>
+      <p><em>AppStoreVersion</em> is the core. It carries the state machine (<code>PREPARE_FOR_SUBMISSION → WAITING_FOR_REVIEW → IN_REVIEW → …</code>), the phased-release plan, and the release type. Everything in Release revolves around moving a Version through this machine.</p>
+    </div>
+    <div class="card">
+      <h3>Why ReviewSubmission is peer, not child</h3>
+      <p>The modern <em>ReviewSubmission</em> is a <em>batch</em> — it can bundle a Version plus IAPs, in-app events, and custom product pages into one review. Modelling it as a child of AppStoreVersion would hide this batch-across-aggregates structure. It's a peer aggregate that <em>references</em> the version(s) it submits.</p>
+    </div>
+    <div class="card">
+      <h3>Build as independent aggregate</h3>
+      <p><em>Build</em> has its own lifecycle (uploaded → processed → usable → expired) that is not owned by any single Version. The same Build binary can be attached to an App Store Version <em>and</em> distributed by multiple <em>BetaGroup</em>s — each with its own 90-day TestFlight clock. Hence a peer, not a child.</p>
+    </div>
+  </div>
+
+  <footer class="footer">
+    ASC Command Center &nbsp;·&nbsp; docs/domain/release-domain-model &nbsp;·&nbsp; v1 &nbsp;·&nbsp; 4 aggregates · 2 external refs · 5 relationships · default skin
+  </footer>
+
+</main>
+</body>
+</html>
