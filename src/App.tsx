@@ -9,6 +9,7 @@ import {
   useToggleMode,
   useCommandLog,
 } from './shared/api-client.tsx';
+import { CurrentAppProvider } from './shared/current-app.tsx';
 import { ThemeProvider, useTheme } from './shared/components/ThemeProvider.tsx';
 import { Sidebar } from './shared/layout/Sidebar.tsx';
 import { Header } from './shared/layout/Header.tsx';
@@ -121,9 +122,11 @@ export function App() {
   return (
     <ThemeProvider>
       <DataModeProviderComponent>
-        <CommandLogProvider>
-          <AppShell />
-        </CommandLogProvider>
+        <CurrentAppProvider>
+          <CommandLogProvider>
+            <AppShell />
+          </CommandLogProvider>
+        </CurrentAppProvider>
       </DataModeProviderComponent>
     </ThemeProvider>
   );
