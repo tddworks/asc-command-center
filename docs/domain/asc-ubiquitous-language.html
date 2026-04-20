@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ubiquitous Language — ASC Command Center</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --paper: #faf7f2;
+    --paper-2: #f2ede4;
+    --ink: #1c1917;
+    --muted: #57534e;
+    --soft: #78716c;
+    --rule: rgba(28, 25, 23, 0.12);
+    --rule-solid: rgba(120, 113, 108, 0.25);
+    --accent: #b5523a;
+    --accent-tint: rgba(181, 82, 58, 0.08);
+    --link: #2563eb;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: 'Geist', system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  .page {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 80px 32px 96px;
+  }
+
+  /* ── Header ── */
+
+  .eyebrow {
+    font-family: 'Geist Mono', monospace;
+    font-size: 8px;
+    font-weight: 500;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--soft);
+    margin: 0 0 16px;
+  }
+
+  h1.title {
+    font-family: 'Instrument Serif', serif;
+    font-size: 1.75rem;
+    font-weight: 400;
+    line-height: 1.2;
+    margin: 0 0 12px;
+    color: var(--ink);
+    letter-spacing: -0.01em;
+  }
+
+  .subtitle {
+    font-family: 'Instrument Serif', serif;
+    font-style: italic;
+    font-size: 1rem;
+    color: var(--muted);
+    margin: 0 0 48px;
+    max-width: 56ch;
+  }
+
+  /* ── Sub-domain sub-header ── */
+
+  .subdomain {
+    font-family: 'Geist Mono', monospace;
+    font-size: 8px;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 48px 0 16px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid var(--rule-solid);
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+  }
+
+  .subdomain:first-of-type { margin-top: 0; }
+
+  .subdomain .count {
+    color: var(--soft);
+    letter-spacing: 0.1em;
+  }
+
+  /* ── Term card ── */
+
+  .term {
+    padding: 20px 0 24px;
+    border-bottom: 1px solid var(--rule);
+  }
+
+  .term:last-child { border-bottom: none; }
+
+  .term-head {
+    display: flex;
+    align-items: baseline;
+    gap: 12px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+  }
+
+  .headword {
+    font-family: 'Geist', sans-serif;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--accent);
+    letter-spacing: 0;
+  }
+
+  .pos {
+    font-family: 'Geist Mono', monospace;
+    font-size: 7px;
+    font-weight: 500;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--soft);
+    padding: 3px 6px;
+    border: 0.8px solid var(--rule-solid);
+    border-radius: 2px;
+    white-space: nowrap;
+  }
+
+  .definition {
+    font-family: 'Geist', sans-serif;
+    font-size: 13px;
+    line-height: 1.55;
+    color: var(--ink);
+    margin: 0 0 8px;
+  }
+
+  .definition em {
+    font-family: 'Instrument Serif', serif;
+    font-style: italic;
+    font-size: 14px;
+    color: var(--ink);
+  }
+
+  .meta {
+    font-family: 'Geist Mono', monospace;
+    font-size: 9px;
+    line-height: 1.6;
+    color: var(--muted);
+    margin: 4px 0 0;
+  }
+
+  .meta .label {
+    color: var(--soft);
+    letter-spacing: 0.04em;
+  }
+
+  .meta.not {
+    color: var(--muted);
+  }
+  .meta.not .label {
+    color: var(--accent);
+    opacity: 0.8;
+  }
+
+  .meta .ref {
+    font-family: 'Geist', sans-serif;
+    font-style: italic;
+    font-size: 10px;
+    color: var(--muted);
+  }
+
+  /* ── Footer ── */
+
+  .footer {
+    margin-top: 64px;
+    padding-top: 16px;
+    border-top: 1px solid var(--rule);
+    font-family: 'Geist Mono', monospace;
+    font-size: 9px;
+    color: var(--soft);
+    letter-spacing: 0.04em;
+  }
+</style>
+</head>
+<body>
+<main class="page">
+
+  <p class="eyebrow">ASC Command Center · Domain Design</p>
+  <h1 class="title">Ubiquitous Language</h1>
+  <p class="subtitle">Twelve load-bearing terms. Pins the Version / Build / Submission / Release quartet and resolves the <em>Build</em> and <em>Review</em> homonyms that recur across the tool.</p>
+
+  <!-- ── RELEASE ── -->
+
+  <div class="subdomain">Release <span class="count">— 4 terms</span></div>
+
+  <article class="term">
+    <div class="term-head">
+      <span class="headword">Version</span>
+      <span class="pos">Noun · Aggregate</span>
+    </div>
+    <p class="definition">A specific edition of an app submitted to the App Store — identified by a marketing version string (e.g.&nbsp;<em>2.1.0</em>) and its state in Apple's review pipeline. An app may have multiple Versions in flight at once (one <em>Ready For Sale</em>, one <em>Prepare For Submission</em>).</p>
+    <p class="meta"><span class="label">also called:</span> App Store Version</p>
+    <p class="meta not"><span class="label">not:</span> <span class="ref">Build</span> — a Version ships with one Build attached, but they are distinct resources. Not a Git tag or Xcode project version either.</p>
+    <p class="meta"><span class="label">source:</span> ASC API · <code>appStoreVersions</code></p>
+  </article>
+
+  <article class="term">
+    <div class="term-head">
+      <span class="headword">Build</span>
+      <span class="pos">Noun · Entity</span>
+    </div>
+    <p class="definition">The uploaded binary (<em>.ipa</em> / <em>.pkg</em>) produced by compiling the app, identified by its build number (e.g.&nbsp;<em>105</em>). A Build exists independently of any Version and can be attached to multiple Versions over time — production submission, external TestFlight, internal TestFlight.</p>
+    <p class="meta"><span class="label">also called:</span> artifact, binary</p>
+    <p class="meta not"><span class="label">not:</span> <span class="ref">CI Build Run</span> — an Xcode Cloud <code>ciBuildRun</code> is a CI execution. The Run <em>produces</em> a Build. Not the same as <span class="ref">Beta Build</span> — same binary resource, different lifecycle.</p>
+    <p class="meta"><span class="label">source:</span> ASC API · <code>builds</code></p>
+  </article>
+
+  <article class="term">
+    <div class="term-head">
+      <span class="headword">Submission</span>
+      <span class="pos">Noun · Aggregate</span>
+    </div>
+    <p class="definition">The act of handing a Release package (a Version + its Build, plus any bundled IAPs, subscriptions, or in-app events) to Apple for review. The modern form is a <em>Review Submission</em> — a batch that groups multiple items into one review, replacing the legacy per-version submission.</p>
+    <p class="meta"><span class="label">also called:</span> review submission, batch submission</p>
+    <p class="meta not"><span class="label">not:</span> <span class="ref">Release</span> — Submission is the request-for-review; Release is what happens after Apple approves.</p>
+    <p class="meta"><span class="label">source:</span> ASC API · <code>reviewSubmissions</code>, <code>reviewSubmissionItems</code></p>
+  </article>
+
+  <article class="term">
+    <div class="term-head">
+      <span class="headword">Release</span>
+      <span class="pos">Noun · Event / Verb</span>
+    </div>
+    <p class="definition">The event of making an approved Version available to end users — either all at once (<em>immediate</em>) or gradually over seven days (<em>phased</em>). As a verb: <em>to release</em> triggers this transition.</p>
+    <p class="meta"><span class="label">also called:</span> go live, ship, publish</p>
+    <p class="meta not"><span class="label">not:</span> <span class="ref">Submission</span> (the review request) or <span class="ref">Build upload</span> (putting the artifact on Apple's server). Nothing is "released" until Apple has approved and the release request fires.</p>
+    <p class="meta"><span class="label">source:</span> ASC API · <code>appStoreVersionReleaseRequests</code>, <code>appStoreVersionPhasedReleases</code></p>
+  </article>
+
+  <!-- ── TESTFLIGHT ── -->
+
+  <div class="subdomain">TestFlight <span class="count">— 2 terms</span></div>
+
+  <article class="term">
+    <div class="term-head">
+      <span class="headword">Beta Build</span>
+      <span class="pos">Noun · Entity</span>
+    </div>
+    <p class="definition">A Build distributed to testers via TestFlight. Expires <em>90 days</em> after upload — after which testers can no longer install or launch it. External distribution additionally requires a Beta App Review.</p>
+    <p class="meta"><span class="label">also called:</span> TestFlight build</p>
+    <p class="meta not"><span class="label">not:</span> a production <span class="ref">Build</span> — same binary resource, different lifecycle and different review. The 90-day clock applies only to beta distribution.</p>
+    <p class="meta"><span class="label">source:</span> ASC API · <code>builds</code> + <code>buildBetaDetails</code></p>
+  </article>
+
+  <article class="term">
+    <div class="term-head">
+      <span class="headword">Beta Group</span>
+      <span class="pos">Noun · Aggregate</span>
+    </div>
+    <p class="definition">A named cohort of TestFlight testers. <em>Internal</em> groups are drawn from the Users &amp; Access team (up to 100) and skip Beta App Review. <em>External</em> groups accept invited testers (up to 10,000) and require Beta App Review per Build.</p>
+    <p class="meta"><span class="label">also called:</span> tester group</p>
+    <p class="meta not"><span class="label">not:</span> the testers themselves — a Tester (identified by email) can belong to multiple Groups. Not a <span class="ref">User</span> — TestFlight testers are outside Users &amp; Access.</p>
+    <p class="meta"><span class="label">source:</span> ASC API · <code>betaGroups</code>, <code>betaTesters</code></p>
+  </article>
+
+  <!-- ── CUSTOMER RELATIONS ── -->
+
+  <div class="subdomain">Customer Relations <span class="count">— 1 term</span></div>
+
+  <article class="term">
+    <div class="term-head">
+      <span class="headword">Customer Review</span>
+      <span class="pos">Noun · Entity</span>
+    </div>
+    <p class="definition">A star rating (1–5) and optional text comment left by an end user on the App Store page. Scoped per territory and per version. The developer may post one Response per Review.</p>
+    <p class="meta"><span class="label">also called:</span> App Store review, user review, rating</p>
+    <p class="meta not"><span class="label">not:</span> <span class="ref">Apple Review</span> — the approval process performed by the App Review team on a <span class="ref">Submission</span>. Same word, unrelated concept. Also not TestFlight beta feedback.</p>
+    <p class="meta"><span class="label">source:</span> ASC API · <code>customerReviews</code>, <code>customerReviewResponses</code></p>
+  </article>
+
+  <!-- ── MONETIZATION ── -->
+
+  <div class="subdomain">Monetization <span class="count">— 2 terms</span></div>
+
+  <article class="term">
+    <div class="term-head">
+      <span class="headword">In-App Purchase</span>
+      <span class="pos">Noun · Aggregate</span>
+    </div>
+    <p class="definition">A paid digital good sold inside the app. Three kinds: <em>Consumable</em> (used up — gem packs), <em>Non-Consumable</em> (permanent — feature unlocks), and <em>Non-Renewing Subscription</em> (fixed-duration access). Each IAP has its own independent Apple review lifecycle.</p>
+    <p class="meta"><span class="label">also called:</span> IAP</p>
+    <p class="meta not"><span class="label">not:</span> <span class="ref">Subscription</span> — auto-renewable subscriptions live in their own aggregate with groups and offers. Not a paid-app price — the app itself being paid is a separate pricing schedule.</p>
+    <p class="meta"><span class="label">source:</span> ASC API · <code>inAppPurchases</code></p>
+  </article>
+
+  <article class="term">
+    <div class="term-head">
+      <span class="headword">Subscription</span>
+      <span class="pos">Noun · Aggregate</span>
+    </div>
+    <p class="definition">An auto-renewing entitlement. Every Subscription belongs to a <em>Subscription Group</em> whose tiers are mutually exclusive — a customer can only be active in one at a time. May carry Introductory Offers, Promotional Offers, Offer Codes, or Win-Back Offers.</p>
+    <p class="meta"><span class="label">also called:</span> auto-renewable, auto-renewing, auto-renew</p>
+    <p class="meta not"><span class="label">not:</span> <em>Non-Renewing Subscription</em> — confusingly, that's a variant of <span class="ref">In-App Purchase</span>, not of Subscription. Apple's naming, not ours.</p>
+    <p class="meta"><span class="label">source:</span> ASC API · <code>subscriptions</code>, <code>subscriptionGroups</code></p>
+  </article>
+
+  <!-- ── SIGNING & IDENTITY ── -->
+
+  <div class="subdomain">Signing &amp; Identity <span class="count">— 2 terms</span></div>
+
+  <article class="term">
+    <div class="term-head">
+      <span class="headword">Certificate</span>
+      <span class="pos">Noun · Entity</span>
+    </div>
+    <p class="definition">A cryptographic certificate issued by Apple that authorizes code signing. Three types: <em>Development</em>, <em>Distribution</em> (App Store), and <em>Developer ID</em> (direct-download macOS). Tied to an Apple ID or team.</p>
+    <p class="meta"><span class="label">also called:</span> signing certificate, cert</p>
+    <p class="meta not"><span class="label">not:</span> <span class="ref">Provisioning Profile</span> — the Profile <em>uses</em> a Certificate plus a Bundle ID plus optional Devices. The Certificate is one ingredient; the Profile is the composition.</p>
+    <p class="meta"><span class="label">source:</span> ASC API · <code>certificates</code></p>
+  </article>
+
+  <article class="term">
+    <div class="term-head">
+      <span class="headword">Provisioning Profile</span>
+      <span class="pos">Noun · Aggregate</span>
+    </div>
+    <p class="definition">The signing authority embedded into a build. Bundles together a Certificate, a Bundle ID, optional allowed Devices, and entitlements so iOS/macOS will trust and run the binary. Expires on its own clock — Profiles can go stale even when the underlying Certificate is still valid.</p>
+    <p class="meta"><span class="label">also called:</span> profile, mobileprovision, <code>.mobileprovision</code></p>
+    <p class="meta not"><span class="label">not:</span> a <span class="ref">Certificate</span> alone. Development profiles embed Devices; Distribution profiles don't — this is the most common source of "works on my device, fails in TestFlight" confusion.</p>
+    <p class="meta"><span class="label">source:</span> ASC API · <code>profiles</code></p>
+  </article>
+
+  <!-- ── XCODE CLOUD ── -->
+
+  <div class="subdomain">Xcode Cloud <span class="count">— 1 term</span></div>
+
+  <article class="term">
+    <div class="term-head">
+      <span class="headword">Workflow</span>
+      <span class="pos">Noun · Aggregate</span>
+    </div>
+    <p class="definition">An Xcode Cloud CI pipeline definition for a <em>Product</em> (app or Swift package). Binds a Git reference pattern, one or more <em>Actions</em> (build, test, archive), and post-actions (TestFlight upload, notifications). Triggering a Workflow creates a <em>CI Build Run</em> which produces artifacts — and, optionally, an uploaded <span class="ref">Build</span>.</p>
+    <p class="meta"><span class="label">also called:</span> CI workflow, Xcode Cloud workflow</p>
+    <p class="meta not"><span class="label">not:</span> a <span class="ref">Build</span>. A Workflow runs; a <code>ciBuildRun</code> executes; the Run <em>uploads</em> a Build. This is the most load-bearing homonym in ASC — one word, two aggregates in two contexts.</p>
+    <p class="meta"><span class="label">source:</span> ASC API · <code>ciWorkflows</code>, <code>ciBuildRuns</code></p>
+  </article>
+
+  <footer class="footer">
+    ASC Command Center &nbsp;·&nbsp; docs/domain/asc-ubiquitous-language &nbsp;·&nbsp; v1 &nbsp;·&nbsp; 12 terms &nbsp;·&nbsp; default skin
+  </footer>
+
+</main>
+</body>
+</html>
