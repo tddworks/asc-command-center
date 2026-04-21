@@ -1183,8 +1183,6 @@ textarea.form-input { min-height: 80px; resize: vertical; line-height: 1.5; }
 /* ─── App Info page layout ──────────────────────────────────────── */
 
 .app-info-wrap {
-  max-width: 980px;
-  margin: 0 auto;
   padding-bottom: 96px;
   display: flex;
   flex-direction: column;
