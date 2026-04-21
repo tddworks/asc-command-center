@@ -1,6 +1,6 @@
 import { AppInfo } from '../AppInfo.ts';
 import { AppInfoLocalization } from '../AppInfoLocalization.ts';
-import type { AppInfoRepository } from '../AppInfoRepository.ts';
+import type { AppInfoListHints, AppInfoRepository } from '../AppInfoRepository.ts';
 
 /**
  * In-memory AppInfo store. Seeds deterministic fixtures for known mock apps
@@ -15,7 +15,7 @@ export class MockAppInfoRepository implements AppInfoRepository {
   private store: Map<string, Snapshot> = new Map();
   private idSeed = 1000;
 
-  async list(appId: string): Promise<AppInfo[]> {
+  async list(appId: string, _hints?: AppInfoListHints): Promise<AppInfo[]> {
     if (!this.store.has(appId)) this.store.set(appId, seedFor(appId));
     return [hydrate(appId, this.store.get(appId)!, this)];
   }

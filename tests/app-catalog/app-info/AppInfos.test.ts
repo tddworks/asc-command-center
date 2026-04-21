@@ -29,7 +29,7 @@ describe('AppInfos (root aggregate)', () => {
     const roots = new AppInfos(repo);
 
     await expect(roots.list('app-1')).resolves.toEqual([fixture]);
-    expect(repo.list).toHaveBeenCalledWith('app-1');
+    expect(repo.list).toHaveBeenCalledWith('app-1', undefined);
   });
 
   it('propagates repository errors', async () => {

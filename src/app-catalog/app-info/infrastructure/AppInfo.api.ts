@@ -1,6 +1,6 @@
 import { AppInfo } from '../AppInfo.ts';
 import { AppInfoLocalization } from '../AppInfoLocalization.ts';
-import type { AppInfoRepository } from '../AppInfoRepository.ts';
+import type { AppInfoListHints, AppInfoRepository } from '../AppInfoRepository.ts';
 import { apiClient, type DataMode } from '../../../shared/api-client.tsx';
 import type { Affordances } from '../../../shared/types.ts';
 import { MockAppInfoRepository } from './AppInfo.mock.ts';
@@ -49,10 +49,10 @@ export class RestAppInfoRepository implements AppInfoRepository {
   private readonly saveFallback = new MockAppInfoRepository();
   private saveWarned = false;
 
-  async list(appId: string): Promise<AppInfo[]> {
+  async list(appId: string, hints?: AppInfoListHints): Promise<AppInfo[]> {
     const resp = await apiClient.get<{ data: AppInfoDTO[] }>(`/api/v1/apps/${appId}/app-infos`);
     const dtos = resp.data ?? [];
-    return Promise.all(dtos.map((dto) => this.hydrate(dto, appId)));
+    return Promise.all(dtos.map((dto) => this.hydrate(dto, appId, hints?.primaryLocale)));
   }
 
   async save(appInfo: AppInfo): Promise<void> {
@@ -68,13 +68,32 @@ export class RestAppInfoRepository implements AppInfoRepository {
 
   // ── internals ──────────────────────────────────────────────────
 
-  private async hydrate(dto: AppInfoDTO, appId: string): Promise<AppInfo> {
+  private async hydrate(
+    dto: AppInfoDTO,
+    appId: string,
+    hintedPrimary?: string,
+  ): Promise<AppInfo> {
     const localizations = await this.loadLocalizations(dto.affordances);
 
+    // Prefer the hint from the workspace (the App's actual primaryLocale),
+    // otherwise fall back to the first existing localization or en-US.
     const primaryLocale =
+      hintedPrimary ??
       localizations.find((l) => l.locale === 'en-US')?.locale ??
       localizations[0]?.locale ??
       'en-US';
+
+    // Seed an empty primary-locale row if the backend didn't return one —
+    // so the form always has a target to bind to. Added BEFORE `new AppInfo`
+    // so it's part of the pristine snapshot (no false "unsaved changes").
+    if (!localizations.some((l) => l.locale === primaryLocale)) {
+      localizations.unshift(new AppInfoLocalization({
+        id: '',
+        locale: primaryLocale,
+        name: '',
+        subtitle: null,
+      }));
+    }
 
     const primaryRow = localizations.find((l) => l.locale === primaryLocale);
     const primaryRaw = primaryRow as unknown as { privacyPolicyUrl?: string | null } | undefined;

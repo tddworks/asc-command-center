@@ -6,11 +6,19 @@ import { useDataMode } from '../../shared/api-client.tsx';
 
 /**
  * Loads all AppInfo rows for the app (one per version state) and returns
- * the row that matches `selectedVersionState` — the AppInfo lifecycle state
- * is usually what Apple calls the "appStoreState" here and maps 1:1 to the
- * Version.state. If no row matches, falls back to the first one.
+ * the row that matches `selectedVersionState` — Apple calls that the
+ * `appStoreState` on AppInfo and it maps 1:1 to Version.state. If no row
+ * matches, falls back to the first one.
+ *
+ * `primaryLocale` is threaded to the REST adapter so it can seed an empty
+ * primary-locale row when the backend returns none — the form always has a
+ * valid target to bind to.
  */
-export function useAppInfo(appId: string | null, selectedVersionState: string | null) {
+export function useAppInfo(
+  appId: string | null,
+  selectedVersionState: string | null,
+  primaryLocale: string | null,
+) {
   const [list, setList] = useState<AppInfo[]>([]);
   const [loading, setLoading] = useState<boolean>(!!appId);
   const [error, setError] = useState<Error | null>(null);
@@ -28,13 +36,13 @@ export function useAppInfo(appId: string | null, selectedVersionState: string | 
     setError(null);
 
     repositoryFor(mode)
-      .then((repo) => new AppInfos(repo).list(appId))
+      .then((repo) => new AppInfos(repo).list(appId, { primaryLocale: primaryLocale ?? undefined }))
       .then((items) => { if (!cancelled) setList(items); })
       .catch((e) => { if (!cancelled) setError(e as Error); })
       .finally(() => { if (!cancelled) setLoading(false); });
 
     return () => { cancelled = true; };
-  }, [appId, mode]);
+  }, [appId, mode, primaryLocale]);
 
   // Pick the AppInfo row whose appStoreState matches the version we're
   // looking at. Cheap derivation on every render — no extra re-fetch.

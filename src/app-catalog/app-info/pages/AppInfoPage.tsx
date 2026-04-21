@@ -26,6 +26,7 @@ function AppInfoPage() {
   const { appInfo, loading, error } = useAppInfo(
     currentApp?.id ?? null,
     selectedVersion?.state ?? null,
+    currentApp?.primaryLocale ?? null,
   );
 
   if (!workspace?.hydrated) return <div className="spinner">Loading…</div>;
@@ -56,69 +57,12 @@ function AppInfoPage() {
 
   return (
     <div>
-      <AppInfoHeader />
       <AppMetadataCard appInfo={appInfo} />
       <div style={{ height: 16 }} />
       <LocalizationsCard appInfo={appInfo} />
     </div>
   );
 }
-
-// ─── Page header with version selector ─────────────────────────────
-
-const AppInfoHeader = observer(() => {
-  const workspace = useWorkspace();
-  if (!workspace) return null;
-
-  const app = workspace.currentApp;
-  if (!app) return null;
-
-  return (
-    <div style={{
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      marginBottom: 16, gap: 12, flexWrap: 'wrap',
-    }}>
-      <div>
-        <h2 style={{ margin: 0, fontSize: 18, fontWeight: 600, color: 'var(--text-primary)' }}>
-          {app.name}
-        </h2>
-        <div style={{
-          fontFamily: 'SF Mono, Menlo, monospace',
-          fontSize: 12, color: 'var(--text-muted)', marginTop: 2,
-        }}>
-          {app.bundleId}
-        </div>
-      </div>
-
-      {app.versions.length > 0 && app.selectedVersion && (
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-          <label
-            htmlFor="ai-version"
-            style={{
-              fontSize: 11, fontWeight: 600, letterSpacing: '0.06em',
-              textTransform: 'uppercase', color: 'var(--text-muted)',
-            }}
-          >
-            Version
-          </label>
-          <select
-            id="ai-version"
-            className="form-input select-styled"
-            style={{ minWidth: 180, padding: '6px 28px 6px 10px', fontSize: 13 }}
-            value={app.selectedVersion.id}
-            onChange={(e) => workspace.selectVersion(e.target.value)}
-          >
-            {app.versions.map((v) => (
-              <option key={v.id} value={v.id}>
-                {v.versionString} · {v.statusLabel}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
-    </div>
-  );
-});
 
 // ─── App Metadata card ─────────────────────────────────────────────
 
