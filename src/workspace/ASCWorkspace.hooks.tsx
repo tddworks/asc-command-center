@@ -1,6 +1,6 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
-import { Apps } from '../app/Apps.ts';
-import { repositoryFor } from '../app/infrastructure/App.api.ts';
+import { Apps } from '../app-catalog/app/Apps.ts';
+import { repositoryFor } from '../app-catalog/app/infrastructure/App.api.ts';
 import { useDataMode } from '../shared/api-client.tsx';
 import { ASCWorkspace } from './ASCWorkspace.ts';
 import { LocalStorageWorkspaceStore } from './infrastructure/LocalStorage.store.ts';

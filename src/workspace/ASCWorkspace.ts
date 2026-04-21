@@ -1,6 +1,6 @@
 import { makeAutoObservable, runInAction } from 'mobx';
-import { App } from '../app/App.ts';
-import type { Apps } from '../app/Apps.ts';
+import { App } from '../app-catalog/app/App.ts';
+import type { Apps } from '../app-catalog/app/Apps.ts';
 import type { WorkspaceStore } from './WorkspaceStore.ts';
 
 /**

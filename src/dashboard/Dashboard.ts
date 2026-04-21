@@ -1,5 +1,5 @@
-import type { Build } from '../build/Build.ts';
-import type { Certificate } from '../code-signing/Certificate.ts';
+import type { Build } from '../release/build/Build.ts';
+import type { Certificate } from '../developer-tools/code-signing/Certificate.ts';
 
 /**
  * Fleet-wide briefing — "what needs my attention?"

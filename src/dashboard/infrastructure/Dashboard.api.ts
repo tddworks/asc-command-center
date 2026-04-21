@@ -1,6 +1,6 @@
 import { Dashboard } from '../Dashboard.ts';
-import { Build } from '../../build/Build.ts';
-import { Certificate } from '../../code-signing/Certificate.ts';
+import { Build } from '../../release/build/Build.ts';
+import { Certificate } from '../../developer-tools/code-signing/Certificate.ts';
 import { apiClient, type DataMode } from '../../shared/api-client.tsx';
 import type { DashboardRepository } from '../DashboardRepository.ts';
 

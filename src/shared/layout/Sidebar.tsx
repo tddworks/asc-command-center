@@ -1,5 +1,76 @@
 import { NavLink } from 'react-router-dom';
-import { usePluginRegistry } from '../../plugin/PluginContext.tsx';
+import { observer } from 'mobx-react-lite';
+import { usePluginRegistry } from '../../extensibility/plugin/PluginContext.tsx';
+import { useWorkspace } from '../../workspace/ASCWorkspace.hooks.tsx';
+import type { App } from '../../app-catalog/app/App.ts';
+import type { Version } from '../../release/version/Version.ts';
+
+function SelectedAppCard() {
+  const workspace = useWorkspace();
+  if (!workspace || !workspace.hydrated) return null;
+
+  const { apps, currentApp } = workspace;
+
+  const onAppChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
+    await workspace.selectApp(e.target.value);
+  };
+
+  const onVersionChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    workspace.selectVersion(e.target.value);
+  };
+
+  return (
+    <div className="selected-app-card">
+      <div className="nav-section-title">Selected App</div>
+      <select className="sidebar-select" value={currentApp?.id ?? ''} onChange={onAppChange}>
+        {apps.length === 0 && <option value="">No apps</option>}
+        {apps.map((a: App) => (
+          <option key={a.id} value={a.id}>
+            {a.name} · {a.bundleId}
+          </option>
+        ))}
+      </select>
+
+      {currentApp && currentApp.versions.length > 0 && (
+        <>
+          <div className="nav-section-title" style={{ marginTop: 12 }}>Version</div>
+          <select
+            className="sidebar-select"
+            value={currentApp.selectedVersion?.id ?? ''}
+            onChange={onVersionChange}
+          >
+            {currentApp.versions.map((v: Version) => (
+              <option key={v.id} value={v.id}>
+                {platformGlyph(v.platform)} {v.versionString}
+              </option>
+            ))}
+          </select>
+
+          {currentApp.selectedVersion && (
+            <>
+              <div className="nav-section-title" style={{ marginTop: 12 }}>Status</div>
+              <span className={`status-pill status-pill-${currentApp.statusTone}`}>
+                {currentApp.statusLabel}
+              </span>
+            </>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
+function platformGlyph(platform: string): string {
+  switch (platform) {
+    case 'IOS': return '📱';
+    case 'MAC_OS': return '💻';
+    case 'TV_OS': return '📺';
+    case 'VISION_OS': return '🥽';
+    default: return '📱';
+  }
+}
+
+const ObservedSelectedAppCard = observer(SelectedAppCard);
 
 export function Sidebar() {
   const registry = usePluginRegistry();
@@ -24,12 +95,28 @@ export function Sidebar() {
             Dashboard
           </NavLink>
           <NavLink className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`} to="/apps">
-            <div style={{width:'18px',height:'18px',borderRadius:'4px',background:'var(--text-muted)',display:'flex',alignItems:'center',justifyContent:'center',color:'#fff',fontSize:'9px',fontWeight:700,flexShrink:0}}>?</div>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6v6H9z"/></svg>
             Apps
           </NavLink>
         </div>
 
-        {/* Release */}
+        {/* Selected-app header card (app + version + status) */}
+        <ObservedSelectedAppCard />
+
+        {/* App Catalog (core) */}
+        <div className="nav-section">
+          <div className="nav-section-title">App Catalog</div>
+          <NavLink className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`} to="/app-info">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+            App Info
+          </NavLink>
+          <NavLink className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`} to="/screenshots">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+            Screenshots
+          </NavLink>
+        </div>
+
+        {/* Release (core) */}
         <div className="nav-section">
           <div className="nav-section-title">Release</div>
           <NavLink className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`} to="/apps/app-1/versions">
@@ -51,23 +138,6 @@ export function Sidebar() {
           </NavLink>
         </div>
 
-        {/* Metadata */}
-        <div className="nav-section">
-          <div className="nav-section-title">Metadata</div>
-          <NavLink className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`} to="/app-info">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
-            App Info
-          </NavLink>
-          <NavLink className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`} to="/screenshots">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
-            Screenshots
-          </NavLink>
-          <NavLink className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`} to="/reviews">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
-            Reviews
-          </NavLink>
-        </div>
-
         {/* Monetization */}
         <div className="nav-section">
           <div className="nav-section-title">Monetization</div>
@@ -79,31 +149,36 @@ export function Sidebar() {
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M23 6l-9.5 9.5-5-5L1 18"/><path d="M17 6h6v6"/></svg>
             Subscriptions
           </NavLink>
+        </div>
+
+        {/* Customer Relations */}
+        <div className="nav-section">
+          <div className="nav-section-title">Customer Relations</div>
+          <NavLink className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`} to="/reviews">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            Reviews
+          </NavLink>
+        </div>
+
+        {/* Analytics */}
+        <div className="nav-section">
+          <div className="nav-section-title">Analytics</div>
           <NavLink className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`} to="/reports">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg>
             Reports
           </NavLink>
         </div>
 
-        {/* Private API */}
+        {/* Developer Tools (generics — deferred in the context map) */}
         <div className="nav-section">
-          <div className="nav-section-title">Private API</div>
-          <NavLink className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`} to="/iris">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
-            Iris
-          </NavLink>
-        </div>
-
-        {/* Infrastructure */}
-        <div className="nav-section">
-          <div className="nav-section-title">Infrastructure</div>
-          <NavLink className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`} to="/code-signing">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-            Code Signing
-          </NavLink>
+          <div className="nav-section-title">Developer Tools</div>
           <NavLink className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`} to="/xcode-cloud">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9z"/></svg>
             Xcode Cloud
+          </NavLink>
+          <NavLink className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`} to="/code-signing">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+            Code Signing
           </NavLink>
           <NavLink className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`} to="/users">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
@@ -112,6 +187,15 @@ export function Sidebar() {
           <NavLink className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`} to="/simulators">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"/><line x1="12" y1="18" x2="12.01" y2="18"/></svg>
             Simulators
+          </NavLink>
+        </div>
+
+        {/* Extensibility */}
+        <div className="nav-section">
+          <div className="nav-section-title">Extensibility</div>
+          <NavLink className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`} to="/iris">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+            Iris
           </NavLink>
           <NavLink className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`} to="/plugins">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2v6m0 0l3-3m-3 3l-3-3"/><rect x="4" y="8" width="16" height="14" rx="2"/><path d="M9 15h6"/></svg>
@@ -122,7 +206,7 @@ export function Sidebar() {
         {/* Plugin sidebar items */}
         {pluginItems.length > 0 && (
           <div className="nav-section">
-            <div className="nav-section-title">Plugins</div>
+            <div className="nav-section-title">Plugin Widgets</div>
             {pluginItems.map((item) => (
               <NavLink
                 key={item.id}

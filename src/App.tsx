@@ -1,7 +1,7 @@
 import { Suspense, lazy, useState } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import { PluginProvider } from './plugin/PluginContext.tsx';
-import { pluginRegistry } from './plugin/PluginRegistry.ts';
+import { PluginProvider } from './extensibility/plugin/PluginContext.tsx';
+import { pluginRegistry } from './extensibility/plugin/PluginRegistry.ts';
 import {
   DataModeProviderComponent,
   CommandLogProvider,
@@ -16,24 +16,24 @@ import { Header } from './shared/layout/Header.tsx';
 import { CommandLogModal } from './shared/components/CommandLogModal.tsx';
 
 const DashboardPage = lazy(() => import('./dashboard/pages/DashboardPage.tsx'));
-const AppList = lazy(() => import('./app/pages/AppList.tsx'));
-const AppDetail = lazy(() => import('./app/pages/AppDetail.tsx'));
-const VersionList = lazy(() => import('./version/pages/VersionList.tsx'));
-const BuildList = lazy(() => import('./build/pages/BuildList.tsx'));
-const ReviewList = lazy(() => import('./review/pages/ReviewList.tsx'));
-const TestFlightPage = lazy(() => import('./testflight/pages/TestFlightPage.tsx'));
-const CodeSigningPage = lazy(() => import('./code-signing/pages/CodeSigningPage.tsx'));
-const SubmissionPage = lazy(() => import('./submission/pages/SubmissionPage.tsx'));
-const XcodeCloudPage = lazy(() => import('./xcode-cloud/pages/XcodeCloudPage.tsx'));
-const ReportsPage = lazy(() => import('./report/pages/ReportsPage.tsx'));
-const SimulatorPage = lazy(() => import('./simulator/pages/SimulatorPage.tsx'));
-const UserPage = lazy(() => import('./user/pages/UserPage.tsx'));
-const IrisPage = lazy(() => import('./iris/pages/IrisPage.tsx'));
-const IAPPage = lazy(() => import('./iap/pages/IAPPage.tsx'));
-const SubscriptionPage = lazy(() => import('./subscription/pages/SubscriptionPage.tsx'));
-const AppInfoPage = lazy(() => import('./app-info/pages/AppInfoPage.tsx'));
-const ScreenshotPage = lazy(() => import('./screenshot/pages/ScreenshotPage.tsx'));
-const PluginsPage = lazy(() => import('./plugin/pages/PluginsPage.tsx'));
+const AppList = lazy(() => import('./app-catalog/app/pages/AppList.tsx'));
+const AppDetail = lazy(() => import('./app-catalog/app/pages/AppDetail.tsx'));
+const VersionList = lazy(() => import('./release/version/pages/VersionList.tsx'));
+const BuildList = lazy(() => import('./release/build/pages/BuildList.tsx'));
+const ReviewList = lazy(() => import('./customer-relations/review/pages/ReviewList.tsx'));
+const TestFlightPage = lazy(() => import('./release/testflight/pages/TestFlightPage.tsx'));
+const CodeSigningPage = lazy(() => import('./developer-tools/code-signing/pages/CodeSigningPage.tsx'));
+const SubmissionPage = lazy(() => import('./release/submission/pages/SubmissionPage.tsx'));
+const XcodeCloudPage = lazy(() => import('./developer-tools/xcode-cloud/pages/XcodeCloudPage.tsx'));
+const ReportsPage = lazy(() => import('./analytics/report/pages/ReportsPage.tsx'));
+const SimulatorPage = lazy(() => import('./developer-tools/simulator/pages/SimulatorPage.tsx'));
+const UserPage = lazy(() => import('./developer-tools/user/pages/UserPage.tsx'));
+const IrisPage = lazy(() => import('./extensibility/iris/pages/IrisPage.tsx'));
+const IAPPage = lazy(() => import('./monetization/iap/pages/IAPPage.tsx'));
+const SubscriptionPage = lazy(() => import('./monetization/subscription/pages/SubscriptionPage.tsx'));
+const AppInfoPage = lazy(() => import('./app-catalog/app-info/pages/AppInfoPage.tsx'));
+const ScreenshotPage = lazy(() => import('./app-catalog/screenshot/pages/ScreenshotPage.tsx'));
+const PluginsPage = lazy(() => import('./extensibility/plugin/pages/PluginsPage.tsx'));
 
 function LoadingSpinner() {
   return <div className="spinner">Loading...</div>;

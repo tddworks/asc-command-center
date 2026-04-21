@@ -1,8 +1,8 @@
 import { describe, it, expect, vi } from 'vitest';
-import { App, type AppInit } from '../../src/app/App.ts';
-import { Apps } from '../../src/app/Apps.ts';
-import { Version, VersionState } from '../../src/version/Version.ts';
-import type { AppRepository } from '../../src/app/AppRepository.ts';
+import { App, type AppInit } from '../../src/app-catalog/app/App.ts';
+import { Apps } from '../../src/app-catalog/app/Apps.ts';
+import { Version, VersionState } from '../../src/release/version/Version.ts';
+import type { AppRepository } from '../../src/app-catalog/app/AppRepository.ts';
 import { ASCWorkspace } from '../../src/workspace/ASCWorkspace.ts';
 import { InMemoryWorkspaceStore } from '../../src/workspace/infrastructure/Memory.store.ts';
 

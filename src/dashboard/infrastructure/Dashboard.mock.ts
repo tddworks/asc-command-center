@@ -1,6 +1,6 @@
 import { Dashboard } from '../Dashboard.ts';
-import { Build, BuildProcessingState } from '../../build/Build.ts';
-import { Certificate } from '../../code-signing/Certificate.ts';
+import { Build, BuildProcessingState } from '../../release/build/Build.ts';
+import { Certificate } from '../../developer-tools/code-signing/Certificate.ts';
 import type { DashboardRepository } from '../DashboardRepository.ts';
 
 function daysFromNow(days: number): string {
