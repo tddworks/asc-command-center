@@ -22,7 +22,11 @@ const CATEGORIES: Array<{ id: string; label: string }> = [
 function AppInfoPage() {
   const workspace = useWorkspace();
   const currentApp = workspace?.currentApp ?? null;
-  const { appInfo, loading, error } = useAppInfo(currentApp?.id ?? null);
+  const selectedVersion = currentApp?.selectedVersion ?? null;
+  const { appInfo, loading, error } = useAppInfo(
+    currentApp?.id ?? null,
+    selectedVersion?.state ?? null,
+  );
 
   if (!workspace?.hydrated) return <div className="spinner">Loading…</div>;
 

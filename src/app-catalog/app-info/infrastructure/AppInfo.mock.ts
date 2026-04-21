@@ -15,9 +15,9 @@ export class MockAppInfoRepository implements AppInfoRepository {
   private store: Map<string, Snapshot> = new Map();
   private idSeed = 1000;
 
-  async get(appId: string): Promise<AppInfo> {
+  async list(appId: string): Promise<AppInfo[]> {
     if (!this.store.has(appId)) this.store.set(appId, seedFor(appId));
-    return hydrate(appId, this.store.get(appId)!, this);
+    return [hydrate(appId, this.store.get(appId)!, this)];
   }
 
   async save(appInfo: AppInfo): Promise<void> {

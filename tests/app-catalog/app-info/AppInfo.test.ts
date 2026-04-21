@@ -5,7 +5,7 @@ import type { AppInfoRepository } from '../../../src/app-catalog/app-info/AppInf
 
 function stubRepo(overrides: Partial<AppInfoRepository> = {}): AppInfoRepository {
   return {
-    get: vi.fn(),
+    list: vi.fn(),
     save: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };

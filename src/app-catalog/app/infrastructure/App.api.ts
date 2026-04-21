@@ -6,13 +6,17 @@ import type { AppRepository } from '../AppRepository.ts';
 
 export class RestAppRepository implements AppRepository {
   async list(): Promise<App[]> {
-    const json = await apiClient.get<{ data: Record<string, unknown>[] }>('/api/v1/apps');
+    // ?include=icon enriches each row with `iconAsset: { templateUrl, ... }`
+    // so AppIcon renders real Apple CDN icons without a second request.
+    const json = await apiClient.get<{ data: Record<string, unknown>[] }>('/api/v1/apps?include=icon');
     return json.data.map((row) => App.fromJSON(row, this));
   }
 
   async get(id: string): Promise<App> {
-    const json = await apiClient.get<{ data: Record<string, unknown> }>(`/api/v1/apps/${id}`);
-    return App.fromJSON(json.data, this);
+    const json = await apiClient.get<{ data: Record<string, unknown> }>(`/api/v1/apps/${id}?include=icon`);
+    // Single-resource endpoints return `data` as an object OR a one-item array.
+    const row = Array.isArray(json.data) ? (json.data as Record<string, unknown>[])[0] : json.data;
+    return App.fromJSON(row ?? {}, this);
   }
 
   async builds(app: App): Promise<Build[]> {

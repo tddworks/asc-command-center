@@ -75,11 +75,12 @@ export class App {
   // ── Capability Checks — from server affordances ──
 
   get canViewVersions(): boolean {
-    return 'getVersions' in this.affordances;
+    // Backend ships `listVersions`; earlier fixtures used `getVersions`.
+    return 'listVersions' in this.affordances || 'getVersions' in this.affordances;
   }
 
   get canViewBuilds(): boolean {
-    return 'getBuilds' in this.affordances;
+    return 'listBuilds' in this.affordances || 'getBuilds' in this.affordances;
   }
 
   // ── Display ──
@@ -168,9 +169,10 @@ export class App {
   // ── Factory ──
 
   static fromJSON(json: Record<string, unknown>, repo?: AppRepository): App {
-    // Icon sources may arrive as a flat iconUrl, an ASC-shaped
-    // iconAssetToken: { templateUrl }, or the ascii shorthand `icon`.
+    // Icon sources: `iconAsset` (our backend via ?include=icon),
+    // `iconAssetToken` (ASC relationship shape), or `icon` shorthand.
     const iconAsset =
+      (json.iconAsset as { templateUrl?: string } | undefined) ??
       (json.iconAssetToken as { templateUrl?: string } | undefined) ??
       (json.icon as { templateUrl?: string } | undefined);
 
