@@ -2,20 +2,22 @@ import { useEffect, useState } from 'react';
 import { Dashboard } from './Dashboard.ts';
 import { repositoryFor } from './infrastructure/Dashboard.api.ts';
 import { useDataMode } from '../shared/api-client.tsx';
-import { useCurrentApp } from '../shared/current-app.tsx';
+import { useWorkspace } from '../workspace/ASCWorkspace.hooks.tsx';
 
 export function useDashboard() {
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const mode = useDataMode();
-  const { currentAppId, loading: currentAppLoading } = useCurrentApp();
+  const workspace = useWorkspace();
+  const currentAppId = workspace?.currentApp?.id ?? null;
+  const hydrated = workspace?.hydrated ?? false;
 
   useEffect(() => {
-    // Wait for current-app resolution before firing — avoids an initial
+    // Wait for the workspace to hydrate before firing — avoids an initial
     // load with currentAppId=null and then a re-load as soon as the first
     // app is auto-picked.
-    if (currentAppLoading) return;
+    if (!hydrated) return;
 
     let cancelled = false;
     setLoading(true);
@@ -33,7 +35,7 @@ export function useDashboard() {
     return () => {
       cancelled = true;
     };
-  }, [mode, currentAppId, currentAppLoading]);
+  }, [mode, currentAppId, hydrated]);
 
   return { dashboard, loading, error };
 }

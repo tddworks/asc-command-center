@@ -9,7 +9,7 @@ import {
   useToggleMode,
   useCommandLog,
 } from './shared/api-client.tsx';
-import { CurrentAppProvider } from './shared/current-app.tsx';
+import { WorkspaceProvider } from './workspace/ASCWorkspace.hooks.tsx';
 import { ThemeProvider, useTheme } from './shared/components/ThemeProvider.tsx';
 import { Sidebar } from './shared/layout/Sidebar.tsx';
 import { Header } from './shared/layout/Header.tsx';
@@ -122,11 +122,11 @@ export function App() {
   return (
     <ThemeProvider>
       <DataModeProviderComponent>
-        <CurrentAppProvider>
+        <WorkspaceProvider>
           <CommandLogProvider>
             <AppShell />
           </CommandLogProvider>
-        </CurrentAppProvider>
+        </WorkspaceProvider>
       </DataModeProviderComponent>
     </ThemeProvider>
   );
