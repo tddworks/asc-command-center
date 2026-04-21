@@ -43,14 +43,51 @@ This codebase follows **Chicago-school (state-based) TDD** over a **rich, mutabl
 
 The user's current focus — which app, which version — is coordinated by `src/workspace/ASCWorkspace.ts` (MobX observable). `WorkspaceProvider` in `src/workspace/ASCWorkspace.hooks.tsx` builds an `ASCWorkspace` per data-mode, hydrates it via `LocalStorageWorkspaceStore`, and exposes it through context. Consumers call `useWorkspace()` and must be wrapped in `observer()` to re-render on focus changes. `ASCWorkspace` is a UI-shell concept, not a domain aggregate — the Swift SDK does not have one, because the CLI is scoped to a single app per invocation.
 
-### Feature module layout — cake-slice (vertical slice) pattern
+### Feature module layout — bounded-context over cake-slice
 
-The codebase is sliced **by feature, not by layer**. Each `src/<feature>/` is a self-contained cake slice that cuts through all layers — domain, application (hooks), infrastructure, and UI — for one capability. There is no top-level `controllers/`, `services/`, `repositories/`, or `components/`; those concerns live *inside* the slice they belong to. Slices depend on `src/shared/` and on each other's *domain class only* (never reach into another slice's `infrastructure/` or `pages/`).
+The codebase is sliced **by feature, grouped by bounded context**. Each feature is a self-contained cake slice that cuts through all layers — domain, application (hooks), infrastructure, UI — for one capability. Slices are then collected under their bounded context from `docs/domain/asc-context-map.html`. There is no top-level `controllers/`, `services/`, `repositories/`, or `components/`; those concerns live *inside* the slice they belong to. Slices depend on `src/shared/`, `src/workspace/`, and on each other's *domain class only* (never reach into another slice's `infrastructure/` or `pages/`).
 
-The canonical shape (see `src/app/`) is:
+**Top-level layout:**
 
 ```
-src/<feature>/                       ← one cake slice
+src/
+  app-catalog/         ← core: App, AppInfo, Screenshot
+    app/
+    app-info/
+    screenshot/
+  release/             ← core: Version, Build, TestFlight, Submission
+    version/
+    build/
+    testflight/
+    submission/
+  monetization/        ← supporting: IAP, Subscription
+    iap/
+    subscription/
+  customer-relations/  ← supporting: Review
+    review/
+  analytics/           ← supporting: Reports (sales/finance/performance)
+    report/
+  developer-tools/     ← generics: Xcode Cloud, Code Signing, Users, Simulators
+    xcode-cloud/
+    code-signing/
+    user/
+    simulator/
+  extensibility/       ← Iris (private API), Plugins
+    iris/
+    plugin/
+  dashboard/           ← overview shell, spans contexts
+  workspace/           ← session coordinator (ASCWorkspace); non-domain
+  shared/              ← cross-cutting utilities and UI primitives
+  App.tsx              ← router
+  main.tsx             ← Vite entry
+```
+
+Tests mirror this structure: `tests/<context>/<feature>/<Feature>.test.ts`.
+
+The canonical shape (see `src/app-catalog/app/`) is:
+
+```
+src/<context>/<feature>/             ← one cake slice
   <Feature>.ts                   # Domain: mutable observable class
                                  # (makeAutoObservable), options-object
                                  # constructor, semantic booleans,
@@ -84,9 +121,9 @@ Domain classes (e.g., `src/app/App.ts`) expose five kinds of members:
 4. **Navigation mutators** — `async loadVersions()`, `selectVersion(id)` — gate on the matching capability, then delegate to `this.repository.<method>(this)` and mutate the aggregate's fields in place. Short-circuit to `[]` when the affordance is absent; throw only if navigation is attempted without a repository attached. Mutation inside async work should go through `runInAction(...)`.
 5. **`static fromJSON(json, repo?)`** factory — tolerant of alternate field names (`version ?? buildNumber`), and threads an optional `repo` so hydrated objects can navigate.
 
-**Legacy slices** (`build/`, `version/`, `testflight/`, `iap/`, `code-signing/`, etc.) still use the pre-repository shape: a free `fetch<Feature>(appId, mode)` function in `infrastructure/<Feature>.api.ts` plus a plain-value-object domain class. Keep them working as-is; migrate to the repository shape when you next touch one. Full playbook: `docs/features/README.md`.
+**Legacy slices** (under `release/build/`, `release/version/`, `release/testflight/`, `monetization/iap/`, `developer-tools/code-signing/`, etc.) still use the pre-repository shape: a free `fetch<Feature>(appId, mode)` function in `infrastructure/<Feature>.api.ts` plus a plain-value-object domain class. Keep them working as-is; migrate to the repository + MobX-observable shape when you next touch one. Full playbook: `docs/features/README.md`.
 
-**Adding a new feature**: scaffold the canonical shape above, register its page route in `src/App.tsx`, and add `tests/<feature>/<Feature>.test.ts` + `tests/<feature>/<Features>.test.ts`. Keep the slice closed: don't spread one feature's concerns across other folders.
+**Adding a new feature**: pick the right context directory (App Catalog / Release / Monetization / Customer Relations / Analytics / Developer Tools / Extensibility), scaffold the canonical shape at `src/<context>/<feature>/`, register its page route in `src/App.tsx`, and add `tests/<context>/<feature>/<Feature>.test.ts` + `tests/<context>/<feature>/<Features>.test.ts`. Keep the slice closed: don't spread one feature's concerns across other folders.
 
 ### Routing & pages
 
