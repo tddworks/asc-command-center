@@ -229,6 +229,37 @@ describe('App', () => {
     expect(repo.builds).toHaveBeenCalledWith(app);
   });
 
+  // ── Icon resolution ──
+
+  it('iconSrc returns null when no icon source is known', () => {
+    const app = new App(appInit());
+    expect(app.iconSrc()).toBeNull();
+  });
+
+  it('iconSrc prefers a resolved iconUrl over a templateUrl', () => {
+    const app = new App(appInit({
+      iconUrl: 'https://cdn.example/icon.png',
+      iconTemplateUrl: 'https://cdn.example/{w}x{h}{f}.png',
+    }));
+    expect(app.iconSrc()).toBe('https://cdn.example/icon.png');
+  });
+
+  it('iconSrc substitutes template placeholders when only the template is known', () => {
+    const app = new App(appInit({
+      iconTemplateUrl: 'https://cdn.example/icon/{w}x{h}bb.{f}',
+    }));
+    expect(app.iconSrc(128)).toBe('https://cdn.example/icon/128x128bb.png');
+  });
+
+  it('fromJSON hydrates iconAssetToken into iconTemplateUrl', () => {
+    const app = App.fromJSON({
+      id: 'a-1', name: 'App', bundleId: 'com.x', sku: 'SKU', primaryLocale: 'en-US',
+      isAvailableInNewTerritories: true,
+      iconAssetToken: { templateUrl: 'https://cdn.example/{w}x{h}bb.{f}' },
+    });
+    expect(app.iconSrc(64)).toBe('https://cdn.example/64x64bb.png');
+  });
+
   // ── Hydration ──
 
   it('hydrates from API JSON', () => {

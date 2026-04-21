@@ -13,6 +13,10 @@ export interface AppInit {
   isAvailableInNewTerritories: boolean;
   affordances: Affordances;
   contentRightsDeclaration?: string;
+  /** Already-resolved icon URL (http, data:, etc.). Takes precedence. */
+  iconUrl?: string;
+  /** ASC ImageAsset template URL — contains `{w}x{h}` and `{f}` placeholders. */
+  iconTemplateUrl?: string;
 }
 
 /**
@@ -31,6 +35,8 @@ export class App {
   isAvailableInNewTerritories: boolean;
   affordances: Affordances;
   contentRightsDeclaration?: string;
+  iconUrl?: string;
+  iconTemplateUrl?: string;
 
   /** Versions loaded for this app (populated by loadVersions()). */
   versions: Version[] = [];
@@ -49,6 +55,8 @@ export class App {
     this.isAvailableInNewTerritories = init.isAvailableInNewTerritories;
     this.affordances = init.affordances;
     this.contentRightsDeclaration = init.contentRightsDeclaration;
+    this.iconUrl = init.iconUrl;
+    this.iconTemplateUrl = init.iconTemplateUrl;
     this.repository = repository;
 
     makeAutoObservable(this, { id: false, repository: false });
@@ -86,6 +94,23 @@ export class App {
 
   get statusTone(): 'success' | 'info' | 'warning' | 'danger' | 'neutral' {
     return this.selectedVersion?.statusTone ?? 'neutral';
+  }
+
+  /**
+   * Resolve the icon URL for a desired pixel size. Prefers a direct `iconUrl`,
+   * falls back to the Apple ImageAsset template URL with `{w}`/`{h}`/`{f}`
+   * placeholders substituted. Returns `null` when no icon source is known —
+   * the UI should render the first-letter fallback.
+   */
+  iconSrc(size = 64): string | null {
+    if (this.iconUrl) return this.iconUrl;
+    if (this.iconTemplateUrl) {
+      return this.iconTemplateUrl
+        .replace(/\{w\}/g, String(size))
+        .replace(/\{h\}/g, String(size))
+        .replace(/\{f\}/g, 'png');
+    }
+    return null;
   }
 
   // ── Navigation (mutating) ──
@@ -143,6 +168,12 @@ export class App {
   // ── Factory ──
 
   static fromJSON(json: Record<string, unknown>, repo?: AppRepository): App {
+    // Icon sources may arrive as a flat iconUrl, an ASC-shaped
+    // iconAssetToken: { templateUrl }, or the ascii shorthand `icon`.
+    const iconAsset =
+      (json.iconAssetToken as { templateUrl?: string } | undefined) ??
+      (json.icon as { templateUrl?: string } | undefined);
+
     return new App(
       {
         id: json.id as string,
@@ -153,6 +184,8 @@ export class App {
         isAvailableInNewTerritories: (json.isAvailableInNewTerritories as boolean) ?? true,
         affordances: (json.affordances as Affordances) ?? {},
         contentRightsDeclaration: json.contentRightsDeclaration as string | undefined,
+        iconUrl: json.iconUrl as string | undefined,
+        iconTemplateUrl: iconAsset?.templateUrl,
       },
       repo ?? null,
     );

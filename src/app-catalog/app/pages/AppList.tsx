@@ -1,11 +1,13 @@
-import { useApps } from '../App.hooks.ts';
+import { observer } from 'mobx-react-lite';
+import { useWorkspace } from '../../../workspace/ASCWorkspace.hooks.tsx';
 import { AppCard } from '../components/AppCard.tsx';
 
-export default function AppList() {
-  const { apps, loading, error } = useApps();
+function AppList() {
+  const workspace = useWorkspace();
 
-  if (loading) return <div className="spinner">Loading apps...</div>;
-  if (error) return <div className="error">Error: {error.message}</div>;
+  if (!workspace || !workspace.hydrated) {
+    return <div className="spinner">Loading apps...</div>;
+  }
 
   return (
     <div>
@@ -15,7 +17,7 @@ export default function AppList() {
         </div>
         <div className="card-body" style={{ padding: 0 }}>
           <div className="grid-3" style={{ padding: 16 }}>
-            {apps.map((app) => (
+            {workspace.apps.map((app) => (
               <AppCard key={app.id} app={app} />
             ))}
           </div>
@@ -24,3 +26,5 @@ export default function AppList() {
     </div>
   );
 }
+
+export default observer(AppList);
