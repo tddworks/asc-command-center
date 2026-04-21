@@ -444,20 +444,199 @@ textarea.form-input { min-height: 80px; resize: vertical; line-height: 1.5; }
   border-radius: var(--radius);
 }
 
-.sidebar-select {
+/* ─── SidebarSelect (styled dropdown with popover) ─── */
+
+.sidebar-select-root {
+  position: relative;
+}
+
+.sidebar-select-button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   width: 100%;
-  padding: 8px 10px;
+  padding: 10px;
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   color: var(--text-primary);
   font-size: 13px;
   font-family: inherit;
+  text-align: left;
   cursor: pointer;
+  transition: border-color 0.12s ease, box-shadow 0.12s ease;
 }
-.sidebar-select:focus {
+.sidebar-select-button:hover {
+  border-color: var(--text-muted);
+}
+.sidebar-select-button.is-open,
+.sidebar-select-button:focus-visible {
   outline: none;
   border-color: var(--accent);
+  box-shadow: 0 0 0 3px rgba(37,99,235,0.12);
+}
+
+.sidebar-select-button .ss-leading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.ss-app-glyph {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 6px;
+  color: #fff;
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+}
+
+.ss-version-glyph {
+  display: inline-flex;
+  width: 24px;
+  height: 24px;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+}
+
+.ss-labels {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+  gap: 1px;
+}
+
+.ss-primary {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ss-placeholder {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.ss-secondary {
+  font-size: 11px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: SF Mono, Menlo, monospace;
+  letter-spacing: 0.01em;
+}
+
+.ss-trailing {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+}
+
+.ss-chevron {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  color: var(--text-muted);
+  transition: transform 0.12s ease;
+}
+.sidebar-select-button.is-open .ss-chevron {
+  transform: rotate(180deg);
+}
+
+.sidebar-select-popover {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 12px 32px rgba(0,0,0,0.14), 0 2px 6px rgba(0,0,0,0.06);
+  overflow: hidden;
+  animation: ss-pop 0.1s ease-out;
+}
+@keyframes ss-pop {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.sidebar-select-filter {
+  width: 100%;
+  padding: 8px 10px;
+  border: none;
+  border-bottom: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-primary);
+  font-size: 12px;
+  font-family: inherit;
+  outline: none;
+}
+
+.sidebar-select-list {
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.sidebar-select-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 8px;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.08s ease;
+}
+.sidebar-select-row.is-active {
+  background: rgba(37,99,235,0.08);
+}
+.sidebar-select-row.is-selected {
+  background: rgba(37,99,235,0.12);
+}
+.sidebar-select-row.is-selected .ss-primary { color: var(--accent); }
+
+.sidebar-select-empty {
+  padding: 14px 10px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+/* Status dot — used as trailing indicator on version rows */
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.status-dot-success { background: #10b981; }
+.status-dot-info    { background: #2563eb; }
+.status-dot-warning { background: #f59e0b; }
+.status-dot-danger  { background: #dc2626; }
+.status-dot-neutral { background: #78716c; }
+
+.selected-app-status {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
 }
 
 /* Status pills — used in the selected-app card */
