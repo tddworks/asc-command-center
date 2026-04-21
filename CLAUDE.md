@@ -29,13 +29,19 @@ On mount, `DataModeProviderComponent` probes `GET /api/v1` with a 2s timeout and
 
 ### TDD & rich domain design
 
-This codebase follows **Chicago-school (state-based) TDD** over a **rich domain model**. The domain class owns the behavior; components and infrastructure are thin. Navigation between aggregates flows through **repository ports**: `src/app/` is the canonical slice — see `docs/features/README.md` for the full playbook.
+This codebase follows **Chicago-school (state-based) TDD** over a **rich, mutable, observable domain model** (MobX). The domain class owns the behavior; components and infrastructure are thin. Navigation between aggregates flows through **repository ports**: `src/app/` is the canonical slice — see `docs/features/README.md` for the full playbook. The domain aims for 1:1 parity with the Swift SDK at `Sources/AppStoreSdk/Domain/` (mutable `@Observable` classes, stored repository refs, in-place caching of loaded children).
 
-- **Rich domain** — `src/<feature>/<Feature>.ts` is the only place business rules live. Components do not compute `build.processingState === 'VALID' && !build.expired`; they read `build.isUsable`. Route handlers do not inspect `_links` directly; they check `build.canAddToTestFlight`. Navigation (`app.loadBuilds()`) lives on the domain class and delegates to an injected `AppRepository` — **never** call infrastructure from components.
-- **Repository ports, not free fetchers** — new slices define `<Feature>Repository` in `src/<feature>/<Feature>Repository.ts` and expose a root aggregate (e.g., `Apps`) that wraps it. Mock and REST implementations live in `infrastructure/`; a `repositoryFor(mode)` factory picks one. Legacy slices still expose `fetchX(appId, mode)` — migrate to the repository shape when you touch them.
-- **State-based tests with `vi.fn()` stubs** — see `tests/app/App.test.ts` and `tests/app/Apps.test.ts`: construct the real domain object, pass a plain-object `AppRepository` whose methods are `vi.fn().mockResolvedValue(...)`, call the method, assert on the returned value (primary) and `toHaveBeenCalledWith(...)` / `not.toHaveBeenCalled()` when the test's intent is "repo should/shouldn't be hit." Do not mock the domain class itself, do not assert call sequences, and do not reach for `ts-mockito`/`vitest-mock-extended` — native Vitest mocking is enough.
-- **TDD loop** — red/green/refactor per behavior. Add one failing test that expresses the intent in domain terms (`isUsable`, `canDoX`, `loadBuilds`), make it pass with the minimum change, then refactor. Each `<Feature>.test.ts` groups by: semantic booleans, capability checks, navigation methods (delegates, short-circuits, throws-without-repo), and `fromJSON` hydration (including the permissive shape that tolerates mock vs REST field-name differences).
-- **Hooks and infra are integration-covered, not unit-tested** — `<Feature>.hooks.ts` is a thin wrapper around `new <Root>(await repositoryFor(mode))`; exercise it through page-level tests when needed rather than mocking React.
+- **Rich mutable domain** — `src/<feature>/<Feature>.ts` is the only place business rules live. Fields are `var` (mutable); navigation methods mutate in place (`this.versions = await repo.versions(this)`). Classes call `makeAutoObservable(this)` in the constructor so mutations propagate to `observer()`-wrapped React components. Components do not compute `build.processingState === 'VALID' && !build.expired`; they read `build.isUsable`. Route handlers do not inspect `_links` directly; they check `build.canAddToTestFlight`.
+- **Options-object constructors** — aggregates take a single `<Feature>Init` interface (see `src/app/App.ts`). Avoid positional arguments; they are fragile as the aggregate grows.
+- **Repository ports, not free fetchers** — new slices define `<Feature>Repository` in `src/<feature>/<Feature>Repository.ts` and expose a root aggregate (e.g., `Apps`) that wraps it. Mock and REST implementations live in `infrastructure/`; a `repositoryFor(mode)` factory picks one. Repository references are **stored on the aggregate** (e.g., `App.repository`), installed via `setRepository(...)` or threaded through the factory. Legacy slices still expose `fetchX(appId, mode)` — migrate to the repository shape when you touch them.
+- **Affordances are HATEOAS hrefs** — `apiClient.get` runs `normalizeLinks()` which flattens `_links: { action: { href } }` into `affordances: Record<string, string>` where the value is the URL path (e.g. `/api/v1/apps/app-1/versions`). Mock fixtures use the same shape so mock and REST modes are behaviourally identical. Capability checks use key presence only (`'getVersions' in this.affordances`).
+- **State-based tests with `vi.fn()` stubs** — see `tests/app/App.test.ts`, `tests/app/Apps.test.ts`, and `tests/workspace/ASCWorkspace.test.ts`: construct the real domain object, pass a plain-object repository whose methods are `vi.fn().mockResolvedValue(...)`, call the mutator, assert on the *mutated state* (primary) and `toHaveBeenCalledWith(...)` / `not.toHaveBeenCalled()` when the intent is "repo should/shouldn't be hit." Do not mock the domain class itself, do not assert call sequences, and do not reach for `ts-mockito`/`vitest-mock-extended` — native Vitest mocking is enough.
+- **TDD loop** — red/green/refactor per behavior. Add one failing test that expresses the intent in domain terms (`isUsable`, `canDoX`, `loadVersions`, `selectVersion`), make it pass with the minimum change, then refactor. Each `<Feature>.test.ts` groups by: semantic booleans, capability checks, display getters (e.g. `statusLabel`/`statusTone`), navigation mutators (mutates in place, short-circuits when affordance missing, throws without repo), and `fromJSON` hydration.
+- **Hooks and infra are integration-covered, not unit-tested** — `<Feature>.hooks.ts` is a thin wrapper that builds `new <Root>(await repositoryFor(mode))`; components that read observable state are wrapped in `observer(Component)` from `mobx-react-lite`; exercise them through page-level tests when needed rather than mocking React.
+
+### Session / workspace
+
+The user's current focus — which app, which version — is coordinated by `src/workspace/ASCWorkspace.ts` (MobX observable). `WorkspaceProvider` in `src/workspace/ASCWorkspace.hooks.tsx` builds an `ASCWorkspace` per data-mode, hydrates it via `LocalStorageWorkspaceStore`, and exposes it through context. Consumers call `useWorkspace()` and must be wrapped in `observer()` to re-render on focus changes. `ASCWorkspace` is a UI-shell concept, not a domain aggregate — the Swift SDK does not have one, because the CLI is scoped to a single app per invocation.
 
 ### Feature module layout — cake-slice (vertical slice) pattern
 
@@ -45,9 +51,11 @@ The canonical shape (see `src/app/`) is:
 
 ```
 src/<feature>/                       ← one cake slice
-  <Feature>.ts                   # Domain: readonly fields, semantic booleans,
-                                 # capability getters, navigation methods
-                                 # (app.loadBuilds() → this.repo.builds(this)),
+  <Feature>.ts                   # Domain: mutable observable class
+                                 # (makeAutoObservable), options-object
+                                 # constructor, semantic booleans,
+                                 # capability getters, navigation mutators
+                                 # (app.loadVersions() sets this.versions),
                                  # fromJSON(json, repo?) factory.
   <Feature>Repository.ts         # Port: interface the domain depends on
                                  # (list/get/plus navigation queries).
@@ -62,16 +70,19 @@ src/<feature>/                       ← one cake slice
                                  # imports the mock.
     <Feature>.mock.ts            # Mock<Feature>Repository class with
                                  # deterministic fixtures (attach `this` to
-                                 # every hydrated domain object so nav works).
+                                 # every hydrated domain object so nav works;
+                                 # affordance values are HATEOAS hrefs).
   pages/                         # UI: route-level components, lazy-loaded in App.tsx.
+                                 # Wrap in `observer()` if they read domain state.
   components/                    # UI: leaf components for this feature.
 ```
 
-Domain classes (e.g., `src/app/App.ts`) expose four kinds of members:
+Domain classes (e.g., `src/app/App.ts`) expose five kinds of members:
 1. **Semantic booleans** — `isValid`, `isUsable`, `isLive` — named for intent, not raw enum values.
 2. **Capability checks** — `canAddToTestFlight` → `'addToTestFlight' in this.affordances`. Gate UI actions on what the backend says is allowed.
-3. **Navigation** — `async loadBuilds()` / `async loadVersions()` — gate on the matching capability, then delegate to `this.repo.<method>(this)`. Short-circuit to `[]` when the affordance is absent; throw only if navigation is attempted on an App that has no repository attached.
-4. **`static fromJSON(json, repo?)`** factory — tolerant of alternate field names (`version ?? buildNumber`), and threads an optional `repo` so hydrated objects can navigate.
+3. **Display getters** — `statusLabel`, `statusTone`, `displayName` — pure mappings over state fields; used directly in templates instead of component-side switch statements.
+4. **Navigation mutators** — `async loadVersions()`, `selectVersion(id)` — gate on the matching capability, then delegate to `this.repository.<method>(this)` and mutate the aggregate's fields in place. Short-circuit to `[]` when the affordance is absent; throw only if navigation is attempted without a repository attached. Mutation inside async work should go through `runInAction(...)`.
+5. **`static fromJSON(json, repo?)`** factory — tolerant of alternate field names (`version ?? buildNumber`), and threads an optional `repo` so hydrated objects can navigate.
 
 **Legacy slices** (`build/`, `version/`, `testflight/`, `iap/`, `code-signing/`, etc.) still use the pre-repository shape: a free `fetch<Feature>(appId, mode)` function in `infrastructure/<Feature>.api.ts` plus a plain-value-object domain class. Keep them working as-is; migrate to the repository shape when you next touch one. Full playbook: `docs/features/README.md`.
 
@@ -79,7 +90,7 @@ Domain classes (e.g., `src/app/App.ts`) expose four kinds of members:
 
 ### Routing & pages
 
-`src/App.tsx` is the single router. All feature pages are `React.lazy` imports; add new built-in routes there. The shell (`Sidebar`, `Header`, `CommandLogModal`) wraps `<Routes>`. Providers stack: `ThemeProvider` → `DataModeProviderComponent` → `CommandLogProvider` → `BrowserRouter` → `PluginProvider`.
+`src/App.tsx` is the single router. All feature pages are `React.lazy` imports; add new built-in routes there. The shell (`Sidebar`, `Header`, `CommandLogModal`) wraps `<Routes>`. Providers stack: `ThemeProvider` → `DataModeProviderComponent` → `WorkspaceProvider` → `CommandLogProvider` → `BrowserRouter` → `PluginProvider`.
 
 ### Plugin system (`src/plugin/`)
 
