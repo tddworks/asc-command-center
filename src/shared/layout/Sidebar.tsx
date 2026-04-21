@@ -1,9 +1,11 @@
+import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { observer } from 'mobx-react-lite';
 import { usePluginRegistry } from '../../extensibility/plugin/PluginContext.tsx';
 import { useWorkspace } from '../../workspace/ASCWorkspace.hooks.tsx';
 import { SidebarSelect } from '../components/SidebarSelect.tsx';
 import { AppIcon } from '../components/AppIcon.tsx';
+import { AppPickerModal } from '../components/AppPickerModal.tsx';
 
 function platformLabel(platform: string): string {
   switch (platform) {
@@ -27,17 +29,11 @@ function platformGlyph(platform: string): string {
 
 function SelectedAppCard() {
   const workspace = useWorkspace();
+  const [pickerOpen, setPickerOpen] = useState(false);
+
   if (!workspace || !workspace.hydrated) return null;
 
   const { apps, currentApp } = workspace;
-
-  const appOptions = apps.map((a) => ({
-    id: a.id,
-    leading: <AppIcon app={a} size={32} />,
-    primary: a.name,
-    secondary: a.bundleId,
-    searchText: `${a.name} ${a.bundleId}`,
-  }));
 
   const versionOptions = (currentApp?.versions ?? []).map((v) => ({
     id: v.id,
@@ -54,49 +50,64 @@ function SelectedAppCard() {
   }));
 
   return (
-    <div className="selected-app-block">
-      <SidebarSelect
-        label="Selected App"
-        options={appOptions}
+    <>
+      <div className="selected-app-block">
+        <div className="nav-section-title">Selected App</div>
+        <button
+          type="button"
+          className="sidebar-select-button"
+          onClick={() => setPickerOpen(true)}
+        >
+          {currentApp ? (
+            <>
+              <span className="ss-leading"><AppIcon app={currentApp} size={32} /></span>
+              <span className="ss-labels">
+                <span className="ss-primary">{currentApp.name}</span>
+              </span>
+            </>
+          ) : (
+            <span className="ss-primary ss-placeholder">No app selected</span>
+          )}
+          <svg className="ss-chevron" viewBox="0 0 16 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <polyline points="5 8 8 5 11 8"/>
+            <polyline points="5 12 8 15 11 12"/>
+          </svg>
+        </button>
+
+        {currentApp && currentApp.versions.length > 0 && currentApp.selectedVersion && (
+          <div className="selected-app-version">
+            <span className="selected-app-label">Version</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <SidebarSelect
+                options={versionOptions}
+                selectedId={currentApp.selectedVersion.id}
+                onSelect={(id) => workspace.selectVersion(id)}
+                placeholder="No version"
+                filterable={false}
+              />
+            </div>
+          </div>
+        )}
+
+        {currentApp?.selectedVersion && (
+          <div className="selected-app-status">
+            <span className="selected-app-label">Status</span>
+            <span className={`status-pill status-pill-${currentApp.statusTone}`}>
+              {currentApp.statusLabel}
+            </span>
+          </div>
+        )}
+      </div>
+
+      <AppPickerModal
+        open={pickerOpen}
+        apps={apps}
         selectedId={currentApp?.id ?? null}
         onSelect={(id) => { void workspace.selectApp(id); }}
-        placeholder="No app selected"
-        emptyText="No apps available"
-        compactButton
+        onClose={() => setPickerOpen(false)}
       />
-
-      {currentApp && currentApp.versions.length > 0 && currentApp.selectedVersion && (
-        <div className="selected-app-version">
-          <span className="selected-app-label">Version</span>
-          <VersionPicker />
-        </div>
-      )}
-
-      {currentApp?.selectedVersion && (
-        <div className="selected-app-status">
-          <span className="selected-app-label">Status</span>
-          <span className={`status-pill status-pill-${currentApp.statusTone}`}>
-            {currentApp.statusLabel}
-          </span>
-        </div>
-      )}
-    </div>
+    </>
   );
-
-  function VersionPicker() {
-    return (
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <SidebarSelect
-          label=""
-          options={versionOptions}
-          selectedId={currentApp!.selectedVersion!.id}
-          onSelect={(id) => workspace!.selectVersion(id)}
-          placeholder="No version"
-          filterable={false}
-        />
-      </div>
-    );
-  }
 }
 
 const ObservedSelectedAppCard = observer(SelectedAppCard);
@@ -122,10 +133,6 @@ export function Sidebar() {
           <NavLink className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`} to="/" end>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
             Dashboard
-          </NavLink>
-          <NavLink className={({isActive}) => `nav-item ${isActive ? 'active' : ''}`} to="/apps">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M9 9h6v6H9z"/></svg>
-            Apps
           </NavLink>
         </div>
 
