@@ -1138,3 +1138,99 @@ textarea.form-input { min-height: 80px; resize: vertical; line-height: 1.5; }
   font-family: inherit;
   font-size: inherit;
 }
+
+/* ─── Screenshots page ────────────────────────────────────────────── */
+
+.ss-row {
+  padding: 12px 0;
+  border-bottom: 1px solid var(--border-light);
+}
+.ss-row:last-child { border-bottom: none; padding-bottom: 0; }
+.ss-row:first-child { padding-top: 0; }
+
+.ss-row-head {
+  margin-bottom: 12px;
+}
+.ss-row-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+.ss-required-tag {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(217,119,6,0.14);
+  color: #a16207;
+}
+.ss-row-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: 'SF Mono', Menlo, monospace;
+  letter-spacing: 0.02em;
+}
+
+.ss-thumb-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.ss-thumb {
+  border-radius: 8px;
+  overflow: hidden;
+  background: var(--bg-hover);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+}
+.ss-thumb:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+.ss-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.ss-add-slot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border-radius: 8px;
+  border: 1.5px dashed var(--border);
+  background: var(--bg);
+  color: var(--text-muted);
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.1s ease, background 0.1s ease, color 0.1s ease;
+  flex-shrink: 0;
+}
+.ss-add-slot:hover {
+  border-color: var(--accent);
+  background: rgba(37,99,235,0.04);
+  color: var(--accent);
+}
+.ss-add-slot-plus {
+  font-size: 24px;
+  font-weight: 300;
+  line-height: 1;
+}
+.ss-add-slot-label {
+  font-size: 11px;
+  font-weight: 600;
+}
