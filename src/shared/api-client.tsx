@@ -104,16 +104,37 @@ function withTimeout(ms: number): { signal: AbortSignal; cancel: () => void } {
   return { signal: controller.signal, cancel: () => clearTimeout(timer) };
 }
 
+/**
+ * In-flight GET deduplication — if the same URL is requested twice
+ * concurrently, share one promise. Prevents the fan-out caused by React
+ * StrictMode's double-invoked effects (and any user-level races).
+ * Entries are removed as soon as the underlying fetch settles, so
+ * subsequent calls hit the network normally.
+ */
+const inFlightGets = new Map<string, Promise<unknown>>();
+
 export const apiClient = {
   async get<T>(path: string): Promise<T> {
-    const { signal, cancel } = withTimeout(DEFAULT_TIMEOUT_MS);
+    const existing = inFlightGets.get(path) as Promise<T> | undefined;
+    if (existing) return existing;
+
+    const promise = (async () => {
+      const { signal, cancel } = withTimeout(DEFAULT_TIMEOUT_MS);
+      try {
+        const res = await fetch(path, { signal });
+        if (!res.ok) throw new ApiError(res.status, await res.text());
+        const json = await res.json();
+        return normalizeLinks(json) as T;
+      } finally {
+        cancel();
+      }
+    })();
+
+    inFlightGets.set(path, promise);
     try {
-      const res = await fetch(path, { signal });
-      if (!res.ok) throw new ApiError(res.status, await res.text());
-      const json = await res.json();
-      return normalizeLinks(json) as T;
+      return await promise;
     } finally {
-      cancel();
+      inFlightGets.delete(path);
     }
   },
 
