@@ -73,6 +73,27 @@ describe('AppInfo', () => {
     expect(info.hasUnsavedChanges).toBe(true);
   });
 
+  it('setPrivacyChoicesUrl flips dirty', () => {
+    const info = makeInfo();
+    info.setPrivacyChoicesUrl('https://x.test/choices');
+    expect(info.privacyChoicesUrl).toBe('https://x.test/choices');
+    expect(info.hasUnsavedChanges).toBe(true);
+  });
+
+  it('setContentRightsDeclaration flips dirty', () => {
+    const info = makeInfo();
+    info.setContentRightsDeclaration('USES_THIRD_PARTY_CONTENT');
+    expect(info.contentRightsDeclaration).toBe('USES_THIRD_PARTY_CONTENT');
+    expect(info.hasUnsavedChanges).toBe(true);
+  });
+
+  it('setContentRightsDeclaration can clear back to null', () => {
+    const info = makeInfo({ contentRightsDeclaration: 'USES_THIRD_PARTY_CONTENT' });
+    info.setContentRightsDeclaration(null);
+    expect(info.contentRightsDeclaration).toBeNull();
+    expect(info.hasUnsavedChanges).toBe(true);
+  });
+
   it('setting a field to its current value does not flip dirty', () => {
     const info = makeInfo();
     info.setPrimaryCategory('FOOD_AND_DRINK');
