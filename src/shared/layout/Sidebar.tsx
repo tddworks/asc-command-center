@@ -2,61 +2,30 @@ import { NavLink } from 'react-router-dom';
 import { observer } from 'mobx-react-lite';
 import { usePluginRegistry } from '../../extensibility/plugin/PluginContext.tsx';
 import { useWorkspace } from '../../workspace/ASCWorkspace.hooks.tsx';
+import { SidebarSelect } from '../components/SidebarSelect.tsx';
 import type { App } from '../../app-catalog/app/App.ts';
-import type { Version } from '../../release/version/Version.ts';
 
-function SelectedAppCard() {
-  const workspace = useWorkspace();
-  if (!workspace || !workspace.hydrated) return null;
+const appColors = ['#2563EB','#7C3AED','#059669','#D97706','#DC2626','#0891B2','#4F46E5','#EA580C'];
 
-  const { apps, currentApp } = workspace;
+function hashCode(str: string): number {
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash);
+}
 
-  const onAppChange = async (e: React.ChangeEvent<HTMLSelectElement>) => {
-    await workspace.selectApp(e.target.value);
-  };
-
-  const onVersionChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    workspace.selectVersion(e.target.value);
-  };
-
+function appGlyph(app: App) {
+  const color = appColors[hashCode(app.id) % appColors.length];
+  const initial = app.name.charAt(0).toUpperCase();
   return (
-    <div className="selected-app-card">
-      <div className="nav-section-title">Selected App</div>
-      <select className="sidebar-select" value={currentApp?.id ?? ''} onChange={onAppChange}>
-        {apps.length === 0 && <option value="">No apps</option>}
-        {apps.map((a: App) => (
-          <option key={a.id} value={a.id}>
-            {a.name} · {a.bundleId}
-          </option>
-        ))}
-      </select>
-
-      {currentApp && currentApp.versions.length > 0 && (
-        <>
-          <div className="nav-section-title" style={{ marginTop: 12 }}>Version</div>
-          <select
-            className="sidebar-select"
-            value={currentApp.selectedVersion?.id ?? ''}
-            onChange={onVersionChange}
-          >
-            {currentApp.versions.map((v: Version) => (
-              <option key={v.id} value={v.id}>
-                {platformGlyph(v.platform)} {v.versionString}
-              </option>
-            ))}
-          </select>
-
-          {currentApp.selectedVersion && (
-            <>
-              <div className="nav-section-title" style={{ marginTop: 12 }}>Status</div>
-              <span className={`status-pill status-pill-${currentApp.statusTone}`}>
-                {currentApp.statusLabel}
-              </span>
-            </>
-          )}
-        </>
-      )}
-    </div>
+    <span
+      className="ss-app-glyph"
+      style={{ background: color }}
+      aria-hidden
+    >
+      {initial}
+    </span>
   );
 }
 
@@ -68,6 +37,67 @@ function platformGlyph(platform: string): string {
     case 'VISION_OS': return '🥽';
     default: return '📱';
   }
+}
+
+function SelectedAppCard() {
+  const workspace = useWorkspace();
+  if (!workspace || !workspace.hydrated) return null;
+
+  const { apps, currentApp } = workspace;
+
+  const appOptions = apps.map((a) => ({
+    id: a.id,
+    leading: appGlyph(a),
+    primary: a.name,
+    secondary: a.bundleId,
+    searchText: `${a.name} ${a.bundleId}`,
+  }));
+
+  const versionOptions = (currentApp?.versions ?? []).map((v) => ({
+    id: v.id,
+    leading: <span className="ss-version-glyph" aria-hidden>{platformGlyph(v.platform)}</span>,
+    primary: v.versionString,
+    secondary: v.statusLabel,
+    trailing: (
+      <span className={`status-dot status-dot-${v.statusTone}`} aria-hidden />
+    ),
+    searchText: `${v.versionString} ${v.statusLabel}`,
+  }));
+
+  return (
+    <div className="selected-app-card">
+      <SidebarSelect
+        label="Selected App"
+        options={appOptions}
+        selectedId={currentApp?.id ?? null}
+        onSelect={(id) => { void workspace.selectApp(id); }}
+        placeholder="No app selected"
+        emptyText="No apps available"
+      />
+
+      {currentApp && currentApp.versions.length > 0 && (
+        <div style={{ marginTop: 10 }}>
+          <SidebarSelect
+            label="Version"
+            options={versionOptions}
+            selectedId={currentApp.selectedVersion?.id ?? null}
+            onSelect={(id) => workspace.selectVersion(id)}
+            placeholder="No version"
+            filterable={false}
+          />
+        </div>
+      )}
+
+      {currentApp?.selectedVersion && (
+        <div className="selected-app-status">
+          <span className="nav-section-title">Status</span>
+          <span className={`status-pill status-pill-${currentApp.statusTone}`}>
+            {currentApp.statusLabel}
+          </span>
+        </div>
+      )}
+    </div>
+  );
 }
 
 const ObservedSelectedAppCard = observer(SelectedAppCard);
