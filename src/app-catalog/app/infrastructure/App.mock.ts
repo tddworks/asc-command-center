@@ -42,7 +42,12 @@ export class MockAppRepository implements AppRepository {
   }
 
   async versions(app: App): Promise<Version[]> {
-    return mockVersions(app.id);
+    const { MockVersionRepository } = await import('../../../release/version/infrastructure/VersionRepository.mock.ts');
+    const versionRepo = new MockVersionRepository();
+    return mockVersions(app.id).map((v) => {
+      v.setRepository(versionRepo);
+      return v;
+    });
   }
 
   private fixtures(): App[] {
