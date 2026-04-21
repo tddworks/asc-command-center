@@ -71,6 +71,7 @@ function AppShell() {
                   <Route path="/" element={<DashboardPage />} />
                   <Route path="/apps" element={<AppList />} />
                   <Route path="/apps/:appId" element={<AppDetail />} />
+                  <Route path="/versions" element={<VersionList />} />
                   <Route path="/apps/:appId/versions" element={<VersionList />} />
                   <Route path="/builds" element={<BuildList />} />
                   <Route path="/reviews" element={<ReviewList />} />
