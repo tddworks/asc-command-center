@@ -1,4 +1,5 @@
 import { makeAutoObservable } from 'mobx';
+import type { Affordances } from '../../shared/types.ts';
 
 export interface AppInfoLocalizationInit {
   /** Backend resource id. Empty string for a locally-added locale awaiting save. */
@@ -7,6 +8,8 @@ export interface AppInfoLocalizationInit {
   locale: string;
   name: string;
   subtitle: string | null;
+  /** HATEOAS affordances on the localization resource (patch, delete, …). */
+  affordances?: Affordances;
 }
 
 /**
@@ -19,6 +22,7 @@ export class AppInfoLocalization {
   readonly locale: string;
   name: string;
   subtitle: string | null;
+  affordances: Affordances;
 
   private snapshot: { id: string; name: string; subtitle: string | null };
 
@@ -27,6 +31,7 @@ export class AppInfoLocalization {
     this.locale = init.locale;
     this.name = init.name;
     this.subtitle = init.subtitle;
+    this.affordances = init.affordances ?? {};
     this.snapshot = { id: init.id, name: init.name, subtitle: init.subtitle };
 
     makeAutoObservable(this, { locale: false });

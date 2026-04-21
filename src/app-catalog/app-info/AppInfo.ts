@@ -1,6 +1,7 @@
 import { makeAutoObservable, runInAction } from 'mobx';
 import { AppInfoLocalization } from './AppInfoLocalization.ts';
 import type { AppInfoRepository } from './AppInfoRepository.ts';
+import type { Affordances } from '../../shared/types.ts';
 
 export interface AppInfoInit {
   id: string;
@@ -12,6 +13,12 @@ export interface AppInfoInit {
   marketingUrl: string | null;
   primaryLocale: string;
   localizations: AppInfoLocalization[];
+  /** HATEOAS affordances from the backend (updateCategories, listLocalizations, …). */
+  affordances?: Affordances;
+  /** Backend-owned lifecycle state — e.g. READY_FOR_DISTRIBUTION. Informational only. */
+  state?: string;
+  /** Live App Store status derived from the most recent version (READY_FOR_SALE, …). */
+  appStoreState?: string;
 }
 
 /** Snapshot of the top-level fields — used for dirty tracking + discard. */
@@ -44,6 +51,9 @@ export class AppInfo {
   supportUrl: string | null;
   marketingUrl: string | null;
   localizations: AppInfoLocalization[];
+  affordances: Affordances;
+  state: string | undefined;
+  appStoreState: string | undefined;
 
   repository: AppInfoRepository | null = null;
 
@@ -61,6 +71,9 @@ export class AppInfo {
     this.supportUrl = init.supportUrl;
     this.marketingUrl = init.marketingUrl;
     this.localizations = [...init.localizations];
+    this.affordances = init.affordances ?? {};
+    this.state = init.state;
+    this.appStoreState = init.appStoreState;
     this.snapshot = this.captureSnapshot();
 
     makeAutoObservable(this, {
