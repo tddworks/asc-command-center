@@ -9,8 +9,12 @@ export interface AppInfoInit {
   primaryCategoryId: string | null;
   secondaryCategoryId: string | null;
   privacyPolicyUrl: string | null;
+  /** California opt-out URL — rarely set but required in some jurisdictions. */
+  privacyChoicesUrl?: string | null;
   supportUrl: string | null;
   marketingUrl: string | null;
+  /** `USES_THIRD_PARTY_CONTENT` / `DOES_NOT_USE_THIRD_PARTY_CONTENT` / null. */
+  contentRightsDeclaration?: string | null;
   primaryLocale: string;
   localizations: AppInfoLocalization[];
   /** HATEOAS affordances from the backend (updateCategories, listLocalizations, …). */
@@ -26,8 +30,10 @@ interface AppInfoSnapshot {
   primaryCategoryId: string | null;
   secondaryCategoryId: string | null;
   privacyPolicyUrl: string | null;
+  privacyChoicesUrl: string | null;
   supportUrl: string | null;
   marketingUrl: string | null;
+  contentRightsDeclaration: string | null;
   localeIds: Set<string>;
   removedLocales: Map<string, AppInfoLocalization>;
 }
@@ -48,8 +54,10 @@ export class AppInfo {
   primaryCategoryId: string | null;
   secondaryCategoryId: string | null;
   privacyPolicyUrl: string | null;
+  privacyChoicesUrl: string | null;
   supportUrl: string | null;
   marketingUrl: string | null;
+  contentRightsDeclaration: string | null;
   localizations: AppInfoLocalization[];
   affordances: Affordances;
   state: string | undefined;
@@ -68,8 +76,10 @@ export class AppInfo {
     this.primaryCategoryId = init.primaryCategoryId;
     this.secondaryCategoryId = init.secondaryCategoryId;
     this.privacyPolicyUrl = init.privacyPolicyUrl;
+    this.privacyChoicesUrl = init.privacyChoicesUrl ?? null;
     this.supportUrl = init.supportUrl;
     this.marketingUrl = init.marketingUrl;
+    this.contentRightsDeclaration = init.contentRightsDeclaration ?? null;
     this.localizations = [...init.localizations];
     this.affordances = init.affordances ?? {};
     this.state = init.state;
@@ -95,12 +105,20 @@ export class AppInfo {
     this.privacyPolicyUrl = url;
   }
 
+  setPrivacyChoicesUrl(url: string | null): void {
+    this.privacyChoicesUrl = url;
+  }
+
   setSupportUrl(url: string | null): void {
     this.supportUrl = url;
   }
 
   setMarketingUrl(url: string | null): void {
     this.marketingUrl = url;
+  }
+
+  setContentRightsDeclaration(decl: string | null): void {
+    this.contentRightsDeclaration = decl;
   }
 
   // ── Localization management ──
@@ -157,8 +175,10 @@ export class AppInfo {
       this.primaryCategoryId !== this.snapshot.primaryCategoryId ||
       this.secondaryCategoryId !== this.snapshot.secondaryCategoryId ||
       this.privacyPolicyUrl !== this.snapshot.privacyPolicyUrl ||
+      this.privacyChoicesUrl !== this.snapshot.privacyChoicesUrl ||
       this.supportUrl !== this.snapshot.supportUrl ||
-      this.marketingUrl !== this.snapshot.marketingUrl
+      this.marketingUrl !== this.snapshot.marketingUrl ||
+      this.contentRightsDeclaration !== this.snapshot.contentRightsDeclaration
     );
   }
 
@@ -166,8 +186,10 @@ export class AppInfo {
     this.primaryCategoryId = this.snapshot.primaryCategoryId;
     this.secondaryCategoryId = this.snapshot.secondaryCategoryId;
     this.privacyPolicyUrl = this.snapshot.privacyPolicyUrl;
+    this.privacyChoicesUrl = this.snapshot.privacyChoicesUrl;
     this.supportUrl = this.snapshot.supportUrl;
     this.marketingUrl = this.snapshot.marketingUrl;
+    this.contentRightsDeclaration = this.snapshot.contentRightsDeclaration;
 
     // Drop locally-added locales; restore locally-removed ones.
     this.localizations = this.localizations.filter((l) =>
@@ -232,8 +254,10 @@ export class AppInfo {
       primaryCategoryId: (json.primaryCategoryId as string | null) ?? null,
       secondaryCategoryId: (json.secondaryCategoryId as string | null) ?? null,
       privacyPolicyUrl: (json.privacyPolicyUrl as string | null) ?? null,
+      privacyChoicesUrl: (json.privacyChoicesUrl as string | null) ?? null,
       supportUrl: (json.supportUrl as string | null) ?? null,
       marketingUrl: (json.marketingUrl as string | null) ?? null,
+      contentRightsDeclaration: (json.contentRightsDeclaration as string | null) ?? null,
       primaryLocale: (json.primaryLocale as string) ?? 'en-US',
       localizations: rawLocalizations.map((l) => new AppInfoLocalization({
         id: (l.id as string) ?? '',
@@ -251,8 +275,10 @@ export class AppInfo {
       primaryCategoryId: this.primaryCategoryId,
       secondaryCategoryId: this.secondaryCategoryId,
       privacyPolicyUrl: this.privacyPolicyUrl,
+      privacyChoicesUrl: this.privacyChoicesUrl,
       supportUrl: this.supportUrl,
       marketingUrl: this.marketingUrl,
+      contentRightsDeclaration: this.contentRightsDeclaration,
       localeIds: new Set(this.localizations.map((l) => l.locale)),
       removedLocales: new Map(),
     };
