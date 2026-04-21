@@ -46,4 +46,21 @@ export class Screenshot {
       .replace(/\{h\}/g, String(h))
       .replace(/\{f\}/g, 'png');
   }
+
+  /** Build a Screenshot from a backend response row. Tolerant of alternate
+   *  field names (`sourceUrl` vs `templateUrl`, `imageWidth` vs `width`, …). */
+  static fromJSON(json: Record<string, unknown>, order: number): Screenshot {
+    return new Screenshot({
+      id: (json.id as string) ?? '',
+      fileName: (json.fileName as string) ?? '',
+      templateUrl:
+        (json.sourceUrl as string | undefined)
+        ?? (json.templateUrl as string | undefined)
+        ?? null,
+      width: (json.imageWidth as number | undefined) ?? (json.width as number | undefined) ?? 0,
+      height: (json.imageHeight as number | undefined) ?? (json.height as number | undefined) ?? 0,
+      order,
+      state: (json.assetState as string | undefined) ?? (json.state as string | undefined),
+    });
+  }
 }
