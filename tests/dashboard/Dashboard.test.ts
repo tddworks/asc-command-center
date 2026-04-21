@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { Dashboard } from '../../src/dashboard/Dashboard.ts';
-import { Certificate } from '../../src/code-signing/Certificate.ts';
-import { Build, BuildProcessingState } from '../../src/build/Build.ts';
+import { Certificate } from '../../src/developer-tools/code-signing/Certificate.ts';
+import { Build, BuildProcessingState } from '../../src/release/build/Build.ts';
 import type { DashboardRepository } from '../../src/dashboard/DashboardRepository.ts';
 
 const now = new Date('2026-04-20T00:00:00Z');

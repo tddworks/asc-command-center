@@ -1,8 +1,8 @@
 import { useNavigate } from 'react-router-dom';
 import { useDashboard } from '../Dashboard.hooks.ts';
 import { Dashboard } from '../Dashboard.ts';
-import { BuildRow } from '../../build/components/BuildRow.tsx';
-import type { Certificate } from '../../code-signing/Certificate.ts';
+import { BuildRow } from '../../release/build/components/BuildRow.tsx';
+import type { Certificate } from '../../developer-tools/code-signing/Certificate.ts';
 import { observer } from 'mobx-react-lite';
 import { useWorkspace } from '../../workspace/ASCWorkspace.hooks.tsx';
 
@@ -311,3 +311,5 @@ function DashboardPage() {
     </div>
   );
 }
+
+export default observer(DashboardPage);
