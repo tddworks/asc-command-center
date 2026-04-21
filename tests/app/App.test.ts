@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { App } from '../../src/app/App.ts';
+import { App, type AppInit } from '../../src/app/App.ts';
 import { Build, BuildProcessingState } from '../../src/build/Build.ts';
 import { Version, VersionState } from '../../src/version/Version.ts';
 import type { AppRepository } from '../../src/app/AppRepository.ts';
@@ -14,45 +14,96 @@ function stubRepo(overrides: Partial<AppRepository> = {}): AppRepository {
   };
 }
 
+function appInit(overrides: Partial<AppInit> = {}): AppInit {
+  return {
+    id: 'a-1',
+    name: 'WeatherApp',
+    bundleId: 'com.example.weather',
+    sku: 'SKU001',
+    primaryLocale: 'en-US',
+    isAvailableInNewTerritories: true,
+    affordances: {},
+    ...overrides,
+  };
+}
+
 describe('App', () => {
 
   // ── Display ──
 
   it('formats display name as name (bundleId)', () => {
-    const app = new App('a-1', 'WeatherApp', 'com.example.weather', 'SKU001', 'en-US', true, {});
+    const app = new App(appInit());
     expect(app.displayName).toBe('WeatherApp (com.example.weather)');
+  });
+
+  it('statusLabel is em-dash when no version is selected', () => {
+    const app = new App(appInit());
+    expect(app.statusLabel).toBe('—');
+    expect(app.statusTone).toBe('neutral');
+  });
+
+  it('statusLabel and statusTone delegate to selectedVersion', async () => {
+    const version = new Version('v-1', 'a-1', '1.0', VersionState.PrepareForSubmission, 'IOS', {});
+    const repo = stubRepo({ versions: vi.fn().mockResolvedValue([version]) });
+    const app = new App(appInit({ affordances: { getVersions: '/api/v1/apps/a-1/versions' } }), repo);
+
+    await app.loadVersions();
+
+    expect(app.statusLabel).toBe('Preparing');
+    expect(app.statusTone).toBe('info');
   });
 
   // ── Semantic Booleans ──
 
   it('has content rights when declaration is present', () => {
-    const app = new App('a-1', 'App', 'com.x', 'SKU', 'en-US', true, {}, 'USES_THIRD_PARTY_CONTENT');
+    const app = new App(appInit({ contentRightsDeclaration: 'USES_THIRD_PARTY_CONTENT' }));
     expect(app.hasContentRights).toBe(true);
   });
 
   it('does not have content rights when declaration is undefined', () => {
-    const app = new App('a-1', 'App', 'com.x', 'SKU', 'en-US', true, {});
+    const app = new App(appInit());
     expect(app.hasContentRights).toBe(false);
   });
 
-  // ── Capability Checks (from API affordances) ──
+  it('canEdit is true when selectedVersion is editable', async () => {
+    const editable = new Version('v-1', 'a-1', '2.0', VersionState.PrepareForSubmission, 'IOS', {});
+    const repo = stubRepo({ versions: vi.fn().mockResolvedValue([editable]) });
+    const app = new App(appInit({ affordances: { getVersions: '/api/v1/apps/a-1/versions' } }), repo);
+
+    await app.loadVersions();
+
+    expect(app.canEdit).toBe(true);
+  });
+
+  it('canEdit is true when selectedVersion is rejected', async () => {
+    const rejected = new Version('v-1', 'a-1', '2.0', VersionState.Rejected, 'IOS', {});
+    const repo = stubRepo({ versions: vi.fn().mockResolvedValue([rejected]) });
+    const app = new App(appInit({ affordances: { getVersions: '/api/v1/apps/a-1/versions' } }), repo);
+
+    await app.loadVersions();
+
+    expect(app.canEdit).toBe(true);
+  });
+
+  it('canEdit is false when no selectedVersion', () => {
+    const app = new App(appInit());
+    expect(app.canEdit).toBe(false);
+  });
+
+  // ── Capability Checks ──
 
   it('can view versions when server provides affordance', () => {
-    const app = new App('a-1', 'App', 'com.x', 'SKU', 'en-US', true, {
-      getVersions: 'asc versions list --app-id a-1',
-    });
+    const app = new App(appInit({ affordances: { getVersions: '/api/v1/apps/a-1/versions' } }));
     expect(app.canViewVersions).toBe(true);
   });
 
   it('cannot view versions when server omits affordance', () => {
-    const app = new App('a-1', 'App', 'com.x', 'SKU', 'en-US', true, {});
+    const app = new App(appInit());
     expect(app.canViewVersions).toBe(false);
   });
 
   it('can view builds when server provides affordance', () => {
-    const app = new App('a-1', 'App', 'com.x', 'SKU', 'en-US', true, {
-      getBuilds: 'asc builds list --app-id a-1',
-    });
+    const app = new App(appInit({ affordances: { getBuilds: '/api/v1/apps/a-1/builds' } }));
     expect(app.canViewBuilds).toBe(true);
   });
 
@@ -63,9 +114,7 @@ describe('App', () => {
       new Build('b-1', 'a-1', '100', '2.0', BuildProcessingState.Valid, false, false, '2024-01-15', {}),
     ];
     const repo = stubRepo({ builds: vi.fn().mockResolvedValue(expected) });
-    const app = new App('a-1', 'App', 'com.x', 'SKU', 'en-US', true, {
-      getBuilds: 'asc builds list --app-id a-1',
-    }, undefined, repo);
+    const app = new App(appInit({ affordances: { getBuilds: '/api/v1/apps/a-1/builds' } }), repo);
 
     await expect(app.loadBuilds()).resolves.toEqual(expected);
     expect(repo.builds).toHaveBeenCalledWith(app);
@@ -73,56 +122,111 @@ describe('App', () => {
 
   it('loadBuilds short-circuits to empty when affordance missing', async () => {
     const repo = stubRepo({ builds: vi.fn() });
-    const app = new App('a-1', 'App', 'com.x', 'SKU', 'en-US', true, {}, undefined, repo);
+    const app = new App(appInit(), repo);
 
     await expect(app.loadBuilds()).resolves.toEqual([]);
     expect(repo.builds).not.toHaveBeenCalled();
   });
 
   it('loadBuilds throws when no repository is attached', async () => {
-    const app = new App('a-1', 'App', 'com.x', 'SKU', 'en-US', true, {
-      getBuilds: 'asc builds list --app-id a-1',
-    });
+    const app = new App(appInit({ affordances: { getBuilds: '/api/v1/apps/a-1/builds' } }));
     await expect(app.loadBuilds()).rejects.toThrow(/no repository attached/);
   });
 
   // ── Navigation: loadVersions ──
 
-  it('loadVersions delegates to repository and returns versions', async () => {
+  it('loadVersions populates versions from repository', async () => {
     const expected = [
       new Version('v-1', 'a-1', '1.0', VersionState.PrepareForSubmission, 'IOS', {}),
     ];
     const repo = stubRepo({ versions: vi.fn().mockResolvedValue(expected) });
-    const app = new App('a-1', 'App', 'com.x', 'SKU', 'en-US', true, {
-      getVersions: 'asc versions list --app-id a-1',
-    }, undefined, repo);
+    const app = new App(appInit({ affordances: { getVersions: '/api/v1/apps/a-1/versions' } }), repo);
 
-    await expect(app.loadVersions()).resolves.toEqual(expected);
+    await app.loadVersions();
+
+    expect(app.versions).toEqual(expected);
     expect(repo.versions).toHaveBeenCalledWith(app);
   });
 
   it('loadVersions short-circuits to empty when affordance missing', async () => {
     const repo = stubRepo({ versions: vi.fn() });
-    const app = new App('a-1', 'App', 'com.x', 'SKU', 'en-US', true, {}, undefined, repo);
+    const app = new App(appInit(), repo);
 
-    await expect(app.loadVersions()).resolves.toEqual([]);
+    await app.loadVersions();
+
+    expect(app.versions).toEqual([]);
     expect(repo.versions).not.toHaveBeenCalled();
   });
 
-  // ── withRepository ──
+  it('loadVersions picks the first editable version as default selectedVersion', async () => {
+    const live = new Version('v-live', 'a-1', '1.5', VersionState.ReadyForSale, 'IOS', {});
+    const editable = new Version('v-next', 'a-1', '2.0', VersionState.PrepareForSubmission, 'IOS', {});
+    const repo = stubRepo({ versions: vi.fn().mockResolvedValue([live, editable]) });
+    const app = new App(appInit({ affordances: { getVersions: '/api/v1/apps/a-1/versions' } }), repo);
 
-  it('withRepository attaches a repository to an existing App', async () => {
+    await app.loadVersions();
+
+    expect(app.selectedVersion).toBe(editable);
+  });
+
+  it('loadVersions falls back to first version when none are editable', async () => {
+    const live = new Version('v-live', 'a-1', '1.5', VersionState.ReadyForSale, 'IOS', {});
+    const rejected = new Version('v-rej', 'a-1', '1.4', VersionState.Rejected, 'IOS', {});
+    const repo = stubRepo({ versions: vi.fn().mockResolvedValue([live, rejected]) });
+    const app = new App(appInit({ affordances: { getVersions: '/api/v1/apps/a-1/versions' } }), repo);
+
+    await app.loadVersions();
+
+    expect(app.selectedVersion).toBe(live);
+  });
+
+  it('loadVersions preserves existing selectedVersion if still present', async () => {
+    const a = new Version('v-1', 'a-1', '1.0', VersionState.PrepareForSubmission, 'IOS', {});
+    const b = new Version('v-2', 'a-1', '2.0', VersionState.PrepareForSubmission, 'IOS', {});
+    const repo = stubRepo({ versions: vi.fn().mockResolvedValue([a, b]) });
+    const app = new App(appInit({ affordances: { getVersions: '/api/v1/apps/a-1/versions' } }), repo);
+
+    await app.loadVersions();
+    app.selectVersion('v-2');
+    await app.loadVersions();
+
+    expect(app.selectedVersion?.id).toBe('v-2');
+  });
+
+  // ── selectVersion ──
+
+  it('selectVersion updates selectedVersion', async () => {
+    const a = new Version('v-1', 'a-1', '1.0', VersionState.PrepareForSubmission, 'IOS', {});
+    const b = new Version('v-2', 'a-1', '2.0', VersionState.ReadyForSale, 'IOS', {});
+    const repo = stubRepo({ versions: vi.fn().mockResolvedValue([a, b]) });
+    const app = new App(appInit({ affordances: { getVersions: '/api/v1/apps/a-1/versions' } }), repo);
+
+    await app.loadVersions();
+    app.selectVersion('v-2');
+
+    expect(app.selectedVersion).toBe(b);
+  });
+
+  it('selectVersion throws on unknown id', async () => {
+    const a = new Version('v-1', 'a-1', '1.0', VersionState.PrepareForSubmission, 'IOS', {});
+    const repo = stubRepo({ versions: vi.fn().mockResolvedValue([a]) });
+    const app = new App(appInit({ affordances: { getVersions: '/api/v1/apps/a-1/versions' } }), repo);
+
+    await app.loadVersions();
+
+    expect(() => app.selectVersion('v-unknown')).toThrow(/not loaded/);
+  });
+
+  // ── setRepository ──
+
+  it('setRepository attaches a repository so navigation can proceed', async () => {
     const repo = stubRepo({ builds: vi.fn().mockResolvedValue([]) });
-    const app = new App('a-1', 'App', 'com.x', 'SKU', 'en-US', true, {
-      getBuilds: 'asc builds list --app-id a-1',
-    });
+    const app = new App(appInit({ affordances: { getBuilds: '/api/v1/apps/a-1/builds' } }));
 
-    const attached = app.withRepository(repo);
+    app.setRepository(repo);
+    await app.loadBuilds();
 
-    expect(attached).not.toBe(app);
-    expect(attached.id).toBe(app.id);
-    await attached.loadBuilds();
-    expect(repo.builds).toHaveBeenCalledWith(attached);
+    expect(repo.builds).toHaveBeenCalledWith(app);
   });
 
   // ── Hydration ──
@@ -135,7 +239,7 @@ describe('App', () => {
       sku: 'SKU001',
       primaryLocale: 'en-US',
       isAvailableInNewTerritories: true,
-      affordances: { getVersions: 'asc versions list --app-id a-1' },
+      affordances: { getVersions: '/api/v1/apps/a-1/versions' },
       contentRightsDeclaration: 'USES_THIRD_PARTY_CONTENT',
     };
 
@@ -171,7 +275,7 @@ describe('App', () => {
     const app = App.fromJSON({
       id: 'a-1', name: 'App', bundleId: 'com.x', sku: 'SKU', primaryLocale: 'en-US',
       isAvailableInNewTerritories: true,
-      affordances: { getBuilds: 'asc builds list --app-id a-1' },
+      affordances: { getBuilds: '/api/v1/apps/a-1/builds' },
     }, repo);
 
     await app.loadBuilds();
