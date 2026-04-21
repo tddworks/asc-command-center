@@ -1,6 +1,7 @@
 import { App } from '../App.ts';
 import { Build } from '../../../release/build/Build.ts';
 import { Version } from '../../../release/version/Version.ts';
+import { RestVersionRepository } from '../../../release/version/infrastructure/VersionRepository.api.ts';
 import { apiClient, type DataMode } from '../../../shared/api-client.tsx';
 import type { AppRepository } from '../AppRepository.ts';
 
@@ -30,7 +31,12 @@ export class RestAppRepository implements AppRepository {
     const json = await apiClient.get<{ data: Record<string, unknown>[] }>(
       `/api/v1/apps/${app.id}/versions`,
     );
-    return json.data.map(Version.fromJSON);
+    const versionRepo = new RestVersionRepository();
+    return json.data.map((row) => {
+      const v = Version.fromJSON(row);
+      v.setRepository(versionRepo);
+      return v;
+    });
   }
 }
 

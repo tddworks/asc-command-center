@@ -1,4 +1,7 @@
+import { makeAutoObservable, runInAction } from 'mobx';
 import type { Affordances } from '../../shared/types.ts';
+import type { VersionRepository } from './VersionRepository.ts';
+import { VersionLocalization } from './VersionLocalization.ts';
 
 export enum VersionState {
   ReadyForSale = 'READY_FOR_SALE',
@@ -10,15 +13,89 @@ export enum VersionState {
   PendingDeveloperRelease = 'PENDING_DEVELOPER_RELEASE',
 }
 
+export enum ReleaseType {
+  Manual = 'MANUAL',
+  AfterApproval = 'AFTER_APPROVAL',
+  Scheduled = 'SCHEDULED',
+}
+
+export interface VersionInit {
+  id: string;
+  appId: string;
+  versionString: string;
+  state: VersionState;
+  platform: string;
+  affordances: Affordances;
+  copyright?: string | null;
+  releaseType?: ReleaseType;
+  earliestReleaseDate?: string | null;
+}
+
+/**
+ * Version — aggregate for one App Store version. Mutable observable (MobX),
+ * mirroring the App/AppInfo pattern. Read-only identity (`id`, `appId`,
+ * `platform`); editable attributes; an array of `VersionLocalization`
+ * children for per-locale text.
+ */
 export class Version {
+  readonly id: string;
+  readonly appId: string;
+  readonly platform: string;
+
+  versionString: string;
+  state: VersionState;
+  copyright: string | null;
+  releaseType: ReleaseType;
+  earliestReleaseDate: string | null;
+  affordances: Affordances;
+
+  /** Per-locale text (description, keywords, …). Populated by loadLocalizations(). */
+  localizations: VersionLocalization[] = [];
+
+  repository: VersionRepository | null = null;
+
+  private snapshot: {
+    versionString: string;
+    copyright: string | null;
+    releaseType: ReleaseType;
+    earliestReleaseDate: string | null;
+  };
+
   constructor(
-    readonly id: string,
-    readonly appId: string,
-    readonly versionString: string,
-    readonly state: VersionState,
-    readonly platform: string,
-    readonly affordances: Affordances,
-  ) {}
+    idOrInit: string | VersionInit,
+    appId?: string,
+    versionString?: string,
+    state?: VersionState,
+    platform?: string,
+    affordances?: Affordances,
+  ) {
+    // Backward-compat: old positional constructor used by legacy call sites.
+    const init: VersionInit = typeof idOrInit === 'string'
+      ? {
+          id: idOrInit,
+          appId: appId ?? '',
+          versionString: versionString ?? '',
+          state: state ?? VersionState.PrepareForSubmission,
+          platform: platform ?? 'IOS',
+          affordances: affordances ?? {},
+        }
+      : idOrInit;
+
+    this.id = init.id;
+    this.appId = init.appId;
+    this.platform = init.platform;
+    this.versionString = init.versionString;
+    this.state = init.state;
+    this.affordances = init.affordances;
+    this.copyright = init.copyright ?? null;
+    this.releaseType = init.releaseType ?? ReleaseType.Manual;
+    this.earliestReleaseDate = init.earliestReleaseDate ?? null;
+
+    this.snapshot = this.capture();
+    makeAutoObservable(this, {
+      id: false, appId: false, platform: false, repository: false,
+    });
+  }
 
   // ── Semantic Booleans ──
 
@@ -78,6 +155,76 @@ export class Version {
     return 'updateVersion' in this.affordances;
   }
 
+  // ── Setters ──
+
+  setVersionString(v: string): void { this.versionString = v; }
+  setCopyright(v: string | null): void { this.copyright = v; }
+  setReleaseType(v: ReleaseType): void { this.releaseType = v; }
+  setEarliestReleaseDate(v: string | null): void { this.earliestReleaseDate = v; }
+  setRepository(repo: VersionRepository): void { this.repository = repo; }
+
+  // ── Dirty tracking ──
+
+  get hasUnsavedChanges(): boolean {
+    const s = this.snapshot;
+    if (
+      this.versionString !== s.versionString ||
+      this.copyright !== s.copyright ||
+      this.releaseType !== s.releaseType ||
+      this.earliestReleaseDate !== s.earliestReleaseDate
+    ) return true;
+    return this.localizations.some((l) => l.hasUnsavedChanges);
+  }
+
+  discard(): void {
+    const s = this.snapshot;
+    this.versionString = s.versionString;
+    this.copyright = s.copyright;
+    this.releaseType = s.releaseType;
+    this.earliestReleaseDate = s.earliestReleaseDate;
+    for (const loc of this.localizations) loc.discard();
+  }
+
+  markSaved(): void {
+    this.snapshot = this.capture();
+    for (const loc of this.localizations) loc.markSaved();
+  }
+
+  private capture() {
+    return {
+      versionString: this.versionString,
+      copyright: this.copyright,
+      releaseType: this.releaseType,
+      earliestReleaseDate: this.earliestReleaseDate,
+    };
+  }
+
+  // ── Navigation (mutating) ──
+
+  /** Load per-locale text via the repository; populates `localizations`. */
+  async loadLocalizations(): Promise<VersionLocalization[]> {
+    if (!this.repository) {
+      throw new Error(`Version ${this.id} has no repository attached`);
+    }
+    const list = await this.repository.listLocalizations(this);
+    runInAction(() => {
+      this.localizations = list;
+    });
+    return list;
+  }
+
+  async save(): Promise<void> {
+    if (!this.repository) {
+      throw new Error(`Version ${this.id} has no repository attached`);
+    }
+    await this.repository.save(this);
+    runInAction(() => this.markSaved());
+  }
+
+  localizationFor(locale: string): VersionLocalization | undefined {
+    return this.localizations.find((l) => l.locale === locale);
+  }
+
   // ── Domain Knowledge — state machine ──
 
   canTransitionTo(target: VersionState): boolean {
@@ -92,13 +239,16 @@ export class Version {
   // ── Factory ──
 
   static fromJSON(json: Record<string, unknown>): Version {
-    return new Version(
-      json.id as string,
-      (json.appId as string) ?? '',
-      (json.versionString as string) ?? '',
-      json.state as VersionState,
-      (json.platform as string) ?? 'IOS',
-      (json.affordances as Affordances) ?? {},
-    );
+    return new Version({
+      id: json.id as string,
+      appId: (json.appId as string) ?? '',
+      versionString: (json.versionString as string) ?? '',
+      state: json.state as VersionState,
+      platform: (json.platform as string) ?? 'IOS',
+      affordances: (json.affordances as Affordances) ?? {},
+      copyright: (json.copyright as string | null) ?? null,
+      releaseType: (json.releaseType as ReleaseType) ?? ReleaseType.Manual,
+      earliestReleaseDate: (json.earliestReleaseDate as string | null) ?? null,
+    });
   }
 }
