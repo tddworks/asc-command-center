@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'vitest';
-import { Version, VersionState } from '../../../src/release/version/Version.ts';
+import { describe, it, expect, vi } from 'vitest';
+import { Version, VersionState, ReleaseType } from '../../../src/release/version/Version.ts';
+import { VersionLocalization } from '../../../src/release/version/VersionLocalization.ts';
 
 describe('Version', () => {
 
@@ -138,5 +139,202 @@ describe('Version', () => {
     expect(v.canSubmit).toBe(false);
     expect(v.canRelease).toBe(false);
     expect(v.isLive).toBe(true);
+  });
+
+  // ── Mutable fields + setters (post-migration) ──
+
+  it('defaults copyright=null, releaseType=MANUAL, earliestReleaseDate=null', () => {
+    const v = new Version('v-1', 'app-1', '1.0', VersionState.PrepareForSubmission, 'IOS', {});
+    expect(v.copyright).toBeNull();
+    expect(v.releaseType).toBe(ReleaseType.Manual);
+    expect(v.earliestReleaseDate).toBeNull();
+    expect(v.hasUnsavedChanges).toBe(false);
+  });
+
+  it('accepts copyright + releaseType + earliestReleaseDate via options-object init', () => {
+    const v = new Version({
+      id: 'v-1', appId: 'app-1', versionString: '1.0',
+      state: VersionState.PrepareForSubmission, platform: 'IOS', affordances: {},
+      copyright: '© 2026 Me', releaseType: ReleaseType.Scheduled,
+      earliestReleaseDate: '2026-05-01T00:00:00Z',
+    });
+    expect(v.copyright).toBe('© 2026 Me');
+    expect(v.releaseType).toBe(ReleaseType.Scheduled);
+    expect(v.earliestReleaseDate).toBe('2026-05-01T00:00:00Z');
+  });
+
+  it('setVersionString / setCopyright / setReleaseType / setEarliestReleaseDate flip dirty', () => {
+    const v = new Version('v-1', 'app-1', '1.0', VersionState.PrepareForSubmission, 'IOS', {});
+    v.setVersionString('2.0');
+    expect(v.hasUnsavedChanges).toBe(true);
+
+    v.discard();
+    v.setCopyright('© 2026');
+    expect(v.hasUnsavedChanges).toBe(true);
+
+    v.discard();
+    v.setReleaseType(ReleaseType.AfterApproval);
+    expect(v.hasUnsavedChanges).toBe(true);
+
+    v.discard();
+    v.setEarliestReleaseDate('2026-05-01T00:00:00Z');
+    expect(v.hasUnsavedChanges).toBe(true);
+  });
+
+  it('discard restores copyright / releaseType / earliestReleaseDate to snapshot', () => {
+    const v = new Version({
+      id: 'v-1', appId: 'app-1', versionString: '1.0',
+      state: VersionState.PrepareForSubmission, platform: 'IOS', affordances: {},
+      copyright: '© 2026', releaseType: ReleaseType.Manual,
+      earliestReleaseDate: null,
+    });
+    v.setCopyright('changed');
+    v.setReleaseType(ReleaseType.Scheduled);
+    v.setEarliestReleaseDate('2027-01-01T00:00:00Z');
+
+    v.discard();
+
+    expect(v.copyright).toBe('© 2026');
+    expect(v.releaseType).toBe(ReleaseType.Manual);
+    expect(v.earliestReleaseDate).toBeNull();
+    expect(v.hasUnsavedChanges).toBe(false);
+  });
+
+  it('markSaved clears dirty and makes current values the new snapshot', () => {
+    const v = new Version('v-1', 'app-1', '1.0', VersionState.PrepareForSubmission, 'IOS', {});
+    v.setVersionString('2.0');
+    v.markSaved();
+
+    expect(v.hasUnsavedChanges).toBe(false);
+
+    // After markSaved, discarding a further change should restore to 2.0, not 1.0.
+    v.setVersionString('3.0');
+    v.discard();
+    expect(v.versionString).toBe('2.0');
+  });
+
+  // ── Navigation: save + loadLocalizations ──
+
+  it('save delegates to the repository and clears dirty on success', async () => {
+    const repo = {
+      listLocalizations: vi.fn(),
+      save: vi.fn().mockResolvedValue(undefined),
+    };
+    const v = new Version('v-1', 'app-1', '1.0', VersionState.PrepareForSubmission, 'IOS', {});
+    v.setRepository(repo);
+    v.setVersionString('2.0');
+
+    await v.save();
+
+    expect(repo.save).toHaveBeenCalledWith(v);
+    expect(v.hasUnsavedChanges).toBe(false);
+  });
+
+  it('save throws when no repository is attached', async () => {
+    const v = new Version('v-1', 'app-1', '1.0', VersionState.PrepareForSubmission, 'IOS', {});
+    await expect(v.save()).rejects.toThrow(/no repository/i);
+  });
+
+  it('loadLocalizations populates localizations via the repository', async () => {
+    const loaded = [
+      new VersionLocalization({
+        id: 'loc-1', locale: 'en-US', description: 'desc', keywords: 'k',
+        whatsNew: '', promotionalText: '', supportUrl: null, marketingUrl: null,
+      }),
+    ];
+    const repo = {
+      listLocalizations: vi.fn().mockResolvedValue(loaded),
+      save: vi.fn(),
+    };
+    const v = new Version('v-1', 'app-1', '1.0', VersionState.PrepareForSubmission, 'IOS', {});
+    v.setRepository(repo);
+
+    await v.loadLocalizations();
+
+    expect(v.localizations).toEqual(loaded);
+    expect(repo.listLocalizations).toHaveBeenCalledWith(v);
+  });
+
+  it('loadLocalizations throws when no repository is attached', async () => {
+    const v = new Version('v-1', 'app-1', '1.0', VersionState.PrepareForSubmission, 'IOS', {});
+    await expect(v.loadLocalizations()).rejects.toThrow(/no repository/i);
+  });
+
+  it('localizationFor returns the matching localization', async () => {
+    const en = new VersionLocalization({
+      id: 'loc-1', locale: 'en-US', description: 'desc', keywords: '',
+      whatsNew: '', promotionalText: '', supportUrl: null, marketingUrl: null,
+    });
+    const de = new VersionLocalization({
+      id: 'loc-2', locale: 'de-DE', description: 'beschrieb', keywords: '',
+      whatsNew: '', promotionalText: '', supportUrl: null, marketingUrl: null,
+    });
+    const repo = { listLocalizations: vi.fn().mockResolvedValue([en, de]), save: vi.fn() };
+    const v = new Version('v-1', 'app-1', '1.0', VersionState.PrepareForSubmission, 'IOS', {});
+    v.setRepository(repo);
+    await v.loadLocalizations();
+
+    expect(v.localizationFor('de-DE')).toBe(de);
+    expect(v.localizationFor('zz-ZZ')).toBeUndefined();
+  });
+
+  it('hasUnsavedChanges composes with dirty localizations', async () => {
+    const loc = new VersionLocalization({
+      id: 'loc-1', locale: 'en-US', description: 'd', keywords: '',
+      whatsNew: '', promotionalText: '', supportUrl: null, marketingUrl: null,
+    });
+    const repo = { listLocalizations: vi.fn().mockResolvedValue([loc]), save: vi.fn() };
+    const v = new Version('v-1', 'app-1', '1.0', VersionState.PrepareForSubmission, 'IOS', {});
+    v.setRepository(repo);
+    await v.loadLocalizations();
+
+    expect(v.hasUnsavedChanges).toBe(false);
+    loc.setDescription('edited');
+    expect(v.hasUnsavedChanges).toBe(true);
+  });
+
+  it('discard also resets each child localization to its snapshot', async () => {
+    const loc = new VersionLocalization({
+      id: 'loc-1', locale: 'en-US', description: 'original', keywords: '',
+      whatsNew: '', promotionalText: '', supportUrl: null, marketingUrl: null,
+    });
+    const repo = { listLocalizations: vi.fn().mockResolvedValue([loc]), save: vi.fn() };
+    const v = new Version('v-1', 'app-1', '1.0', VersionState.PrepareForSubmission, 'IOS', {});
+    v.setRepository(repo);
+    await v.loadLocalizations();
+    loc.setDescription('edited');
+    v.setCopyright('new');
+
+    v.discard();
+
+    expect(loc.description).toBe('original');
+    expect(v.copyright).toBeNull();
+    expect(v.hasUnsavedChanges).toBe(false);
+  });
+
+  // ── fromJSON: new fields ──
+
+  it('fromJSON hydrates copyright / releaseType / earliestReleaseDate', () => {
+    const v = Version.fromJSON({
+      id: 'v-1',
+      appId: 'app-1',
+      versionString: '2.0',
+      state: 'PREPARE_FOR_SUBMISSION',
+      platform: 'IOS',
+      copyright: '© 2026 Acme',
+      releaseType: 'SCHEDULED',
+      earliestReleaseDate: '2026-05-01T00:00:00Z',
+    });
+    expect(v.copyright).toBe('© 2026 Acme');
+    expect(v.releaseType).toBe(ReleaseType.Scheduled);
+    expect(v.earliestReleaseDate).toBe('2026-05-01T00:00:00Z');
+  });
+
+  it('fromJSON defaults releaseType to MANUAL when absent', () => {
+    const v = Version.fromJSON({
+      id: 'v-1', appId: 'app-1', versionString: '1.0',
+      state: 'READY_FOR_SALE', platform: 'IOS',
+    });
+    expect(v.releaseType).toBe(ReleaseType.Manual);
   });
 });

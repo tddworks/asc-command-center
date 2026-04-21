@@ -271,6 +271,36 @@ describe('AppInfo', () => {
     expect(info.missingFields('en-US')).toEqual([]);
   });
 
+  // ── appStoreAgeRating (read-only, hydrated from backend) ──
+
+  it('accepts appStoreAgeRating in the constructor init', () => {
+    const info = makeInfo({ appStoreAgeRating: 'FOUR_PLUS' });
+    expect(info.appStoreAgeRating).toBe('FOUR_PLUS');
+  });
+
+  it('appStoreAgeRating defaults to undefined when not provided', () => {
+    const info = makeInfo();
+    expect(info.appStoreAgeRating).toBeUndefined();
+  });
+
+  it('fromJSON hydrates appStoreAgeRating from backend payload', () => {
+    const info = AppInfo.fromJSON({
+      id: 'info-1',
+      appId: 'app-1',
+      primaryLocale: 'en-US',
+      appStoreAgeRating: 'TWELVE_PLUS',
+      localizations: [],
+    });
+    expect(info.appStoreAgeRating).toBe('TWELVE_PLUS');
+  });
+
+  it('appStoreAgeRating is not part of dirty tracking', () => {
+    // Read-only field until the questionnaire modal is shipped — mutations
+    // should never flip the aggregate dirty state.
+    const info = makeInfo({ appStoreAgeRating: 'FOUR_PLUS' });
+    expect(info.hasUnsavedChanges).toBe(false);
+  });
+
   // ── Hydration ──
 
   it('fromJSON hydrates info and its localizations', () => {

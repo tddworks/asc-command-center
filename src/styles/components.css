@@ -1087,3 +1087,54 @@ textarea.form-input { min-height: 80px; resize: vertical; line-height: 1.5; }
   display: inline-flex;
 }
 .age-rating-chevron svg { width: 16px; height: 16px; }
+
+/* ─── Language switcher (in card toolbars) ───────────────────────── */
+
+.language-switcher {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.language-switcher-label {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.language-switcher-pill {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--text-primary);
+  font-weight: 500;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+.language-switcher-pill:hover {
+  border-color: var(--text-muted);
+  background: var(--bg-hover);
+}
+.language-switcher-pill svg {
+  width: 12px;
+  height: 12px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+.language-switcher-pill select {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: inherit;
+}
