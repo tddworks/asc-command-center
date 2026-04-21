@@ -13,8 +13,14 @@ function stubRepo(overrides: Partial<AppRepository> = {}): AppRepository {
   };
 }
 
-const weatherApp = new App('a-1', 'WeatherApp', 'com.example.weather', 'SKU001', 'en-US', true, {});
-const fitnessApp = new App('a-2', 'FitnessTracker', 'com.example.fitness', 'SKU002', 'en-US', true, {});
+const weatherApp = new App({
+  id: 'a-1', name: 'WeatherApp', bundleId: 'com.example.weather',
+  sku: 'SKU001', primaryLocale: 'en-US', isAvailableInNewTerritories: true, affordances: {},
+});
+const fitnessApp = new App({
+  id: 'a-2', name: 'FitnessTracker', bundleId: 'com.example.fitness',
+  sku: 'SKU002', primaryLocale: 'en-US', isAvailableInNewTerritories: true, affordances: {},
+});
 
 describe('Apps (root aggregate)', () => {
 
