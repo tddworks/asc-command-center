@@ -24,7 +24,12 @@ interface AppInfoDTO {
   appId?: string;
   state?: string;
   appStoreState?: string;
+  appStoreAgeRating?: string;
   affordances?: Affordances;
+  // Backend today sends flat `primaryCategoryId: "FINANCE"` — older
+  // Apple-shaped payloads nest as `primaryCategory: { id }`. Accept both.
+  primaryCategoryId?: string | null;
+  secondaryCategoryId?: string | null;
   primaryCategory?: { id?: string } | string | null;
   secondaryCategory?: { id?: string } | string | null;
 }
@@ -39,10 +44,16 @@ interface LocalizationDTO {
   affordances?: Affordances;
 }
 
-function categoryId(v: AppInfoDTO['primaryCategory']): string | null {
-  if (!v) return null;
-  if (typeof v === 'string') return v;
-  return v.id ?? null;
+function categoryId(
+  flat: string | null | undefined,
+  nested: AppInfoDTO['primaryCategory'],
+): string | null {
+  // Prefer the flat field the backend actually sends; fall back to nested
+  // Apple-shaped values so older fixtures still work.
+  if (flat) return flat;
+  if (!nested) return null;
+  if (typeof nested === 'string') return nested;
+  return nested.id ?? null;
 }
 
 export class RestAppInfoRepository implements AppInfoRepository {
