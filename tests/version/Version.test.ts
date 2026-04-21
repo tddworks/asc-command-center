@@ -86,6 +86,22 @@ describe('Version', () => {
     expect(v.canTransitionTo(VersionState.WaitingForReview)).toBe(false);
   });
 
+  // ── Display (statusLabel + statusTone) ──
+
+  it.each([
+    [VersionState.ReadyForSale, 'Live', 'success'],
+    [VersionState.PrepareForSubmission, 'Preparing', 'info'],
+    [VersionState.WaitingForReview, 'Waiting for Review', 'warning'],
+    [VersionState.InReview, 'In Review', 'warning'],
+    [VersionState.Rejected, 'Rejected', 'danger'],
+    [VersionState.DeveloperRejected, 'Developer Rejected', 'danger'],
+    [VersionState.PendingDeveloperRelease, 'Pending Release', 'info'],
+  ] as const)('statusLabel/statusTone for %s → %s / %s', (state, label, tone) => {
+    const v = new Version('v-1', 'app-1', '1.0', state, 'IOS', {});
+    expect(v.statusLabel).toBe(label);
+    expect(v.statusTone).toBe(tone);
+  });
+
   // ── Hydration ──
 
   it('hydrates from API JSON', () => {

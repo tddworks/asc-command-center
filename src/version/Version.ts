@@ -38,6 +38,32 @@ export class Version {
     return this.state === VersionState.Rejected;
   }
 
+  // ── Display (pure mapping over state) ──
+
+  get statusLabel(): string {
+    switch (this.state) {
+      case VersionState.ReadyForSale: return 'Live';
+      case VersionState.PrepareForSubmission: return 'Preparing';
+      case VersionState.WaitingForReview: return 'Waiting for Review';
+      case VersionState.InReview: return 'In Review';
+      case VersionState.Rejected: return 'Rejected';
+      case VersionState.DeveloperRejected: return 'Developer Rejected';
+      case VersionState.PendingDeveloperRelease: return 'Pending Release';
+    }
+  }
+
+  get statusTone(): 'success' | 'info' | 'warning' | 'danger' | 'neutral' {
+    switch (this.state) {
+      case VersionState.ReadyForSale: return 'success';
+      case VersionState.PrepareForSubmission: return 'info';
+      case VersionState.PendingDeveloperRelease: return 'info';
+      case VersionState.WaitingForReview: return 'warning';
+      case VersionState.InReview: return 'warning';
+      case VersionState.Rejected: return 'danger';
+      case VersionState.DeveloperRejected: return 'danger';
+    }
+  }
+
   // ── Capability Checks — derived from server affordances ──
 
   get canSubmit(): boolean {
