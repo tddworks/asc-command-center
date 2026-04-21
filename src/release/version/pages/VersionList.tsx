@@ -27,6 +27,17 @@ function VersionPage() {
     return () => { cancelled = true; };
   }, [version?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Which locale's fields the Story / Support cards show. Defaults to the
+  // app's primary locale; resets when the app or version changes.
+  const defaultLocale =
+    currentApp?.primaryLocale ??
+    version?.localizations[0]?.locale ??
+    'en-US';
+  const [selectedLocale, setSelectedLocale] = useState<string>(defaultLocale);
+  useEffect(() => {
+    setSelectedLocale(defaultLocale);
+  }, [defaultLocale, version?.id]);
+
   if (!workspace?.hydrated) return <div className="spinner">Loading…</div>;
 
   if (!currentApp) {
@@ -54,8 +65,15 @@ function VersionPage() {
   return (
     <div className="app-info-wrap">
       <VersionReleaseCard version={version} />
-      <StoryDescriptionCard version={version} locsLoading={locsLoading} locsError={locsError} />
-      <SupportContactCard version={version} />
+      <StoryDescriptionCard
+        version={version}
+        selectedLocale={selectedLocale}
+        onLocaleChange={setSelectedLocale}
+        primaryLocale={currentApp.primaryLocale}
+        locsLoading={locsLoading}
+        locsError={locsError}
+      />
+      <SupportContactCard version={version} selectedLocale={selectedLocale} />
       <VersionSaveBar version={version} />
     </div>
   );
@@ -144,32 +162,80 @@ const VersionReleaseCard = observer(({ version }: { version: Version }) => {
   );
 });
 
+// ─── Language switcher (used in multiple cards) ─────────────────────
+
+const LanguageSwitcher = observer(({
+  version, primaryLocale, value, onChange,
+}: {
+  version: Version;
+  primaryLocale: string;
+  value: string;
+  onChange: (locale: string) => void;
+}) => {
+  const locales = version.localizations.map((l) => l.locale);
+  if (locales.length === 0) return null;
+  return (
+    <span className="language-switcher">
+      <span className="language-switcher-label">Language</span>
+      <span className="language-switcher-pill">
+        <span>{value}{value === primaryLocale ? ' · primary' : ''}</span>
+        <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <polyline points="5 6 8 9 11 6"/>
+        </svg>
+        <select
+          aria-label="Select language"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+        >
+          {locales.map((l) => (
+            <option key={l} value={l}>
+              {l}{l === primaryLocale ? ' · primary' : ''}
+            </option>
+          ))}
+        </select>
+      </span>
+    </span>
+  );
+});
+
 // ─── Story & Description ───────────────────────────────────────────
 
 const StoryDescriptionCard = observer(({
-  version, locsLoading, locsError,
+  version, selectedLocale, onLocaleChange, primaryLocale, locsLoading, locsError,
 }: {
   version: Version;
+  selectedLocale: string;
+  onLocaleChange: (locale: string) => void;
+  primaryLocale: string;
   locsLoading: boolean;
   locsError: Error | null;
 }) => {
-  const primary = version.localizations.find((l) => l.locale === 'en-US') ?? version.localizations[0];
+  const loc = version.localizationFor(selectedLocale);
 
   return (
     <div className="card">
       <div className="toolbar">
         <div className="toolbar-left">
           <h3>Story & Description</h3>
-          {primary && <span className="platform-badge" style={{ marginLeft: 8, fontSize: 9 }}>{primary.locale}</span>}
+        </div>
+        <div className="toolbar-right">
+          <LanguageSwitcher
+            version={version}
+            primaryLocale={primaryLocale}
+            value={selectedLocale}
+            onChange={onLocaleChange}
+          />
         </div>
       </div>
       <div className="card-body padded">
         {locsLoading && <div className="form-hint">Loading localizations…</div>}
         {locsError && <div className="form-hint" style={{ color: 'var(--danger-text)' }}>Error: {locsError.message}</div>}
-        {!locsLoading && !primary && (
-          <div className="form-hint">No localization found for this version.</div>
+        {!locsLoading && !loc && (
+          <div className="form-hint">
+            No localization for <code>{selectedLocale}</code>. Add it in App Info → Localizations first.
+          </div>
         )}
-        {primary && (
+        {loc && (
           <>
             <div className="form-group">
               <label className="form-label" htmlFor="sd-description">
@@ -180,12 +246,12 @@ const StoryDescriptionCard = observer(({
                 className="form-input"
                 rows={8}
                 maxLength={4000}
-                value={primary.description}
+                value={loc.description}
                 placeholder="Tell users what your app does"
-                onChange={(e) => primary.setDescription(e.target.value)}
+                onChange={(e) => loc.setDescription(e.target.value)}
               />
               <div className="form-hint">
-                Required · {primary.description.length.toLocaleString()} / 4,000 characters
+                Required · {loc.description.length.toLocaleString()} / 4,000 characters
               </div>
             </div>
 
@@ -196,12 +262,12 @@ const StoryDescriptionCard = observer(({
                 className="form-input"
                 rows={4}
                 maxLength={4000}
-                value={primary.whatsNew}
+                value={loc.whatsNew}
                 placeholder="Describe what's new in this version…"
-                onChange={(e) => primary.setWhatsNew(e.target.value)}
+                onChange={(e) => loc.setWhatsNew(e.target.value)}
               />
               <div className="form-hint">
-                Optional · {primary.whatsNew.length.toLocaleString()} / 4,000 characters
+                Optional · {loc.whatsNew.length.toLocaleString()} / 4,000 characters
               </div>
             </div>
 
@@ -211,12 +277,12 @@ const StoryDescriptionCard = observer(({
                 id="sd-keywords"
                 className="form-input"
                 maxLength={100}
-                value={primary.keywords}
+                value={loc.keywords}
                 placeholder="subscription,tracker,calendar"
-                onChange={(e) => primary.setKeywords(e.target.value)}
+                onChange={(e) => loc.setKeywords(e.target.value)}
               />
               <div className="form-hint">
-                Comma-separated · {primary.keywords.length} / 100 characters
+                Comma-separated · {loc.keywords.length} / 100 characters
               </div>
             </div>
 
@@ -226,12 +292,12 @@ const StoryDescriptionCard = observer(({
                 id="sd-promo"
                 className="form-input"
                 maxLength={170}
-                value={primary.promotionalText}
+                value={loc.promotionalText}
                 placeholder="Appears above the description, can be updated anytime"
-                onChange={(e) => primary.setPromotionalText(e.target.value)}
+                onChange={(e) => loc.setPromotionalText(e.target.value)}
               />
               <div className="form-hint">
-                Optional · {primary.promotionalText.length} / 170 characters
+                Optional · {loc.promotionalText.length} / 170 characters
               </div>
             </div>
           </>
@@ -243,17 +309,16 @@ const StoryDescriptionCard = observer(({
 
 // ─── Support Contact ───────────────────────────────────────────────
 
-const SupportContactCard = observer(({ version }: { version: Version }) => {
-  const primary = version.localizations.find((l) => l.locale === 'en-US') ?? version.localizations[0];
-
-  if (!primary) return null;
+const SupportContactCard = observer(({ version, selectedLocale }: { version: Version; selectedLocale: string }) => {
+  const loc = version.localizationFor(selectedLocale);
+  if (!loc) return null;
 
   return (
     <div className="card">
       <div className="toolbar">
         <div className="toolbar-left">
           <h3>Support Contact</h3>
-          <span className="platform-badge" style={{ marginLeft: 8, fontSize: 9 }}>{primary.locale}</span>
+          <span className="platform-badge" style={{ marginLeft: 8, fontSize: 9 }}>{loc.locale}</span>
         </div>
       </div>
       <div className="card-body padded">
@@ -265,8 +330,8 @@ const SupportContactCard = observer(({ version }: { version: Version }) => {
             id="sc-support"
             className="form-input"
             placeholder="https://yourwebsite.com/support"
-            value={primary.supportUrl ?? ''}
-            onChange={(e) => primary.setSupportUrl(e.target.value || null)}
+            value={loc.supportUrl ?? ''}
+            onChange={(e) => loc.setSupportUrl(e.target.value || null)}
           />
           <div className="form-hint">Required · Where users can get help with your app.</div>
         </div>
@@ -276,8 +341,8 @@ const SupportContactCard = observer(({ version }: { version: Version }) => {
             id="sc-marketing"
             className="form-input"
             placeholder="https://yourwebsite.com"
-            value={primary.marketingUrl ?? ''}
-            onChange={(e) => primary.setMarketingUrl(e.target.value || null)}
+            value={loc.marketingUrl ?? ''}
+            onChange={(e) => loc.setMarketingUrl(e.target.value || null)}
           />
           <div className="form-hint">Optional · A landing page for your app.</div>
         </div>
