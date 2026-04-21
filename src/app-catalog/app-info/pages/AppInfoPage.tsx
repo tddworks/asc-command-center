@@ -315,20 +315,7 @@ const PrivacyComplianceCard = observer(({ appInfo }: { appInfo: AppInfo }) => {
 
         <div className="form-group">
           <label className="form-label">Age Rating</label>
-          <button
-            type="button"
-            className="age-rating-card"
-            onClick={() => alert('Age rating editor is not implemented yet — coming soon.')}
-          >
-            <span className="age-rating-badge">4+</span>
-            <span className="age-rating-text">
-              <span className="age-rating-title">Ages 4+ and Up</span>
-              <span className="age-rating-sub">No objectionable content</span>
-            </span>
-            <span className="age-rating-chevron" aria-hidden>
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
-            </span>
-          </button>
+          <AgeRatingCard rating={appInfo.appStoreAgeRating} />
         </div>
 
         <div className="form-group" style={{ marginBottom: 0 }}>
@@ -354,6 +341,30 @@ const PrivacyComplianceCard = observer(({ appInfo }: { appInfo: AppInfo }) => {
     </div>
   );
 });
+
+// ─── Age rating card (read-only for now; opens placeholder) ──────
+
+function AgeRatingCard({ rating }: { rating: string | undefined }) {
+  const meta = (rating ? AGE_RATING_LABELS[rating] : undefined) ?? AGE_RATING_LABELS.UNRATED;
+  return (
+    <button
+      type="button"
+      className="age-rating-card"
+      onClick={() => alert('Age rating editor is not implemented yet — coming soon.')}
+    >
+      <span className="age-rating-badge">{meta.label}</span>
+      <span className="age-rating-text">
+        <span className="age-rating-title">
+          {rating ? `Ages ${meta.label}` : 'No rating set'}
+        </span>
+        <span className="age-rating-sub">{meta.sub}</span>
+      </span>
+      <span className="age-rating-chevron" aria-hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+      </span>
+    </button>
+  );
+}
 
 // ─── Sticky save bar ───────────────────────────────────────────────
 
