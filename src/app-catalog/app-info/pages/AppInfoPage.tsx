@@ -97,17 +97,18 @@ const AppMetadataCard = observer(({ appInfo }: { appInfo: AppInfo }) => {
           />
         </div>
 
+        <div className="form-group">
+          <label className="form-label" htmlFor="am-subtitle">Subtitle</label>
+          <input
+            id="am-subtitle"
+            className="form-input"
+            value={primary?.subtitle ?? ''}
+            placeholder="A short description"
+            onChange={(e) => primary?.setSubtitle(e.target.value || null)}
+          />
+        </div>
+
         <div className="form-row">
-          <div className="form-group">
-            <label className="form-label" htmlFor="am-subtitle">Subtitle</label>
-            <input
-              id="am-subtitle"
-              className="form-input"
-              value={primary?.subtitle ?? ''}
-              placeholder="A short description"
-              onChange={(e) => primary?.setSubtitle(e.target.value || null)}
-            />
-          </div>
           <div className="form-group">
             <label className="form-label" htmlFor="am-category">Primary Category</label>
             <select
@@ -118,6 +119,20 @@ const AppMetadataCard = observer(({ appInfo }: { appInfo: AppInfo }) => {
             >
               <option value="">—</option>
               {CATEGORIES.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+            </select>
+          </div>
+          <div className="form-group">
+            <label className="form-label" htmlFor="am-category-2">Secondary Category</label>
+            <select
+              id="am-category-2"
+              className="form-input select-styled"
+              value={appInfo.secondaryCategoryId ?? ''}
+              onChange={(e) => appInfo.setSecondaryCategory(e.target.value || null)}
+            >
+              <option value="">— None —</option>
+              {CATEGORIES
+                .filter((c) => c.id !== appInfo.primaryCategoryId)
+                .map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
             </select>
           </div>
         </div>
