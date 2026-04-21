@@ -3,7 +3,8 @@ import { useDashboard } from '../Dashboard.hooks.ts';
 import { Dashboard } from '../Dashboard.ts';
 import { BuildRow } from '../../build/components/BuildRow.tsx';
 import type { Certificate } from '../../code-signing/Certificate.ts';
-import { useCurrentApp } from '../../shared/current-app.tsx';
+import { observer } from 'mobx-react-lite';
+import { useWorkspace } from '../../workspace/ASCWorkspace.hooks.tsx';
 
 // ─── Icons (stroke-2, matching the sidebar icon grammar) ─────────────────────
 
@@ -132,9 +133,10 @@ function CertificateRow({ cert }: { cert: Certificate }) {
 
 // ─── Page ────────────────────────────────────────────────────────────────────
 
-export default function DashboardPage() {
+function DashboardPage() {
   const { dashboard, loading, error } = useDashboard();
-  const { currentApp } = useCurrentApp();
+  const workspace = useWorkspace();
+  const currentApp = workspace?.currentApp ?? null;
   const navigate = useNavigate();
 
   if (error) {
