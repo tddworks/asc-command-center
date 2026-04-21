@@ -5,20 +5,16 @@ import { useAppInfo } from '../AppInfo.hooks.ts';
 import type { AppInfo } from '../AppInfo.ts';
 import type { AppInfoLocalization } from '../AppInfoLocalization.ts';
 import { RadioCard } from '../../../shared/components/RadioCard.tsx';
+import { APP_CATEGORIES } from '../AppCategoryRegistry.ts';
 
-// Placeholder category list — swap to a real `/app-categories` fetch once the
-// category-registry slice is in place (see Known limitations in app-info.md).
-const CATEGORIES: Array<{ id: string; label: string }> = [
-  { id: 'WEATHER', label: 'Weather' },
-  { id: 'HEALTH_AND_FITNESS', label: 'Health & Fitness' },
-  { id: 'PRODUCTIVITY', label: 'Productivity' },
-  { id: 'UTILITIES', label: 'Utilities' },
-  { id: 'FOOD_AND_DRINK', label: 'Food & Drink' },
-  { id: 'SPORTS', label: 'Sports' },
-  { id: 'DEVELOPER_TOOLS', label: 'Developer Tools' },
-  { id: 'BUSINESS', label: 'Business' },
-  { id: 'PHOTOGRAPHY', label: 'Photography' },
-];
+// Human-friendly labels for Apple's age-rating api ids.
+const AGE_RATING_LABELS: Record<string, { label: string; sub: string }> = {
+  FOUR_PLUS:      { label: '4+',  sub: 'No objectionable content' },
+  NINE_PLUS:      { label: '9+',  sub: 'Infrequent/mild content' },
+  TWELVE_PLUS:    { label: '12+', sub: 'Frequent/intense content' },
+  SEVENTEEN_PLUS: { label: '17+', sub: 'Mature content' },
+  UNRATED:        { label: '—',   sub: 'Not yet rated' },
+};
 
 function AppInfoPage() {
   const workspace = useWorkspace();

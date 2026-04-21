@@ -262,6 +262,7 @@ export class AppInfo {
       supportUrl: (json.supportUrl as string | null) ?? null,
       marketingUrl: (json.marketingUrl as string | null) ?? null,
       contentRightsDeclaration: (json.contentRightsDeclaration as string | null) ?? null,
+      appStoreAgeRating: (json.appStoreAgeRating as string | undefined) ?? undefined,
       primaryLocale: (json.primaryLocale as string) ?? 'en-US',
       localizations: rawLocalizations.map((l) => new AppInfoLocalization({
         id: (l.id as string) ?? '',

@@ -112,8 +112,8 @@ export class RestAppInfoRepository implements AppInfoRepository {
     return new AppInfo({
       id: dto.id,
       appId: dto.appId ?? appId,
-      primaryCategoryId: categoryId(dto.primaryCategory),
-      secondaryCategoryId: categoryId(dto.secondaryCategory),
+      primaryCategoryId: categoryId(dto.primaryCategoryId, dto.primaryCategory),
+      secondaryCategoryId: categoryId(dto.secondaryCategoryId, dto.secondaryCategory),
       privacyPolicyUrl: primaryRaw?.privacyPolicyUrl ?? null,
       supportUrl: null,    // Lives on AppStoreVersionLocalization, not here
       marketingUrl: null,  // Same
@@ -122,6 +122,7 @@ export class RestAppInfoRepository implements AppInfoRepository {
       affordances: dto.affordances ?? {},
       state: dto.state,
       appStoreState: dto.appStoreState,
+      appStoreAgeRating: dto.appStoreAgeRating,
     });
   }
 
