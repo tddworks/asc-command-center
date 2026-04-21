@@ -23,6 +23,8 @@ export interface AppInfoInit {
   state?: string;
   /** Live App Store status derived from the most recent version (READY_FOR_SALE, …). */
   appStoreState?: string;
+  /** Age rating produced by Apple's questionnaire — e.g. FOUR_PLUS. Read-only until we ship the editor. */
+  appStoreAgeRating?: string;
 }
 
 /** Snapshot of the top-level fields — used for dirty tracking + discard. */
@@ -62,6 +64,7 @@ export class AppInfo {
   affordances: Affordances;
   state: string | undefined;
   appStoreState: string | undefined;
+  appStoreAgeRating: string | undefined;
 
   repository: AppInfoRepository | null = null;
 
@@ -84,6 +87,7 @@ export class AppInfo {
     this.affordances = init.affordances ?? {};
     this.state = init.state;
     this.appStoreState = init.appStoreState;
+    this.appStoreAgeRating = init.appStoreAgeRating;
     this.snapshot = this.captureSnapshot();
 
     makeAutoObservable(this, {
