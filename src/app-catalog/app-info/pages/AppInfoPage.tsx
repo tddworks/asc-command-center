@@ -105,7 +105,7 @@ const AppMetadataCard = observer(({ appInfo }: { appInfo: AppInfo }) => {
               onChange={(e) => appInfo.setPrimaryCategory(e.target.value || null)}
             >
               <option value="">—</option>
-              {CATEGORIES.map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+              {APP_CATEGORIES.map((c) => <option key={c.apiId} value={c.apiId}>{c.label}</option>)}
             </select>
           </div>
           <div className="form-group">
@@ -117,9 +117,9 @@ const AppMetadataCard = observer(({ appInfo }: { appInfo: AppInfo }) => {
               onChange={(e) => appInfo.setSecondaryCategory(e.target.value || null)}
             >
               <option value="">— None —</option>
-              {CATEGORIES
-                .filter((c) => c.id !== appInfo.primaryCategoryId)
-                .map((c) => <option key={c.id} value={c.id}>{c.label}</option>)}
+              {APP_CATEGORIES
+                .filter((c) => c.apiId !== appInfo.primaryCategoryId)
+                .map((c) => <option key={c.apiId} value={c.apiId}>{c.label}</option>)}
             </select>
           </div>
         </div>
