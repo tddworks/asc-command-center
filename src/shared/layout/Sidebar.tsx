@@ -3,29 +3,8 @@ import { NavLink } from 'react-router-dom';
 import { observer } from 'mobx-react-lite';
 import { usePluginRegistry } from '../../extensibility/plugin/PluginContext.tsx';
 import { useWorkspace } from '../../workspace/ASCWorkspace.hooks.tsx';
-import { SidebarSelect } from '../components/SidebarSelect.tsx';
 import { AppIcon } from '../components/AppIcon.tsx';
 import { AppPickerModal } from '../components/AppPickerModal.tsx';
-
-function platformLabel(platform: string): string {
-  switch (platform) {
-    case 'IOS': return 'iPhone';
-    case 'MAC_OS': return 'Mac';
-    case 'TV_OS': return 'Apple TV';
-    case 'VISION_OS': return 'Vision Pro';
-    default: return platform;
-  }
-}
-
-function platformGlyph(platform: string): string {
-  switch (platform) {
-    case 'IOS': return '📱';
-    case 'MAC_OS': return '💻';
-    case 'TV_OS': return '📺';
-    case 'VISION_OS': return '🥽';
-    default: return '📱';
-  }
-}
 
 function SelectedAppCard() {
   const workspace = useWorkspace();
@@ -34,20 +13,6 @@ function SelectedAppCard() {
   if (!workspace || !workspace.hydrated) return null;
 
   const { apps, currentApp } = workspace;
-
-  const versionOptions = (currentApp?.versions ?? []).map((v) => ({
-    id: v.id,
-    leading: <span className="ss-version-glyph" aria-hidden>{platformGlyph(v.platform)}</span>,
-    primary: (
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
-        <span>{platformLabel(v.platform)}</span>
-        <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}>{v.versionString}</span>
-      </span>
-    ),
-    secondary: v.statusLabel,
-    trailing: <span className={`status-dot status-dot-${v.statusTone}`} aria-hidden />,
-    searchText: `${v.versionString} ${v.statusLabel}`,
-  }));
 
   return (
     <>
@@ -73,30 +38,6 @@ function SelectedAppCard() {
             <polyline points="5 12 8 15 11 12"/>
           </svg>
         </button>
-
-        {currentApp && currentApp.versions.length > 0 && currentApp.selectedVersion && (
-          <div className="selected-app-version">
-            <span className="selected-app-label">Version</span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <SidebarSelect
-                options={versionOptions}
-                selectedId={currentApp.selectedVersion.id}
-                onSelect={(id) => workspace.selectVersion(id)}
-                placeholder="No version"
-                filterable={false}
-              />
-            </div>
-          </div>
-        )}
-
-        {currentApp?.selectedVersion && (
-          <div className="selected-app-status">
-            <span className="selected-app-label">Status</span>
-            <span className={`status-pill status-pill-${currentApp.statusTone}`}>
-              {currentApp.statusLabel}
-            </span>
-          </div>
-        )}
       </div>
 
       <AppPickerModal
