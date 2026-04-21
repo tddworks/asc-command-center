@@ -6,7 +6,7 @@ import type { AppInfoRepository } from '../../../src/app-catalog/app-info/AppInf
 
 function stubRepo(overrides: Partial<AppInfoRepository> = {}): AppInfoRepository {
   return {
-    get: vi.fn(),
+    list: vi.fn(),
     save: vi.fn(),
     ...overrides,
   };
@@ -24,18 +24,18 @@ const fixture = new AppInfo({
 
 describe('AppInfos (root aggregate)', () => {
 
-  it('get delegates to the repository', async () => {
-    const repo = stubRepo({ get: vi.fn().mockResolvedValue(fixture) });
+  it('list delegates to the repository', async () => {
+    const repo = stubRepo({ list: vi.fn().mockResolvedValue([fixture]) });
     const roots = new AppInfos(repo);
 
-    await expect(roots.get('app-1')).resolves.toBe(fixture);
-    expect(repo.get).toHaveBeenCalledWith('app-1');
+    await expect(roots.list('app-1')).resolves.toEqual([fixture]);
+    expect(repo.list).toHaveBeenCalledWith('app-1');
   });
 
   it('propagates repository errors', async () => {
-    const repo = stubRepo({ get: vi.fn().mockRejectedValue(new Error('boom')) });
+    const repo = stubRepo({ list: vi.fn().mockRejectedValue(new Error('boom')) });
     const roots = new AppInfos(repo);
 
-    await expect(roots.get('app-1')).rejects.toThrow('boom');
+    await expect(roots.list('app-1')).rejects.toThrow('boom');
   });
 });

@@ -1,19 +1,23 @@
 import type { AppInfo } from './AppInfo.ts';
 
+export interface AppInfoListHints {
+  /**
+   * The owning app's primary locale. The AppInfo payload doesn't include it
+   * directly, and when the backend returns zero localizations we still need
+   * a seat for the primary-locale row so the form has something to bind to.
+   */
+  primaryLocale?: string;
+}
+
 /**
- * Port for the AppInfo aggregate. Infrastructure provides a REST adapter and
- * a mock; the domain depends only on this protocol.
+ * Port for the App Info aggregate.
  *
- * `save` receives the whole aggregate and is expected to mutate it in place:
- *   - backfill backend ids on any locally-added localizations
- *   - call `AppInfoLocalization.markSaved()` on each (clean + dirty) localization
- *   - call `AppInfo.markSaved()` at the end
- *
- * The aggregate's `save()` method wraps this call and does not itself flip
- * dirty state — that's the repository's job, because only the repository
- * knows whether the write actually succeeded end-to-end.
+ * The backend returns multiple AppInfo rows per app — one per version state
+ * (e.g. `READY_FOR_DISTRIBUTION` for the live version, `PREPARE_FOR_SUBMISSION`
+ * for the next version being edited). The hook picks the right one based on
+ * the currently-selected version's state.
  */
 export interface AppInfoRepository {
-  get(appId: string): Promise<AppInfo>;
+  list(appId: string, hints?: AppInfoListHints): Promise<AppInfo[]>;
   save(appInfo: AppInfo): Promise<void>;
 }
