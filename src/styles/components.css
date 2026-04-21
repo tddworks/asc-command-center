@@ -1189,6 +1189,39 @@ textarea.form-input { min-height: 80px; resize: vertical; line-height: 1.5; }
   gap: 28px;
 }
 
+/* ─── Sticky save bar (fixed to the bottom of the main content area) ── */
+
+.save-bar {
+  position: fixed;
+  bottom: 0;
+  left: var(--sidebar-w);
+  right: 0;
+  z-index: 10;
+  padding: 0 28px;
+  background: var(--bg-card);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -6px 16px rgba(0,0,0,0.05);
+  animation: save-bar-rise 0.16s ease-out;
+}
+@keyframes save-bar-rise {
+  from { transform: translateY(6px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+.save-bar-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+}
+.save-bar-status {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+.save-bar-error { color: var(--danger-text); font-weight: 600; }
+.save-bar-actions { display: flex; gap: 8px; }
+
 .ai-section-wrap { display: flex; flex-direction: column; gap: 0; }
 
 .ai-grid-2 {
