@@ -434,14 +434,39 @@ textarea.form-input { min-height: 80px; resize: vertical; line-height: 1.5; }
 .timeline-desc { font-size: 12px; color: var(--text-muted); }
 .timeline-time { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
 
-/* ─── Sidebar selected-app card ───────────────────────────────────── */
+/* ─── Sidebar selected-app block ──────────────────────────────────── */
 
-.selected-app-card {
-  margin: 4px 12px 16px;
-  padding: 12px;
-  background: var(--bg-surface, rgba(0,0,0,0.02));
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
+.selected-app-block {
+  /* Aligns with .nav-section — no extra horizontal indent. */
+  margin-bottom: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* Shared small-caps label style used for "Version" / "Status" rows. */
+.selected-app-label {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+/* "Version" is a horizontal row — label on the left, picker taking rest. */
+.selected-app-version {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* "Status" is a horizontal row — label on the left, pill right-aligned. */
+.selected-app-status {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2px;
 }
 
 /* ─── SidebarSelect (styled dropdown with popover) ─── */
@@ -455,7 +480,8 @@ textarea.form-input { min-height: 80px; resize: vertical; line-height: 1.5; }
   align-items: center;
   gap: 10px;
   width: 100%;
-  padding: 10px;
+  /* Match .nav-item horizontal padding so the icon aligns with nav icons. */
+  padding: 8px 12px;
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
@@ -481,19 +507,6 @@ textarea.form-input { min-height: 80px; resize: vertical; line-height: 1.5; }
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-}
-
-.ss-app-glyph {
-  display: inline-flex;
-  width: 28px;
-  height: 28px;
-  align-items: center;
-  justify-content: center;
-  border-radius: 6px;
-  color: #fff;
-  font-weight: 700;
-  font-size: 12px;
-  letter-spacing: 0.02em;
 }
 
 .ss-version-glyph {
@@ -545,12 +558,11 @@ textarea.form-input { min-height: 80px; resize: vertical; line-height: 1.5; }
 .ss-chevron {
   flex-shrink: 0;
   width: 14px;
-  height: 14px;
+  height: 18px;
   color: var(--text-muted);
-  transition: transform 0.12s ease;
 }
 .sidebar-select-button.is-open .ss-chevron {
-  transform: rotate(180deg);
+  color: var(--accent);
 }
 
 .sidebar-select-popover {
@@ -631,13 +643,6 @@ textarea.form-input { min-height: 80px; resize: vertical; line-height: 1.5; }
 .status-dot-danger  { background: #dc2626; }
 .status-dot-neutral { background: #78716c; }
 
-.selected-app-status {
-  margin-top: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-}
 
 /* Status pills — used in the selected-app card */
 .status-pill {

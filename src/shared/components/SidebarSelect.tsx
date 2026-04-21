@@ -10,13 +10,16 @@ export interface SidebarSelectOption {
 }
 
 interface Props {
-  label: string;                        // section header above the button
+  /** Section header above the button. Omit (empty string) to render none. */
+  label?: string;
   options: SidebarSelectOption[];
   selectedId: string | null;
   onSelect: (id: string) => void;
   placeholder?: string;
   filterable?: boolean;
   emptyText?: string;
+  /** Hide the `secondary` line in the closed button (keeps it in popover rows). */
+  compactButton?: boolean;
 }
 
 /**
@@ -31,6 +34,7 @@ export function SidebarSelect({
   placeholder = 'Select…',
   filterable = true,
   emptyText = 'No options',
+  compactButton = false,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
@@ -98,7 +102,7 @@ export function SidebarSelect({
 
   return (
     <div className="sidebar-select-root" ref={rootRef}>
-      <div className="nav-section-title">{label}</div>
+      {label && <div className="nav-section-title">{label}</div>}
       <button
         type="button"
         className={`sidebar-select-button ${open ? 'is-open' : ''}`}
@@ -109,14 +113,19 @@ export function SidebarSelect({
             {selected.leading && <span className="ss-leading">{selected.leading}</span>}
             <span className="ss-labels">
               <span className="ss-primary">{selected.primary}</span>
-              {selected.secondary && <span className="ss-secondary">{selected.secondary}</span>}
+              {!compactButton && selected.secondary && (
+                <span className="ss-secondary">{selected.secondary}</span>
+              )}
             </span>
             {selected.trailing && <span className="ss-trailing">{selected.trailing}</span>}
           </>
         ) : (
           <span className="ss-primary ss-placeholder">{placeholder}</span>
         )}
-        <svg className="ss-chevron" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 8 10 12 14 8"/></svg>
+        <svg className="ss-chevron" viewBox="0 0 16 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+          <polyline points="5 8 8 5 11 8"/>
+          <polyline points="5 12 8 15 11 12"/>
+        </svg>
       </button>
 
       {open && (

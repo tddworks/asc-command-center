@@ -3,30 +3,16 @@ import { observer } from 'mobx-react-lite';
 import { usePluginRegistry } from '../../extensibility/plugin/PluginContext.tsx';
 import { useWorkspace } from '../../workspace/ASCWorkspace.hooks.tsx';
 import { SidebarSelect } from '../components/SidebarSelect.tsx';
-import type { App } from '../../app-catalog/app/App.ts';
+import { AppIcon } from '../components/AppIcon.tsx';
 
-const appColors = ['#2563EB','#7C3AED','#059669','#D97706','#DC2626','#0891B2','#4F46E5','#EA580C'];
-
-function hashCode(str: string): number {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    hash = ((hash << 5) - hash + str.charCodeAt(i)) | 0;
+function platformLabel(platform: string): string {
+  switch (platform) {
+    case 'IOS': return 'iPhone';
+    case 'MAC_OS': return 'Mac';
+    case 'TV_OS': return 'Apple TV';
+    case 'VISION_OS': return 'Vision Pro';
+    default: return platform;
   }
-  return Math.abs(hash);
-}
-
-function appGlyph(app: App) {
-  const color = appColors[hashCode(app.id) % appColors.length];
-  const initial = app.name.charAt(0).toUpperCase();
-  return (
-    <span
-      className="ss-app-glyph"
-      style={{ background: color }}
-      aria-hidden
-    >
-      {initial}
-    </span>
-  );
 }
 
 function platformGlyph(platform: string): string {
@@ -47,7 +33,7 @@ function SelectedAppCard() {
 
   const appOptions = apps.map((a) => ({
     id: a.id,
-    leading: appGlyph(a),
+    leading: <AppIcon app={a} size={32} />,
     primary: a.name,
     secondary: a.bundleId,
     searchText: `${a.name} ${a.bundleId}`,
@@ -56,16 +42,19 @@ function SelectedAppCard() {
   const versionOptions = (currentApp?.versions ?? []).map((v) => ({
     id: v.id,
     leading: <span className="ss-version-glyph" aria-hidden>{platformGlyph(v.platform)}</span>,
-    primary: v.versionString,
-    secondary: v.statusLabel,
-    trailing: (
-      <span className={`status-dot status-dot-${v.statusTone}`} aria-hidden />
+    primary: (
+      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+        <span>{platformLabel(v.platform)}</span>
+        <span style={{ color: 'var(--text-muted)', fontWeight: 500 }}>{v.versionString}</span>
+      </span>
     ),
+    secondary: v.statusLabel,
+    trailing: <span className={`status-dot status-dot-${v.statusTone}`} aria-hidden />,
     searchText: `${v.versionString} ${v.statusLabel}`,
   }));
 
   return (
-    <div className="selected-app-card">
+    <div className="selected-app-block">
       <SidebarSelect
         label="Selected App"
         options={appOptions}
@@ -73,24 +62,19 @@ function SelectedAppCard() {
         onSelect={(id) => { void workspace.selectApp(id); }}
         placeholder="No app selected"
         emptyText="No apps available"
+        compactButton
       />
 
-      {currentApp && currentApp.versions.length > 0 && (
-        <div style={{ marginTop: 10 }}>
-          <SidebarSelect
-            label="Version"
-            options={versionOptions}
-            selectedId={currentApp.selectedVersion?.id ?? null}
-            onSelect={(id) => workspace.selectVersion(id)}
-            placeholder="No version"
-            filterable={false}
-          />
+      {currentApp && currentApp.versions.length > 0 && currentApp.selectedVersion && (
+        <div className="selected-app-version">
+          <span className="selected-app-label">Version</span>
+          <VersionPicker />
         </div>
       )}
 
       {currentApp?.selectedVersion && (
         <div className="selected-app-status">
-          <span className="nav-section-title">Status</span>
+          <span className="selected-app-label">Status</span>
           <span className={`status-pill status-pill-${currentApp.statusTone}`}>
             {currentApp.statusLabel}
           </span>
@@ -98,6 +82,21 @@ function SelectedAppCard() {
       )}
     </div>
   );
+
+  function VersionPicker() {
+    return (
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <SidebarSelect
+          label=""
+          options={versionOptions}
+          selectedId={currentApp!.selectedVersion!.id}
+          onSelect={(id) => workspace!.selectVersion(id)}
+          placeholder="No version"
+          filterable={false}
+        />
+      </div>
+    );
+  }
 }
 
 const ObservedSelectedAppCard = observer(SelectedAppCard);

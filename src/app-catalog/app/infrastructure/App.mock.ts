@@ -5,6 +5,27 @@ import type { AppRepository } from '../AppRepository.ts';
 import { mockBuilds } from '../../../release/build/infrastructure/Build.mock.ts';
 import { mockVersions } from '../../../release/version/infrastructure/Version.mock.ts';
 
+/**
+ * Generate an SVG data URI that stands in for a real app icon in mock mode.
+ * Produces a rounded square with a gradient and a large glyph — enough to
+ * make each mock app visually distinct without shipping binary assets.
+ */
+function svgIcon(glyph: string, from: string, to: string): string {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+    <defs>
+      <linearGradient id="g" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="${from}"/>
+        <stop offset="100%" stop-color="${to}"/>
+      </linearGradient>
+    </defs>
+    <rect width="128" height="128" rx="28" fill="url(#g)"/>
+    <text x="50%" y="54%" text-anchor="middle" dominant-baseline="middle"
+          font-family="-apple-system, 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif"
+          font-size="72" fill="#fff">${glyph}</text>
+  </svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
 export class MockAppRepository implements AppRepository {
   async list(): Promise<App[]> {
     return this.fixtures();
@@ -40,6 +61,7 @@ export class MockAppRepository implements AppRepository {
             getReviews: '/api/v1/apps/app-1/reviews',
             getTestFlight: '/api/v1/apps/app-1/beta-groups',
           },
+          iconUrl: svgIcon('⛅', '#60A5FA', '#2563EB'),
         },
         this,
       ),
@@ -56,6 +78,7 @@ export class MockAppRepository implements AppRepository {
             getBuilds: '/api/v1/apps/app-2/builds',
           },
           contentRightsDeclaration: 'USES_THIRD_PARTY_CONTENT',
+          iconUrl: svgIcon('🏋️', '#34D399', '#059669'),
         },
         this,
       ),
