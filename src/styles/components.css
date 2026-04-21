@@ -821,3 +821,174 @@ textarea.form-input { min-height: 80px; resize: vertical; line-height: 1.5; }
   color: var(--text-muted);
   font-size: 13px;
 }
+
+/* ─── App Info page (guided metadata editor) ─────────────────────── */
+
+.app-info-page {
+  padding-bottom: 24px;
+}
+
+.app-info-header {
+  margin-bottom: 16px;
+}
+.app-info-header h2 {
+  margin: 0 0 4px;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.app-info-section {
+  margin-bottom: 16px;
+}
+.app-info-section > .toolbar h3 {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0;
+}
+
+/* Localizations list — stack of collapsible rows */
+.localizations-table {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+.locale-row { border-bottom: 1px solid var(--border); }
+.locale-row:last-child { border-bottom: none; }
+.locale-row.is-expanded { background: var(--bg-hover); }
+
+.locale-row-header {
+  display: grid;
+  grid-template-columns: 20px auto 1fr 2fr auto auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 14px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--text-primary);
+}
+.locale-row-header:hover { background: rgba(120, 113, 108, 0.06); }
+
+.locale-row-chev {
+  width: 14px;
+  height: 14px;
+  color: var(--text-muted);
+  transition: transform 0.12s ease;
+  transform: rotate(-90deg);
+}
+.locale-row.is-expanded .locale-row-chev {
+  transform: rotate(0deg);
+}
+
+.locale-row-name {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.locale-row-subtitle {
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+}
+
+.locale-row-primary-tag {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(37, 99, 235, 0.1);
+  color: var(--accent);
+}
+
+.locale-row-dirty {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #f59e0b;
+  flex-shrink: 0;
+}
+
+.locale-row-body {
+  padding: 12px 14px 16px 46px;
+  border-top: 1px solid var(--border-light);
+  background: var(--bg-card);
+}
+.locale-row-actions {
+  margin-top: 10px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.locale-row-add-trigger {
+  padding: 12px 14px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 13px;
+  text-align: left;
+  font-family: inherit;
+}
+.locale-row-add-trigger:hover { background: rgba(120, 113, 108, 0.06); }
+
+.locale-row-add {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 12px 14px;
+  background: var(--bg-hover);
+}
+.locale-row-add .form-control { flex: 1; margin: 0; }
+
+/* ─── Sticky save bar ────────────────────────────────────────────── */
+
+.save-bar {
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 10;
+  margin: 24px -24px 0;
+  padding: 0 24px;
+  background: var(--bg-card);
+  border-top: 1px solid var(--border);
+  box-shadow: 0 -6px 16px rgba(0,0,0,0.04);
+  animation: save-bar-rise 0.16s ease-out;
+}
+@keyframes save-bar-rise {
+  from { transform: translateY(6px); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+.save-bar-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 0;
+}
+.save-bar-status {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+.save-bar-error {
+  color: var(--danger-text);
+  font-weight: 600;
+}
+.save-bar-actions {
+  display: flex;
+  gap: 8px;
+}
