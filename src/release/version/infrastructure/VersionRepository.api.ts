@@ -2,27 +2,15 @@ import { Version } from '../Version.ts';
 import { VersionLocalization } from '../VersionLocalization.ts';
 import type { VersionRepository } from '../VersionRepository.ts';
 import { apiClient, type DataMode } from '../../../shared/api-client.tsx';
-import type { Affordances } from '../../../shared/types.ts';
 import { MockVersionRepository } from './VersionRepository.mock.ts';
-
-interface VersionLocalizationDTO {
-  id?: string;
-  locale?: string;
-  description?: string | null;
-  keywords?: string | null;
-  whatsNew?: string | null;
-  promotionalText?: string | null;
-  supportUrl?: string | null;
-  marketingUrl?: string | null;
-  affordances?: Affordances;
-}
 
 /**
  * REST adapter for version-level operations.
  *
- * Follows the per-version `listLocalizations` / `updateLocalization` /
- * `updateVersion` affordances when present; falls back to mock for paths
- * the backend hasn't implemented yet.
+ * Follows the per-version `listLocalizations` / `getLocalizations` affordance.
+ * No DTO types — raw JSON flows directly into `VersionLocalization.fromJSON`,
+ * which owns the hydration contract. `save` still falls back to the in-memory
+ * mock until the backend ships `updateVersion` / `updateLocalization`.
  */
 export class RestVersionRepository implements VersionRepository {
   private readonly saveFallback = new MockVersionRepository();
@@ -35,20 +23,8 @@ export class RestVersionRepository implements VersionRepository {
     if (!href) return [];
 
     try {
-      const resp = await apiClient.get<{ data: VersionLocalizationDTO[] }>(href);
-      return (resp.data ?? []).map((dto) =>
-        new VersionLocalization({
-          id: dto.id ?? '',
-          locale: dto.locale ?? '',
-          description: dto.description ?? '',
-          keywords: dto.keywords ?? '',
-          whatsNew: dto.whatsNew ?? '',
-          promotionalText: dto.promotionalText ?? '',
-          supportUrl: dto.supportUrl ?? null,
-          marketingUrl: dto.marketingUrl ?? null,
-          affordances: dto.affordances ?? {},
-        }),
-      );
+      const resp = await apiClient.get<{ data: Record<string, unknown>[] }>(href);
+      return (resp.data ?? []).map(VersionLocalization.fromJSON);
     } catch (err) {
       console.warn('[Version] failed to load localizations:', err);
       return [];

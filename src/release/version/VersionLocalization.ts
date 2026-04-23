@@ -106,4 +106,22 @@ export class VersionLocalization {
       marketingUrl: this.marketingUrl,
     };
   }
+
+  // ── Factory ──
+
+  /** Build a version localization from the raw JSON shape the backend sends.
+   *  Affordances are read as already-flattened by `apiClient.normalizeLinks`. */
+  static fromJSON(json: Record<string, unknown>): VersionLocalization {
+    return new VersionLocalization({
+      id: (json.id as string) ?? '',
+      locale: (json.locale as string) ?? '',
+      description: (json.description as string | null) ?? '',
+      keywords: (json.keywords as string | null) ?? '',
+      whatsNew: (json.whatsNew as string | null) ?? '',
+      promotionalText: (json.promotionalText as string | null) ?? '',
+      supportUrl: (json.supportUrl as string | null) ?? null,
+      marketingUrl: (json.marketingUrl as string | null) ?? null,
+      affordances: (json.affordances as Affordances | undefined) ?? {},
+    });
+  }
 }

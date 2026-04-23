@@ -10,8 +10,7 @@ import { MockAppInfoRepository } from './AppInfo.mock.ts';
  *
  * LIST — fetch all AppInfo rows for the app (one per version state). For each
  * row we follow `listLocalizations` in parallel and feed the raw JSON into
- * `AppInfo.fromJSON`, which owns the domain's hydration contract. The adapter
- * itself doesn't define a parallel DTO shape — it's a thin HTTP shell.
+ * `AppInfo.fromJSON`, which owns the domain's hydration contract.
  *
  * SAVE — the aggregate orchestrates, this adapter just owns the HTTP calls:
  *   • `saveCategories`     → PATCH `appInfo.affordances.updateCategories`
