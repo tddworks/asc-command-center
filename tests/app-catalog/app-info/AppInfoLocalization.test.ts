@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
-import { AppInfoLocalization } from '../../../src/app-catalog/app-info/AppInfoLocalization.ts';
+import { AppInfoLocalization, type AppInfoLocalizationInit } from '../../../src/app-catalog/app-info/AppInfoLocalization.ts';
 
-function make(overrides: Partial<{ id: string; locale: string; name: string; subtitle: string | null }> = {}) {
+function make(overrides: Partial<AppInfoLocalizationInit> = {}) {
   return new AppInfoLocalization({
     id: 'loc-1',
     locale: 'en-US',
@@ -50,6 +50,27 @@ describe('AppInfoLocalization', () => {
     expect(loc.hasUnsavedChanges).toBe(true);
   });
 
+  it('setPrivacyPolicyUrl updates the field and flips hasUnsavedChanges', () => {
+    const loc = make();
+    loc.setPrivacyPolicyUrl('https://x.test/p');
+    expect(loc.privacyPolicyUrl).toBe('https://x.test/p');
+    expect(loc.hasUnsavedChanges).toBe(true);
+  });
+
+  it('setPrivacyChoicesUrl updates the field and flips hasUnsavedChanges', () => {
+    const loc = make();
+    loc.setPrivacyChoicesUrl('https://x.test/c');
+    expect(loc.privacyChoicesUrl).toBe('https://x.test/c');
+    expect(loc.hasUnsavedChanges).toBe(true);
+  });
+
+  it('setPrivacyPolicyUrl accepts null to clear', () => {
+    const loc = make({ privacyPolicyUrl: 'https://x.test/p' });
+    loc.setPrivacyPolicyUrl(null);
+    expect(loc.privacyPolicyUrl).toBeNull();
+    expect(loc.hasUnsavedChanges).toBe(true);
+  });
+
   it('setting a field to its current value does not flip dirty', () => {
     const loc = make();
     loc.setName('Bakery App');
@@ -78,6 +99,21 @@ describe('AppInfoLocalization', () => {
     expect(loc.hasUnsavedChanges).toBe(false);
   });
 
+  it('discard restores privacy URLs to the snapshot', () => {
+    const loc = make({
+      privacyPolicyUrl: 'https://x.test/p',
+      privacyChoicesUrl: 'https://x.test/c',
+    });
+    loc.setPrivacyPolicyUrl('https://y.test/p');
+    loc.setPrivacyChoicesUrl(null);
+
+    loc.discard();
+
+    expect(loc.privacyPolicyUrl).toBe('https://x.test/p');
+    expect(loc.privacyChoicesUrl).toBe('https://x.test/c');
+    expect(loc.hasUnsavedChanges).toBe(false);
+  });
+
   // ── markSaved ──
 
   it('markSaved promotes the current values to the new snapshot', () => {
@@ -92,6 +128,35 @@ describe('AppInfoLocalization', () => {
     loc.setName('Another');
     loc.discard();
     expect(loc.name).toBe('New Name');
+  });
+
+  it('markSaved promotes privacy URLs into the snapshot', () => {
+    const loc = make();
+    loc.setPrivacyPolicyUrl('https://x.test/p');
+
+    loc.markSaved();
+
+    expect(loc.hasUnsavedChanges).toBe(false);
+    loc.setPrivacyPolicyUrl('https://z.test/p');
+    loc.discard();
+    expect(loc.privacyPolicyUrl).toBe('https://x.test/p');
+  });
+
+  // ── Capability ──
+
+  it('canUpdate is true when the update affordance is present', () => {
+    const loc = make({ affordances: { update: '/api/v1/app-info-localizations/loc-1' } });
+    expect(loc.canUpdate).toBe(true);
+  });
+
+  it('canUpdate is false when the update affordance is absent', () => {
+    expect(make().canUpdate).toBe(false);
+  });
+
+  it('canDelete reflects the delete affordance', () => {
+    expect(make().canDelete).toBe(false);
+    const removable = make({ affordances: { delete: '/api/v1/app-info-localizations/loc-1' } });
+    expect(removable.canDelete).toBe(true);
   });
 
   // ── Identity for unsaved (locally-added) locales ──

@@ -7,9 +7,9 @@ import type { AppInfoListHints, AppInfoRepository } from '../AppInfoRepository.t
  * and lazily seeds any app id that hasn't been touched yet, so switching
  * apps in the sidebar always works in both mock mode and REST fallback.
  *
- * `save()` simulates persistence by cloning the current aggregate into the
- * store and calling `markSaved()` on the aggregate instance. Locally-added
- * localizations get deterministic backend ids.
+ * Implements the repository port's granular methods — each one touches the
+ * store for the slice of state it owns, just like the REST adapter PATCHes
+ * the matching resource.
  */
 export class MockAppInfoRepository implements AppInfoRepository {
   private store: Map<string, Snapshot> = new Map();
@@ -20,48 +20,77 @@ export class MockAppInfoRepository implements AppInfoRepository {
     return [hydrate(appId, this.store.get(appId)!, this)];
   }
 
-  async save(appInfo: AppInfo): Promise<void> {
-    // Simulate backend assigning ids to locally-added locales.
-    for (const loc of appInfo.localizations) {
-      if (loc.id === '') {
-        loc.markSaved(`mock-loc-${this.idSeed++}`);
-      } else {
-        loc.markSaved();
-      }
+  async saveCategories(appInfo: AppInfo): Promise<void> {
+    const snap = this.store.get(appInfo.appId);
+    if (!snap) return;
+    snap.primaryCategoryId = appInfo.primaryCategoryId;
+    snap.secondaryCategoryId = appInfo.secondaryCategoryId;
+    snap.contentRightsDeclaration = appInfo.contentRightsDeclaration;
+  }
+
+  async saveLocalization(loc: AppInfoLocalization): Promise<void> {
+    const snap = this.findSnapshotFor(loc);
+    if (!snap) return;
+    const row = snap.localizations.find((l) => l.id === loc.id);
+    if (!row) return;
+    row.name = loc.name;
+    row.subtitle = loc.subtitle;
+    row.privacyPolicyUrl = loc.privacyPolicyUrl;
+    row.privacyChoicesUrl = loc.privacyChoicesUrl;
+  }
+
+  async createLocalization(
+    appInfo: AppInfo,
+    loc: AppInfoLocalization,
+  ): Promise<{ id: string }> {
+    const snap = this.store.get(appInfo.appId);
+    if (!snap) throw new Error(`No mock AppInfo for app ${appInfo.appId}`);
+    const id = `mock-loc-${this.idSeed++}`;
+    snap.localizations.push({
+      id,
+      locale: loc.locale,
+      name: loc.name,
+      subtitle: loc.subtitle,
+      privacyPolicyUrl: loc.privacyPolicyUrl,
+      privacyChoicesUrl: loc.privacyChoicesUrl,
+    });
+    return { id };
+  }
+
+  async deleteLocalization(loc: AppInfoLocalization): Promise<void> {
+    const snap = this.findSnapshotFor(loc);
+    if (!snap) return;
+    snap.localizations = snap.localizations.filter((l) => l.id !== loc.id);
+  }
+
+  // ── internals ──
+
+  private findSnapshotFor(loc: AppInfoLocalization): Snapshot | undefined {
+    for (const snap of this.store.values()) {
+      if (snap.localizations.some((l) => l.id === loc.id)) return snap;
     }
-    this.store.set(appInfo.appId, serialize(appInfo));
+    return undefined;
   }
 }
 
 // ── internals ──
 
+interface LocalizationSnapshot {
+  id: string;
+  locale: string;
+  name: string;
+  subtitle: string | null;
+  privacyPolicyUrl: string | null;
+  privacyChoicesUrl: string | null;
+}
+
 interface Snapshot {
   id: string;
   primaryCategoryId: string | null;
   secondaryCategoryId: string | null;
-  privacyPolicyUrl: string | null;
-  supportUrl: string | null;
-  marketingUrl: string | null;
+  contentRightsDeclaration: string | null;
   primaryLocale: string;
-  localizations: Array<{ id: string; locale: string; name: string; subtitle: string | null }>;
-}
-
-function serialize(info: AppInfo): Snapshot {
-  return {
-    id: info.id,
-    primaryCategoryId: info.primaryCategoryId,
-    secondaryCategoryId: info.secondaryCategoryId,
-    privacyPolicyUrl: info.privacyPolicyUrl,
-    supportUrl: info.supportUrl,
-    marketingUrl: info.marketingUrl,
-    primaryLocale: info.primaryLocale,
-    localizations: info.localizations.map((l) => ({
-      id: l.id,
-      locale: l.locale,
-      name: l.name,
-      subtitle: l.subtitle,
-    })),
-  };
+  localizations: LocalizationSnapshot[];
 }
 
 function hydrate(appId: string, s: Snapshot, repo: MockAppInfoRepository): AppInfo {
@@ -70,11 +99,16 @@ function hydrate(appId: string, s: Snapshot, repo: MockAppInfoRepository): AppIn
     appId,
     primaryCategoryId: s.primaryCategoryId,
     secondaryCategoryId: s.secondaryCategoryId,
-    privacyPolicyUrl: s.privacyPolicyUrl,
-    supportUrl: s.supportUrl,
-    marketingUrl: s.marketingUrl,
+    contentRightsDeclaration: s.contentRightsDeclaration,
     primaryLocale: s.primaryLocale,
-    localizations: s.localizations.map((l) => new AppInfoLocalization(l)),
+    localizations: s.localizations.map((l) => new AppInfoLocalization({
+      id: l.id,
+      locale: l.locale,
+      name: l.name,
+      subtitle: l.subtitle,
+      privacyPolicyUrl: l.privacyPolicyUrl,
+      privacyChoicesUrl: l.privacyChoicesUrl,
+    })),
   });
   info.setRepository(repo);
   return info;
@@ -86,13 +120,21 @@ function seedFor(appId: string): Snapshot {
       id: 'info-app-1',
       primaryCategoryId: 'WEATHER',
       secondaryCategoryId: null,
-      privacyPolicyUrl: 'https://example.com/weather/privacy',
-      supportUrl: 'https://example.com/weather/support',
-      marketingUrl: null,
+      contentRightsDeclaration: null,
       primaryLocale: 'en-US',
       localizations: [
-        { id: 'loc-1-en', locale: 'en-US', name: 'WeatherApp', subtitle: 'Your daily weather' },
-        { id: 'loc-1-de', locale: 'de-DE', name: 'WetterApp', subtitle: 'Ihr tägliches Wetter' },
+        {
+          id: 'loc-1-en', locale: 'en-US',
+          name: 'WeatherApp', subtitle: 'Your daily weather',
+          privacyPolicyUrl: 'https://example.com/weather/privacy',
+          privacyChoicesUrl: null,
+        },
+        {
+          id: 'loc-1-de', locale: 'de-DE',
+          name: 'WetterApp', subtitle: 'Ihr tägliches Wetter',
+          privacyPolicyUrl: null,
+          privacyChoicesUrl: null,
+        },
       ],
     };
   }
@@ -101,26 +143,30 @@ function seedFor(appId: string): Snapshot {
       id: 'info-app-2',
       primaryCategoryId: 'HEALTH_AND_FITNESS',
       secondaryCategoryId: 'SPORTS',
-      privacyPolicyUrl: 'https://example.com/fitness/privacy',
-      supportUrl: 'https://example.com/fitness/support',
-      marketingUrl: 'https://example.com/fitness',
+      contentRightsDeclaration: null,
       primaryLocale: 'en-US',
       localizations: [
-        { id: 'loc-2-en', locale: 'en-US', name: 'FitnessTracker', subtitle: 'Move every day' },
+        {
+          id: 'loc-2-en', locale: 'en-US',
+          name: 'FitnessTracker', subtitle: 'Move every day',
+          privacyPolicyUrl: 'https://example.com/fitness/privacy',
+          privacyChoicesUrl: null,
+        },
       ],
     };
   }
-  // Fallback for any other app id (e.g., real REST app we fell back to mock for).
   return {
     id: `info-${appId}`,
     primaryCategoryId: null,
     secondaryCategoryId: null,
-    privacyPolicyUrl: null,
-    supportUrl: null,
-    marketingUrl: null,
+    contentRightsDeclaration: null,
     primaryLocale: 'en-US',
     localizations: [
-      { id: `loc-${appId}-en`, locale: 'en-US', name: '', subtitle: null },
+      {
+        id: `loc-${appId}-en`, locale: 'en-US',
+        name: '', subtitle: null,
+        privacyPolicyUrl: null, privacyChoicesUrl: null,
+      },
     ],
   };
 }

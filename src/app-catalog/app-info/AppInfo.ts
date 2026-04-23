@@ -8,16 +8,17 @@ export interface AppInfoInit {
   appId: string;
   primaryCategoryId: string | null;
   secondaryCategoryId: string | null;
-  privacyPolicyUrl: string | null;
-  /** California opt-out URL — rarely set but required in some jurisdictions. */
+  /** Convenience: applies to the primary-locale localization at construction
+   *  time when that localization has no privacy URL of its own. Kept for
+   *  backwards compatibility — prefer setting it on the localization init. */
+  privacyPolicyUrl?: string | null;
+  /** Same story as `privacyPolicyUrl`. */
   privacyChoicesUrl?: string | null;
-  supportUrl: string | null;
-  marketingUrl: string | null;
   /** `USES_THIRD_PARTY_CONTENT` / `DOES_NOT_USE_THIRD_PARTY_CONTENT` / null. */
   contentRightsDeclaration?: string | null;
   primaryLocale: string;
   localizations: AppInfoLocalization[];
-  /** HATEOAS affordances from the backend (updateCategories, listLocalizations, …). */
+  /** HATEOAS affordances from the backend (updateCategories, createLocalization, …). */
   affordances?: Affordances;
   /** Backend-owned lifecycle state — e.g. READY_FOR_DISTRIBUTION. Informational only. */
   state?: string;
@@ -27,26 +28,38 @@ export interface AppInfoInit {
   appStoreAgeRating?: string;
 }
 
-/** Snapshot of the top-level fields — used for dirty tracking + discard. */
-interface AppInfoSnapshot {
+/** Accepts the flat string id the `asc` backend ships today and the nested
+ *  Apple shape (`{ id: 'FINANCE' }`) older fixtures still use. */
+function pickCategoryId(flat: unknown, nested: unknown): string | null {
+  if (typeof flat === 'string' && flat.length > 0) return flat;
+  if (typeof nested === 'string') return nested;
+  if (nested && typeof nested === 'object' && 'id' in nested) {
+    const id = (nested as { id?: unknown }).id;
+    return typeof id === 'string' ? id : null;
+  }
+  return null;
+}
+
+/** Snapshot of the category-level fields used for dirty tracking + discard.
+ *  Per-locale fields (name, subtitle, privacy URLs) live on each
+ *  AppInfoLocalization's own snapshot. */
+interface CategorySnapshot {
   primaryCategoryId: string | null;
   secondaryCategoryId: string | null;
-  privacyPolicyUrl: string | null;
-  privacyChoicesUrl: string | null;
-  supportUrl: string | null;
-  marketingUrl: string | null;
   contentRightsDeclaration: string | null;
   localeIds: Set<string>;
-  removedLocales: Map<string, AppInfoLocalization>;
 }
 
 /**
  * AppInfo — aggregate root for the app-metadata slice under App Catalog.
  *
- * Mutable observable. Holds top-level fields (categories, privacy/support/
- * marketing URLs) and a list of per-locale `AppInfoLocalization` entries.
- * `hasUnsavedChanges` composes the aggregate's own dirty state with each
- * localization's dirty state, plus any adds/removes since last save.
+ * Mutable observable. Holds the category-level fields that Apple's AppInfo
+ * resource owns (primary/secondary category, content-rights declaration) and
+ * a list of per-locale `AppInfoLocalization` entries that own everything else
+ * (name, subtitle, privacy URLs).
+ *
+ * `save()` orchestrates the write: POST new locales, DELETE removed locales,
+ * PATCH dirty locales, PATCH categories when category-level fields changed.
  */
 export class AppInfo {
   readonly id: string;
@@ -55,10 +68,6 @@ export class AppInfo {
 
   primaryCategoryId: string | null;
   secondaryCategoryId: string | null;
-  privacyPolicyUrl: string | null;
-  privacyChoicesUrl: string | null;
-  supportUrl: string | null;
-  marketingUrl: string | null;
   contentRightsDeclaration: string | null;
   localizations: AppInfoLocalization[];
   affordances: Affordances;
@@ -68,7 +77,7 @@ export class AppInfo {
 
   repository: AppInfoRepository | null = null;
 
-  private snapshot: AppInfoSnapshot;
+  private snapshot: CategorySnapshot;
   /** Buffer for localizations removed since the last save — restored on discard. */
   private removedBuffer: Map<string, AppInfoLocalization> = new Map();
 
@@ -78,16 +87,18 @@ export class AppInfo {
     this.primaryLocale = init.primaryLocale;
     this.primaryCategoryId = init.primaryCategoryId;
     this.secondaryCategoryId = init.secondaryCategoryId;
-    this.privacyPolicyUrl = init.privacyPolicyUrl;
-    this.privacyChoicesUrl = init.privacyChoicesUrl ?? null;
-    this.supportUrl = init.supportUrl;
-    this.marketingUrl = init.marketingUrl;
     this.contentRightsDeclaration = init.contentRightsDeclaration ?? null;
     this.localizations = [...init.localizations];
     this.affordances = init.affordances ?? {};
     this.state = init.state;
     this.appStoreState = init.appStoreState;
     this.appStoreAgeRating = init.appStoreAgeRating;
+
+    // Migration shim: if init carries top-level privacy URLs and the primary
+    // loc hasn't got them set, apply them BEFORE we snapshot — so the loc
+    // starts clean rather than instantly dirty.
+    this.applyLegacyPrivacyInit(init);
+
     this.snapshot = this.captureSnapshot();
 
     makeAutoObservable(this, {
@@ -95,7 +106,38 @@ export class AppInfo {
     });
   }
 
-  // ── Top-level setters ──
+  private applyLegacyPrivacyInit(init: AppInfoInit): void {
+    const primary = this.localizationFor(this.primaryLocale);
+    if (!primary) return;
+    if (init.privacyPolicyUrl !== undefined && primary.privacyPolicyUrl === null) {
+      primary.privacyPolicyUrl = init.privacyPolicyUrl;
+      primary.markSaved();
+    }
+    if (init.privacyChoicesUrl !== undefined && primary.privacyChoicesUrl === null) {
+      primary.privacyChoicesUrl = init.privacyChoicesUrl;
+      primary.markSaved();
+    }
+  }
+
+  // ── Privacy URL facade — delegates to the primary localization ──
+
+  get privacyPolicyUrl(): string | null {
+    return this.localizationFor(this.primaryLocale)?.privacyPolicyUrl ?? null;
+  }
+
+  get privacyChoicesUrl(): string | null {
+    return this.localizationFor(this.primaryLocale)?.privacyChoicesUrl ?? null;
+  }
+
+  setPrivacyPolicyUrl(url: string | null): void {
+    this.localizationFor(this.primaryLocale)?.setPrivacyPolicyUrl(url);
+  }
+
+  setPrivacyChoicesUrl(url: string | null): void {
+    this.localizationFor(this.primaryLocale)?.setPrivacyChoicesUrl(url);
+  }
+
+  // ── Category-level setters ──
 
   setPrimaryCategory(id: string | null): void {
     this.primaryCategoryId = id;
@@ -105,24 +147,18 @@ export class AppInfo {
     this.secondaryCategoryId = id;
   }
 
-  setPrivacyPolicyUrl(url: string | null): void {
-    this.privacyPolicyUrl = url;
-  }
-
-  setPrivacyChoicesUrl(url: string | null): void {
-    this.privacyChoicesUrl = url;
-  }
-
-  setSupportUrl(url: string | null): void {
-    this.supportUrl = url;
-  }
-
-  setMarketingUrl(url: string | null): void {
-    this.marketingUrl = url;
-  }
-
   setContentRightsDeclaration(decl: string | null): void {
     this.contentRightsDeclaration = decl;
+  }
+
+  // ── Capability checks ──
+
+  get canUpdateCategories(): boolean {
+    return 'updateCategories' in this.affordances;
+  }
+
+  get canCreateLocalization(): boolean {
+    return 'createLocalization' in this.affordances;
   }
 
   // ── Localization management ──
@@ -164,9 +200,8 @@ export class AppInfo {
   // ── Dirty tracking ──
 
   get hasUnsavedChanges(): boolean {
-    if (this.topLevelDirty()) return true;
+    if (this.categoriesDirty) return true;
     if (this.removedBuffer.size > 0) return true;
-    // Added: any localization whose id isn't in the snapshot.
     for (const loc of this.localizations) {
       if (!this.snapshot.localeIds.has(loc.locale)) return true;
       if (loc.hasUnsavedChanges) return true;
@@ -174,14 +209,10 @@ export class AppInfo {
     return false;
   }
 
-  private topLevelDirty(): boolean {
+  get categoriesDirty(): boolean {
     return (
       this.primaryCategoryId !== this.snapshot.primaryCategoryId ||
       this.secondaryCategoryId !== this.snapshot.secondaryCategoryId ||
-      this.privacyPolicyUrl !== this.snapshot.privacyPolicyUrl ||
-      this.privacyChoicesUrl !== this.snapshot.privacyChoicesUrl ||
-      this.supportUrl !== this.snapshot.supportUrl ||
-      this.marketingUrl !== this.snapshot.marketingUrl ||
       this.contentRightsDeclaration !== this.snapshot.contentRightsDeclaration
     );
   }
@@ -189,10 +220,6 @@ export class AppInfo {
   discard(): void {
     this.primaryCategoryId = this.snapshot.primaryCategoryId;
     this.secondaryCategoryId = this.snapshot.secondaryCategoryId;
-    this.privacyPolicyUrl = this.snapshot.privacyPolicyUrl;
-    this.privacyChoicesUrl = this.snapshot.privacyChoicesUrl;
-    this.supportUrl = this.snapshot.supportUrl;
-    this.marketingUrl = this.snapshot.marketingUrl;
     this.contentRightsDeclaration = this.snapshot.contentRightsDeclaration;
 
     // Drop locally-added locales; restore locally-removed ones.
@@ -204,13 +231,12 @@ export class AppInfo {
     }
     this.removedBuffer.clear();
 
-    // Reset each localization to its own snapshot.
     for (const loc of this.localizations) loc.discard();
   }
 
   /**
-   * Called by the repository after a successful save. Promotes current state
-   * to the new snapshot so subsequent edits are diffable.
+   * Called after a successful save. Promotes current state to the new
+   * snapshot so subsequent edits are diffable.
    */
   markSaved(): void {
     for (const loc of this.localizations) loc.markSaved();
@@ -224,8 +250,39 @@ export class AppInfo {
     if (!this.repository) {
       throw new Error(`AppInfo ${this.id} has no repository attached`);
     }
-    await this.repository.save(this);
-    runInAction(() => this.markSaved());
+    const repo = this.repository;
+
+    // 1. Newly-added locales → POST and backfill id.
+    for (const loc of this.localizations) {
+      if (loc.id === '') {
+        const { id } = await repo.createLocalization(this, loc);
+        runInAction(() => loc.markSaved(id));
+      }
+    }
+
+    // 2. Existing dirty locales → PATCH.
+    for (const loc of this.localizations) {
+      if (loc.id !== '' && loc.hasUnsavedChanges) {
+        await repo.saveLocalization(loc);
+        runInAction(() => loc.markSaved());
+      }
+    }
+
+    // 3. Removed locales → DELETE. Locally-added-then-removed entries never
+    //    hit the backend, so they're skipped via the empty-id check.
+    for (const loc of this.removedBuffer.values()) {
+      if (loc.id !== '') await repo.deleteLocalization(loc);
+    }
+
+    // 4. Category-level fields → PATCH only when they actually changed.
+    if (this.categoriesDirty) {
+      await repo.saveCategories(this);
+    }
+
+    runInAction(() => {
+      this.removedBuffer.clear();
+      this.snapshot = this.captureSnapshot();
+    });
   }
 
   setRepository(repo: AppInfoRepository): void {
@@ -250,42 +307,37 @@ export class AppInfo {
 
   // ── Factory ──
 
+  /** Build an AppInfo from the raw JSON shape the backend sends. Accepts the
+   *  flat fields the `asc` backend uses today AND the Apple-shaped nested
+   *  `primaryCategory: { id }` payload for compatibility. Affordances are read
+   *  as already-flattened by `apiClient.normalizeLinks`. */
   static fromJSON(json: Record<string, unknown>): AppInfo {
     const rawLocalizations = (json.localizations as Record<string, unknown>[] | undefined) ?? [];
     return new AppInfo({
       id: (json.id as string) ?? '',
       appId: (json.appId as string) ?? '',
-      primaryCategoryId: (json.primaryCategoryId as string | null) ?? null,
-      secondaryCategoryId: (json.secondaryCategoryId as string | null) ?? null,
-      privacyPolicyUrl: (json.privacyPolicyUrl as string | null) ?? null,
-      privacyChoicesUrl: (json.privacyChoicesUrl as string | null) ?? null,
-      supportUrl: (json.supportUrl as string | null) ?? null,
-      marketingUrl: (json.marketingUrl as string | null) ?? null,
+      primaryCategoryId: pickCategoryId(json.primaryCategoryId, json.primaryCategory),
+      secondaryCategoryId: pickCategoryId(json.secondaryCategoryId, json.secondaryCategory),
+      privacyPolicyUrl: (json.privacyPolicyUrl as string | null | undefined) ?? undefined,
+      privacyChoicesUrl: (json.privacyChoicesUrl as string | null | undefined) ?? undefined,
       contentRightsDeclaration: (json.contentRightsDeclaration as string | null) ?? null,
       appStoreAgeRating: (json.appStoreAgeRating as string | undefined) ?? undefined,
+      state: (json.state as string | undefined) ?? undefined,
+      appStoreState: (json.appStoreState as string | undefined) ?? undefined,
+      affordances: (json.affordances as Affordances | undefined) ?? {},
       primaryLocale: (json.primaryLocale as string) ?? 'en-US',
-      localizations: rawLocalizations.map((l) => new AppInfoLocalization({
-        id: (l.id as string) ?? '',
-        locale: (l.locale as string) ?? '',
-        name: (l.name as string) ?? '',
-        subtitle: (l.subtitle as string | null) ?? null,
-      })),
+      localizations: rawLocalizations.map((l) => AppInfoLocalization.fromJSON(l)),
     });
   }
 
   // ── Snapshot ──
 
-  private captureSnapshot(): AppInfoSnapshot {
+  private captureSnapshot(): CategorySnapshot {
     return {
       primaryCategoryId: this.primaryCategoryId,
       secondaryCategoryId: this.secondaryCategoryId,
-      privacyPolicyUrl: this.privacyPolicyUrl,
-      privacyChoicesUrl: this.privacyChoicesUrl,
-      supportUrl: this.supportUrl,
-      marketingUrl: this.marketingUrl,
       contentRightsDeclaration: this.contentRightsDeclaration,
       localeIds: new Set(this.localizations.map((l) => l.locale)),
-      removedLocales: new Map(),
     };
   }
 }
