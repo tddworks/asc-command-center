@@ -6,7 +6,10 @@ import type { AppInfoRepository } from '../../../src/app-catalog/app-info/AppInf
 function stubRepo(overrides: Partial<AppInfoRepository> = {}): AppInfoRepository {
   return {
     list: vi.fn(),
-    save: vi.fn().mockResolvedValue(undefined),
+    saveCategories: vi.fn().mockResolvedValue(undefined),
+    saveLocalization: vi.fn().mockResolvedValue(undefined),
+    createLocalization: vi.fn().mockResolvedValue({ id: 'new-id' }),
+    deleteLocalization: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
@@ -18,8 +21,6 @@ function makeInfo(overrides: Partial<AppInfoInit> = {}): AppInfo {
     primaryCategoryId: 'FOOD_AND_DRINK',
     secondaryCategoryId: null,
     privacyPolicyUrl: 'https://example.com/privacy',
-    supportUrl: 'https://example.com/support',
-    marketingUrl: null,
     primaryLocale: 'en-US',
     localizations: [
       new AppInfoLocalization({ id: 'loc-1', locale: 'en-US', name: 'Bakery App', subtitle: 'Fresh bread' }),
@@ -46,12 +47,19 @@ describe('AppInfo', () => {
     expect(makeInfo().hasUnsavedChanges).toBe(false);
   });
 
-  // ── Top-level setters ──
+  it('applies init.privacyPolicyUrl to the primary localization at construction', () => {
+    const info = makeInfo();
+    expect(info.localizationFor('en-US')!.privacyPolicyUrl).toBe('https://example.com/privacy');
+    expect(info.localizationFor('en-US')!.hasUnsavedChanges).toBe(false);
+  });
+
+  // ── Category-level setters ──
 
   it('setPrimaryCategory flips dirty', () => {
     const info = makeInfo();
     info.setPrimaryCategory('PRODUCTIVITY');
     expect(info.primaryCategoryId).toBe('PRODUCTIVITY');
+    expect(info.categoriesDirty).toBe(true);
     expect(info.hasUnsavedChanges).toBe(true);
   });
 
@@ -59,45 +67,61 @@ describe('AppInfo', () => {
     const info = makeInfo({ secondaryCategoryId: 'UTILITIES' });
     info.setSecondaryCategory(null);
     expect(info.secondaryCategoryId).toBeNull();
-    expect(info.hasUnsavedChanges).toBe(true);
+    expect(info.categoriesDirty).toBe(true);
   });
 
-  it('setPrivacyPolicyUrl / setSupportUrl / setMarketingUrl flip dirty', () => {
+  it('setPrivacyPolicyUrl writes to the primary localization and flips dirty', () => {
     const info = makeInfo();
     info.setPrivacyPolicyUrl('https://x.test/p');
-    info.setSupportUrl('https://x.test/s');
-    info.setMarketingUrl('https://x.test/m');
     expect(info.privacyPolicyUrl).toBe('https://x.test/p');
-    expect(info.supportUrl).toBe('https://x.test/s');
-    expect(info.marketingUrl).toBe('https://x.test/m');
+    expect(info.localizationFor('en-US')!.privacyPolicyUrl).toBe('https://x.test/p');
+    expect(info.localizationFor('en-US')!.hasUnsavedChanges).toBe(true);
     expect(info.hasUnsavedChanges).toBe(true);
+    // Privacy URLs live on the localization, not on the AppInfo resource.
+    expect(info.categoriesDirty).toBe(false);
   });
 
-  it('setPrivacyChoicesUrl flips dirty', () => {
+  it('setPrivacyChoicesUrl writes to the primary localization', () => {
     const info = makeInfo();
     info.setPrivacyChoicesUrl('https://x.test/choices');
     expect(info.privacyChoicesUrl).toBe('https://x.test/choices');
-    expect(info.hasUnsavedChanges).toBe(true);
+    expect(info.localizationFor('en-US')!.privacyChoicesUrl).toBe('https://x.test/choices');
   });
 
   it('setContentRightsDeclaration flips dirty', () => {
     const info = makeInfo();
     info.setContentRightsDeclaration('USES_THIRD_PARTY_CONTENT');
     expect(info.contentRightsDeclaration).toBe('USES_THIRD_PARTY_CONTENT');
-    expect(info.hasUnsavedChanges).toBe(true);
+    expect(info.categoriesDirty).toBe(true);
   });
 
   it('setContentRightsDeclaration can clear back to null', () => {
     const info = makeInfo({ contentRightsDeclaration: 'USES_THIRD_PARTY_CONTENT' });
     info.setContentRightsDeclaration(null);
     expect(info.contentRightsDeclaration).toBeNull();
-    expect(info.hasUnsavedChanges).toBe(true);
+    expect(info.categoriesDirty).toBe(true);
   });
 
   it('setting a field to its current value does not flip dirty', () => {
     const info = makeInfo();
     info.setPrimaryCategory('FOOD_AND_DRINK');
     expect(info.hasUnsavedChanges).toBe(false);
+  });
+
+  // ── Capability checks ──
+
+  it('canUpdateCategories reflects the updateCategories affordance', () => {
+    expect(makeInfo().canUpdateCategories).toBe(false);
+    const info = makeInfo({ affordances: { updateCategories: '/api/v1/app-infos/info-1' } });
+    expect(info.canUpdateCategories).toBe(true);
+  });
+
+  it('canCreateLocalization reflects the createLocalization affordance', () => {
+    expect(makeInfo().canCreateLocalization).toBe(false);
+    const info = makeInfo({
+      affordances: { createLocalization: '/api/v1/app-infos/info-1/localizations' },
+    });
+    expect(info.canCreateLocalization).toBe(true);
   });
 
   // ── Localizations: add / remove / lookup ──
@@ -153,14 +177,24 @@ describe('AppInfo', () => {
 
   // ── Discard ──
 
-  it('discard restores top-level fields', () => {
+  it('discard restores category-level fields', () => {
     const info = makeInfo();
     info.setPrimaryCategory('PRODUCTIVITY');
-    info.setPrivacyPolicyUrl('https://x.test/p');
+    info.setContentRightsDeclaration('USES_THIRD_PARTY_CONTENT');
 
     info.discard();
 
     expect(info.primaryCategoryId).toBe('FOOD_AND_DRINK');
+    expect(info.contentRightsDeclaration).toBeNull();
+    expect(info.hasUnsavedChanges).toBe(false);
+  });
+
+  it('discard restores privacy URLs via the primary localization', () => {
+    const info = makeInfo();
+    info.setPrivacyPolicyUrl('https://edited.test/p');
+
+    info.discard();
+
     expect(info.privacyPolicyUrl).toBe('https://example.com/privacy');
     expect(info.hasUnsavedChanges).toBe(false);
   });
@@ -195,9 +229,9 @@ describe('AppInfo', () => {
     expect(info.hasUnsavedChanges).toBe(false);
   });
 
-  // ── Save delegation ──
+  // ── Save orchestration ──
 
-  it('save delegates to the repository and then clears dirty', async () => {
+  it('save patches categories when category-level fields changed', async () => {
     const repo = stubRepo();
     const info = makeInfo();
     info.setRepository(repo);
@@ -205,12 +239,83 @@ describe('AppInfo', () => {
 
     await info.save();
 
-    expect(repo.save).toHaveBeenCalledWith(info);
+    expect(repo.saveCategories).toHaveBeenCalledWith(info);
     expect(info.hasUnsavedChanges).toBe(false);
   });
 
+  it('save does not patch categories when only a localization changed', async () => {
+    const repo = stubRepo();
+    const info = makeInfo();
+    info.setRepository(repo);
+    info.localizationFor('en-US')!.setName('Edited');
+
+    await info.save();
+
+    expect(repo.saveCategories).not.toHaveBeenCalled();
+    expect(repo.saveLocalization).toHaveBeenCalledWith(info.localizationFor('en-US'));
+    expect(info.hasUnsavedChanges).toBe(false);
+  });
+
+  it('save patches each existing dirty localization', async () => {
+    const repo = stubRepo();
+    const info = makeInfo();
+    info.setRepository(repo);
+    info.localizationFor('en-US')!.setName('Edited EN');
+    info.localizationFor('de-DE')!.setSubtitle('Edited DE');
+
+    await info.save();
+
+    expect(repo.saveLocalization).toHaveBeenCalledTimes(2);
+    expect(info.localizationFor('en-US')!.hasUnsavedChanges).toBe(false);
+    expect(info.localizationFor('de-DE')!.hasUnsavedChanges).toBe(false);
+  });
+
+  it('save posts newly-added localizations and backfills the returned id', async () => {
+    const createLocalization = vi.fn().mockResolvedValue({ id: 'loc-fr-100' });
+    const repo = stubRepo({ createLocalization });
+    const info = makeInfo();
+    info.setRepository(repo);
+    const added = info.addLocalization('fr-FR', { name: 'Boulangerie' });
+
+    await info.save();
+
+    expect(createLocalization).toHaveBeenCalledWith(info, added);
+    expect(added.id).toBe('loc-fr-100');
+    expect(added.hasUnsavedChanges).toBe(false);
+    // New locales go through createLocalization, not saveLocalization.
+    expect(repo.saveLocalization).not.toHaveBeenCalled();
+  });
+
+  it('save deletes locales that were removed after the last save', async () => {
+    const repo = stubRepo();
+    const info = makeInfo();
+    info.setRepository(repo);
+    const de = info.localizationFor('de-DE')!;
+    info.removeLocalization('de-DE');
+
+    await info.save();
+
+    expect(repo.deleteLocalization).toHaveBeenCalledWith(de);
+    expect(info.hasUnsavedChanges).toBe(false);
+  });
+
+  it('save skips delete for locales added and removed before save', async () => {
+    const repo = stubRepo();
+    const info = makeInfo();
+    info.setRepository(repo);
+    info.addLocalization('fr-FR');
+    info.removeLocalization('fr-FR');
+
+    await info.save();
+
+    expect(repo.deleteLocalization).not.toHaveBeenCalled();
+    expect(repo.createLocalization).not.toHaveBeenCalled();
+  });
+
   it('save propagates errors and keeps the dirty state', async () => {
-    const repo = stubRepo({ save: vi.fn().mockRejectedValue(new Error('boom')) });
+    const repo = stubRepo({
+      saveCategories: vi.fn().mockRejectedValue(new Error('boom')),
+    });
     const info = makeInfo();
     info.setRepository(repo);
     info.setPrimaryCategory('PRODUCTIVITY');
@@ -295,8 +400,6 @@ describe('AppInfo', () => {
   });
 
   it('appStoreAgeRating is not part of dirty tracking', () => {
-    // Read-only field until the questionnaire modal is shipped — mutations
-    // should never flip the aggregate dirty state.
     const info = makeInfo({ appStoreAgeRating: 'FOUR_PLUS' });
     expect(info.hasUnsavedChanges).toBe(false);
   });
@@ -309,9 +412,6 @@ describe('AppInfo', () => {
       appId: 'app-9',
       primaryCategoryId: 'UTILITIES',
       secondaryCategoryId: null,
-      privacyPolicyUrl: null,
-      supportUrl: null,
-      marketingUrl: null,
       primaryLocale: 'en-US',
       localizations: [
         { id: 'loc-x', locale: 'en-US', name: 'Thing', subtitle: null },
@@ -322,5 +422,25 @@ describe('AppInfo', () => {
     expect(info.primaryCategoryId).toBe('UTILITIES');
     expect(info.localizations[0]).toBeInstanceOf(AppInfoLocalization);
     expect(info.localizations[0].name).toBe('Thing');
+  });
+
+  it('fromJSON hydrates per-localization privacy URLs', () => {
+    const info = AppInfo.fromJSON({
+      id: 'info-3',
+      appId: 'app-9',
+      primaryLocale: 'en-US',
+      localizations: [
+        {
+          id: 'loc-x',
+          locale: 'en-US',
+          name: 'Thing',
+          subtitle: null,
+          privacyPolicyUrl: 'https://x.test/p',
+          privacyChoicesUrl: 'https://x.test/c',
+        },
+      ],
+    });
+    expect(info.privacyPolicyUrl).toBe('https://x.test/p');
+    expect(info.privacyChoicesUrl).toBe('https://x.test/c');
   });
 });

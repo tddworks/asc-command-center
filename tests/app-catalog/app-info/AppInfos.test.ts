@@ -7,7 +7,10 @@ import type { AppInfoRepository } from '../../../src/app-catalog/app-info/AppInf
 function stubRepo(overrides: Partial<AppInfoRepository> = {}): AppInfoRepository {
   return {
     list: vi.fn(),
-    save: vi.fn(),
+    saveCategories: vi.fn().mockResolvedValue(undefined),
+    saveLocalization: vi.fn().mockResolvedValue(undefined),
+    createLocalization: vi.fn().mockResolvedValue({ id: 'new-id' }),
+    deleteLocalization: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
@@ -15,7 +18,6 @@ function stubRepo(overrides: Partial<AppInfoRepository> = {}): AppInfoRepository
 const fixture = new AppInfo({
   id: 'info-1', appId: 'app-1',
   primaryCategoryId: 'FOOD_AND_DRINK', secondaryCategoryId: null,
-  privacyPolicyUrl: null, supportUrl: null, marketingUrl: null,
   primaryLocale: 'en-US',
   localizations: [
     new AppInfoLocalization({ id: 'loc-1', locale: 'en-US', name: 'Bakery', subtitle: null }),
