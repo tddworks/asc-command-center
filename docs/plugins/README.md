@@ -159,6 +159,85 @@ load order and leaves no way to clean up. A single `activate` function
 isolates lifecycle responsibilities and opens space for HMR, test
 harnesses, and "disable plugin" UX without host changes.
 
+### `*.bundle.js` is the entry-point convention
+
+Only files whose basename ends in `.bundle.js` are dynamic-imported by
+the host. Everything else in `manifest.ui[]` — `.html`, images, plain
+`.js` assets — is served by asc-cli at `/api/plugins/<slug>/<file>` but
+never evaluated by the SPA. That split is load-bearing:
+
+- **A `*.bundle.js` file is an ES module.** It must export `activate`
+  (directly as a named export, or via default). The bootstrap calls
+  that function and stores the returned `PluginHandle` for later
+  `deactivate()`.
+- **A plain `.js` file is an asset.** Plugins ship these for their own
+  HTML pages to load via `<script src>` — the legacy simulator streaming
+  code in asc-pro works this way: `stream.html` is a separate full-page
+  window that loads `sim-stream.js` + `sim-input.js` itself. The SPA
+  never touches them.
+
+Why the suffix-based filter? Dynamic `import()` evaluates the file's top
+level, so a non-module `.js` leaks its IIFE body into the SPA. An
+earlier version of asc-pro did `document.body.appendChild(...)` at load
+time and the injected DOM bled onto every page of the SPA. Gating on
+`.bundle.js` makes the contract explicit: *if you want the host to load
+it, name it that way*.
+
+Inside a bundle, three rules still apply:
+
+1. **No DOM mutation at import time.** All UI must be built through the
+   React tree the host renders (pages, widgets, slot components). If a
+   plugin needs imperative DOM, do it inside a React component under
+   its registered page/widget, so unmounting cleans up.
+2. **`activate` is the only entry point.** No network calls, no DOM
+   work, no timers at top-level — put those inside `activate` so they
+   are tied to the returned `deactivate`.
+3. **No second React reconciler.** Bundles alias `react`, `react-dom`,
+   `react/jsx-runtime`, and `mobx-react-lite` to shims that read their
+   runtime handles from `window.ascPluginAPI.host.runtime`. The
+   `plugin-sdk` ships these shims so individual plugins don't duplicate
+   them.
+
+### Shared plugin SDK
+
+Inside `asc-pro/plugin/sdk/` there is a small, private SDK that every
+asc-pro plugin consumes:
+
+```
+plugin/sdk/
+├── pluginApiTypes.ts     — types mirroring the host contract (one copy)
+├── shims/
+│   ├── react.js          — re-exports window.ascPluginAPI.host.runtime.react
+│   ├── react-dom.js
+│   ├── jsx-runtime.js
+│   └── mobx-react-lite.js
+├── tsconfig.base.json    — strict, bundler resolution, JSX automatic
+└── buildPlugin.sh        — esbuild driver (entry + output + aliases)
+```
+
+Each plugin's sub-directory is tiny:
+
+```
+plugin/<name>-src/
+├── tsconfig.json         — { "extends": "../sdk/tsconfig.base.json" }
+├── index.tsx             — imports PluginAPI from '../sdk/pluginApiTypes.ts'
+└── ... feature files
+```
+
+And its build script collapses to three meaningful lines:
+
+```bash
+HERE="$(cd "$(dirname "$0")" && pwd)"
+SRC="$HERE/<name>-src"
+OUT="$HERE/ui/<name>.bundle.js"
+"$HERE/sdk/buildPlugin.sh" --name "<Name>" --entry "$SRC/index.tsx" --out "$OUT"
+```
+
+Why: before the SDK, every plugin shipped its own copies of the shims +
+types, and drift between them was a bug waiting to happen. Centralising
+them keeps runtime behaviour identical across plugins and makes adding a
+new one a copy-of-two-files exercise.
+
 ## `window.ascPluginAPI`
 
 ```ts
