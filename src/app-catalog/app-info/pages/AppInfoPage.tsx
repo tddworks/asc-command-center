@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { observer } from 'mobx-react-lite';
-import { useWorkspace } from '../../../workspace/ASCWorkspace.hooks.tsx';
+import { workspace } from '../../../workspace/workspaceInstance.ts';
 import type { AppInfo } from '../AppInfo.ts';
 import type { AppInfoLocalization } from '../AppInfoLocalization.ts';
 import type { App } from '../../app/App.ts';
@@ -18,8 +18,7 @@ const AGE_RATING_LABELS: Record<string, { label: string; sub: string }> = {
 };
 
 function AppInfoPage() {
-  const workspace = useWorkspace();
-  const currentApp = workspace?.currentApp ?? null;
+  const currentApp = workspace.currentApp;
   const selectedVersion = currentApp?.selectedVersion ?? null;
 
   // Domain-driven loading — `App.loadAppInfos` populates `app.appInfos` and
@@ -40,7 +39,7 @@ function AppInfoPage() {
 
   const appInfo = currentApp?.appInfoFor(selectedVersion?.state ?? null) ?? null;
 
-  if (!workspace?.hydrated) return <div className="loading"><span className="spinner" /><span>Loading…</span></div>;
+  if (!workspace.hydrated) return <div className="loading"><span className="spinner" /><span>Loading…</span></div>;
 
   if (!currentApp) {
     return (

@@ -2,15 +2,14 @@ import { useState } from 'react';
 import { NavLink } from 'react-router-dom';
 import { observer } from 'mobx-react-lite';
 import { usePluginRegistry } from '../../extensibility/plugin/PluginContext.tsx';
-import { useWorkspace } from '../../workspace/ASCWorkspace.hooks.tsx';
+import { workspace } from '../../workspace/workspaceInstance.ts';
 import { AppIcon } from '../components/AppIcon.tsx';
 import { AppPickerModal } from '../components/AppPickerModal.tsx';
 
 function SelectedAppCard() {
-  const workspace = useWorkspace();
   const [pickerOpen, setPickerOpen] = useState(false);
 
-  if (!workspace || !workspace.hydrated) return null;
+  if (!workspace.hydrated) return null;
 
   const { apps, currentApp } = workspace;
 

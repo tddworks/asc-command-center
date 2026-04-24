@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react';
 import { observer } from 'mobx-react-lite';
-import { useWorkspace } from '../../../workspace/ASCWorkspace.hooks.tsx';
+import { workspace } from '../../../workspace/workspaceInstance.ts';
 import { ReleaseType, type Version } from '../Version.ts';
 import { RadioCard } from '../../../shared/components/RadioCard.tsx';
 
 function VersionPage() {
-  const workspace = useWorkspace();
-  const currentApp = workspace?.currentApp ?? null;
+  const currentApp = workspace.currentApp;
   const version = currentApp?.selectedVersion ?? null;
 
   // Load per-locale text the first time we see this version.
@@ -38,7 +37,7 @@ function VersionPage() {
     setSelectedLocale(defaultLocale);
   }, [defaultLocale, version?.id]);
 
-  if (!workspace?.hydrated) return <div className="loading"><span className="spinner" /><span>Loading…</span></div>;
+  if (!workspace.hydrated) return <div className="loading"><span className="spinner" /><span>Loading…</span></div>;
 
   if (!currentApp) {
     return (

@@ -2,16 +2,15 @@ import { useEffect, useState } from 'react';
 import { Dashboard } from './Dashboard.ts';
 import { repositoryFor } from './infrastructure/Dashboard.api.ts';
 import { useDataMode } from '../shared/api-client.tsx';
-import { useWorkspace } from '../workspace/ASCWorkspace.hooks.tsx';
+import { workspace } from '../workspace/workspaceInstance.ts';
 
 export function useDashboard() {
   const [dashboard, setDashboard] = useState<Dashboard | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const mode = useDataMode();
-  const workspace = useWorkspace();
-  const currentAppId = workspace?.currentApp?.id ?? null;
-  const hydrated = workspace?.hydrated ?? false;
+  const currentAppId = workspace.currentApp?.id ?? null;
+  const hydrated = workspace.hydrated;
 
   useEffect(() => {
     // Wait for the workspace to hydrate before firing — avoids an initial
