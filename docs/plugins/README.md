@@ -8,36 +8,47 @@ This document is the canonical design reference. Implementation lives in
 `src/extensibility/plugin/` (host) and each plugin's own repo (e.g.
 `asc-pro/plugin/`). Before extending the plugin API, update this doc first.
 
-## Why this shape
+## Design principles
 
+- **SRP.** Every host-exposed surface has one reason to change. React
+  version upgrades don't ripple through the plugin-settings API; adding a
+  new domain class doesn't touch the runtime bridge. The `host` namespace
+  is split along those axes, not bundled into a god object.
+- **OCP.** Adding a new editable field or a new page toolbar must not
+  require extending a hard-coded slot catalog, revising the plugin
+  contract, or updating this doc. The slot types are few and generic; the
+  variation rides on a typed `kind` discriminator that plugins filter on.
 - **Drop-in install.** Users copy or build a `.plugin` folder into
-  `~/.asc/plugins/` and restart the CLI. No npm, no build of the host.
+  `~/.asc/plugins/` and restart asc-cli. No npm, no host rebuild.
 - **One host, many plugins.** asc-cli is the single process that scans the
   folder and serves plugin files. asc-command-center (React) is just the
   browser client.
-- **Browser-native.** Plugin code is plain JS served over HTTP; the browser
-  loads scripts with `<script>` tags — no custom loader, no eval gymnastics.
-- **Shared host runtime.** Plugins use the host's React / MobX / workspace
-  via `window.ascPluginAPI`; they do not bundle their own. A minimal plugin
-  ships as a few tens of KB.
+- **Shared runtime.** Plugins use the host's React / MobX / workspace; they
+  do not bundle their own. A minimal plugin ships as a few tens of KB.
+- **Host owns secrets.** API keys, tokens, and other plugin settings are
+  persisted by asc-cli (optionally keychain-backed) — never in
+  `localStorage`. A browser wipe must not destroy a user's AI API key.
 
 ## Current state of the code
 
 | Piece | Where | Status |
 |---|---|---|
 | Plugin bundle discovery | `asc-cli` → `Sources/ASCPlugin/PluginLoader.swift` | ✅ scans `~/.asc/plugins`, parses `manifest.json` |
-| Plugin file serving | `asc-cli` → `Sources/Infrastructure/Web/ASCWebServer.swift` | ✅ exposes `GET /api/plugins` (list) + `GET /api/plugins/<slug>/<file>` |
+| Plugin file serving | `asc-cli` → `Sources/Infrastructure/Web/ASCWebServer.swift` | ✅ `GET /api/plugins` (list) + `GET /api/plugins/<slug>/<file>` |
 | Plugin registry | `asc-command-center` → `src/extensibility/plugin/PluginRegistry.ts` | ✅ in-memory registry keyed by plugin id |
 | Plugin types | `src/extensibility/plugin/Plugin.ts` | ✅ `PluginRegistration { pages, sidebarItems, widgets }` |
 | Page route wiring | `src/App.tsx` (`pluginRegistry.getPages()`) | ✅ lazy-imports registered pages |
 | Sidebar wiring | `src/shared/layout/Sidebar.tsx` | ✅ renders registered sidebar items |
 | Named widget rendering | `src/extensibility/plugin/PluginSlot.tsx` | ✅ renders widgets for a named slot |
-| **Boot-time plugin fetch** | — | ❌ no code fetches `/api/plugins` and injects scripts |
-| **`window.ascPluginAPI` bridge** | — | ❌ no global API for external scripts to call |
-| **Typed field-level slots** | — | ❌ widgets have no props; only a slot name |
-| **Dev-mode plugin paths** | — | ❌ can't point at a dev plugin without rebuild+install |
+| **Plugin bootstrap fetch + script inject** | — | ❌ missing |
+| **`window.ascPluginAPI` host bridge** | — | ❌ missing |
+| **Capability-typed `<PluginSlot>`** (props + `kind`) | — | ❌ widgets get no props today |
+| **Plugin lifecycle hooks** (`activate` / `deactivate`) | — | ❌ |
+| **Plugin settings store** (asc-cli-backed) | — | ❌ in asc-cli AND host |
+| **Dev-mode plugin path override** | — | ❌ |
 
-The missing pieces are entirely browser-side.
+The missing pieces are split across asc-cli (a settings REST endpoint) and
+asc-command-center (everything else).
 
 ## Architecture
 
@@ -45,48 +56,54 @@ The missing pieces are entirely browser-side.
 ╭────────────────────────╮        scans ~/.asc/plugins/
 │  asc-cli (Swift)       │        parses manifest.json
 │  ──────────────        │        serves /api/plugins + UI files
-│  ASCWebServer          │───────────────────────────────────────────╮
-│  PluginLoader          │                                           │
-╰────────────┬───────────╯                                           │
-             │ HTTP                                                   │
-             │ (REST + /api/plugins)                                   │
-             ▼                                                         │
-╭────────────────────────────────────────────────────────────────╮    │
-│  asc-command-center (React + MobX)                             │    │
-│                                                                 │    │
-│  PluginBootstrap  ── fetch('/api/plugins') ─────────────────────┼────╯
-│       │                                                          │
-│       │  for each ui file: <script src="/api/plugins/..."/>       │
-│       ▼                                                          │
-│  window.ascPluginAPI = { register, host: { react, mobx, ...} }  │
-│       ▲                                                          │
-│       │ plugin script calls register({ pages, widgets, … })      │
-│       │                                                          │
-│  PluginRegistry  ◄── register ──  plugin/ui/*.js                │
-│       │                                                          │
-│  ┌────┴────────┬──────────────┬────────────────────────────────┐│
-│  │   Routes    │   Sidebar    │   <PluginSlot> mount points   ││
-│  │  (App.tsx)  │  (Sidebar)   │   (scattered across pages)    ││
-│  └─────────────┴──────────────┴────────────────────────────────┘│
-╰────────────────────────────────────────────────────────────────╯
+│  ASCWebServer          │        persists plugin settings (+ keychain)
+│  PluginLoader          │───────────────────────────────────────────╮
+│  PluginSettingsStore   │                                            │
+╰────────────┬───────────╯                                            │
+             │ HTTP                                                    │
+             │ REST + /api/plugins + /api/plugin-settings              │
+             ▼                                                          │
+╭────────────────────────────────────────────────────────────────────╮ │
+│  asc-command-center (React + MobX)                                 │ │
+│                                                                     │ │
+│  PluginBootstrap  ── fetch('/api/plugins') ─────────────────────────┤─╯
+│       │                                                              │
+│       │  install window.ascPluginAPI (before any plugin script)       │
+│       │  for each ui file: <script src="/api/plugins/..."/>           │
+│       ▼                                                              │
+│  window.ascPluginAPI = {                                             │
+│    register, lifecycle,                                              │
+│    host: { runtime, domain, workspace, apiClient, settings, ui }    │
+│  }                                                                   │
+│       ▲                                                              │
+│       │  plugin module: `export function activate(api) { ... }`       │
+│       │  host calls activate(api) after load; plugin calls register  │
+│                                                                      │
+│  PluginRegistry  ◄── register ──  plugin/ui/*.js                    │
+│       │                                                              │
+│  ┌────┴────────┬──────────────┬────────────────────────────────────┐│
+│  │   Routes    │   Sidebar    │   <PluginSlot> mount points       ││
+│  │  (App.tsx)  │  (Sidebar)   │   (scattered across pages)        ││
+│  └─────────────┴──────────────┴────────────────────────────────────┘│
+╰────────────────────────────────────────────────────────────────────╯
 ```
 
 ## Plugin bundle format
 
 A plugin is a directory named `<Something>.plugin/` installed under
-`~/.asc/plugins/`. It contains:
+`~/.asc/plugins/`. Same shape as today — only the `ui/` files' *interior*
+evolves.
 
 ```
 ASCPro.plugin/
-  manifest.json         ← name, version, server dylib (optional), ui file list
-  ASCPro.dylib          ← optional native host extension (CLI-side only)
+  manifest.json         ← name, version, server dylib, ui file list
+  ASCPro.dylib          ← optional native host extension (CLI-side)
   ui/
-    sim-stream.js       ← browser-side registration + widgets
+    sim-stream.js       ← existing
     sim-list.js
     sim-input.js
-    sim-stream.html     ← optional HTML template(s) served alongside
+    sim-stream.html
   frames/               ← optional static assets
-  sim-capture           ← optional CLI executables
 ```
 
 ### `manifest.json` schema
@@ -100,289 +117,399 @@ ASCPro.plugin/
   "repositoryURL":  "https://github.com/tddworks/asc-registry",
   "categories":     ["simulators", "ai"],
   "server":         "ASCPro.dylib",
-  "ui":             ["ui/sim-stream.js", "ui/ai-enhance.js", ... ]
+  "ui":             ["ui/sim-stream.js", "ui/ai-enhance.js", ...],
+  "apiVersion":     "1"
 }
 ```
 
-The `ui` array is an **ordered list**; scripts are injected in order. A
-plugin that wants one of its scripts to run before another (e.g. a
-`ai-client.js` with shared helpers before `ai-enhance.js`) lists them in
-that order.
+`apiVersion` pins the host plugin-API contract the plugin was written
+against. The host refuses to load plugins targeting a higher major than it
+exposes, and logs a warning for minor mismatches.
 
-Non-`.js` files referenced in `ui` (e.g. `sim-stream.html`) are served
-unchanged and can be fetched on demand by the plugin's own code.
+## Plugin lifecycle
 
-## Boot sequence (what needs adding)
+Plugins do **not** register via side-effects at script evaluation. Each
+plugin's main entry exports a function:
 
-```
-1. App.tsx mounts inside WorkspaceProvider.
-2. PluginBootstrap component runs a useEffect that:
-     a. fetch('/api/plugins')
-        → [{ name, ui: ['/api/plugins/asc-pro/ui/sim-stream.js', ...] }, ...]
-     b. For each plugin, for each ui file with .js:
-        create <script src="..."> and append to <head>.
-        Record the pending-register state.
-     c. Wait for all scripts to load (onload). Then mark `pluginsReady=true`.
-3. Plugin script evaluates. It sees `window.ascPluginAPI` already installed
-   by the host and calls:
-       ascPluginAPI.register({
-         id: 'asc-pro',
-         name: 'ASC Pro',
-         version: '1.1',
-         pages: [...],
-         sidebarItems: [...],
-         widgets: [{ slot: 'field.appInfo.name.trailing', component: ... }],
-       });
-   The API forwards to `pluginRegistry.register(...)`.
-4. Host React tree re-renders once `pluginsReady`. Registered pages appear
-   as routes; sidebar items appear; `<PluginSlot>` mount points render
-   their widgets.
+```ts
+// Plugin author writes this (TS, compiled to JS).
+export function activate(api: PluginAPI): PluginHandle {
+  const subscription = api.host.workspace.observe(...);
+
+  api.register({
+    id: 'asc-pro.ai',
+    name: 'ASC Pro — AI',
+    version: '1.0.0',
+    pages: [...],
+    widgets: [...],
+  });
+
+  return {
+    deactivate() { subscription.dispose(); },
+  };
+}
 ```
 
-The one-time boot fetch is cached by the browser; subsequent reloads refresh
-plugin code when the user rebuilds with `build-framework.sh`.
+Host-side `PluginBootstrap` loads the script, reads its default export,
+calls `activate(api)`, stores the returned handle. Reload / unload call
+`handle.deactivate()` and unregister the contributions.
+
+Why: script-side-effect registration couples lifecycle to the script-tag
+load order and leaves no way to clean up. A single `activate` function
+isolates lifecycle responsibilities and opens space for HMR, test
+harnesses, and "disable plugin" UX without host changes.
 
 ## `window.ascPluginAPI`
-
-This is the single global the host exposes. Installed **before** the
-`<script>` tags are injected so plugin code always sees it on first
-evaluation.
 
 ```ts
 declare global {
   interface Window {
-    ascPluginAPI: {
-      /** Register this plugin's contributions. Idempotent on re-call — last
-       *  registration wins, so hot-reload during dev Just Works. */
-      register(registration: PluginRegistration): void;
-
-      /** Host runtime handles. Plugins must NOT bundle their own React /
-       *  mobx — they use these, which keeps bundle sizes tiny and keeps
-       *  widgets on the same reconciliation root as the host. */
-      host: {
-        react:          typeof import('react');
-        reactDom:       typeof import('react-dom');
-        mobx:           typeof import('mobx');
-        mobxReactLite:  typeof import('mobx-react-lite');
-
-        /** Reactive handle to the user's current app + version. Plugin
-         *  widgets and pages read from this the same way host components do. */
-        workspace:      ASCWorkspace;
-
-        /** Domain class constructors/types the plugin might consume. Only
-         *  the stable ones are exposed — internal helpers stay private. */
-        domain: {
-          AppInfo:              typeof AppInfo;
-          AppInfoLocalization:  typeof AppInfoLocalization;
-          Version:              typeof Version;
-          VersionLocalization:  typeof VersionLocalization;
-          AgeRatingDeclaration: typeof AgeRatingDeclaration;
-        };
-
-        /** Convenience: thin HTTP helper pre-wired to the same REST path
-         *  the host uses. Plugins that hit OpenAI-compatible endpoints
-         *  should use `fetch` directly — this helper is for talking to
-         *  asc-cli's own API. */
-        apiClient: {
-          get<T>(path: string): Promise<T>;
-          post<T>(path: string, body: unknown): Promise<T>;
-        };
-      };
-    };
+    ascPluginAPI: PluginAPI;
   }
+}
+
+/** The contract the host exposes to every plugin script. Split along
+ *  independent axes so a change to one (e.g. React upgrade) never forces
+ *  a ripple through the others. */
+export interface PluginAPI {
+  /** Stable semver of the plugin API itself. Plugins check this against
+   *  their manifest's `apiVersion` before calling `register`. */
+  readonly version: string;
+
+  /** Register contributions. Idempotent per-id — the last registration
+   *  wins, which makes HMR during dev trivial. */
+  register(reg: PluginRegistration): void;
+
+  /** Host surfaces — each is a single-reason-to-change namespace. */
+  host: {
+    runtime:    HostRuntime;    // react, reactDom, mobx, mobxReactLite
+    domain:     HostDomain;     // observable domain classes
+    workspace:  WorkspaceAccess;// session: currentApp, selectedVersion, …
+    apiClient:  HostApiClient;  // REST to asc-cli (shared with host code)
+    settings:   PluginSettings; // persisted plugin settings (keychain-capable)
+    ui:         HostUI;         // shared components & tokens (Card, btn class …)
+  };
 }
 ```
 
-### Stability promises
+### `host.runtime` — React / MobX handles (SRP axis: browser framework upgrades)
 
-- `host.react` / `host.reactDom` / `host.mobx` / `host.mobxReactLite` follow
-  the host's installed version. Plugins should peg compatibility in their
-  manifest once we add a `peerDependencies` field.
-- `host.workspace` is the stable singleton; its observable fields are
-  contractual. Breaking changes require a host major version bump.
-- `host.domain` classes are observable and their public getters/setters are
-  contractual.
+```ts
+interface HostRuntime {
+  react:          typeof import('react');
+  reactDom:       typeof import('react-dom');
+  mobx:           typeof import('mobx');
+  mobxReactLite:  typeof import('mobx-react-lite');
+}
+```
+
+Plugins import React from here; they must **not** bundle their own.
+
+### `host.domain` — observable types (SRP axis: domain evolution)
+
+```ts
+interface HostDomain {
+  AppInfo:              typeof AppInfo;
+  AppInfoLocalization:  typeof AppInfoLocalization;
+  Version:              typeof Version;
+  VersionLocalization:  typeof VersionLocalization;
+  AgeRatingDeclaration: typeof AgeRatingDeclaration;
+  App:                  typeof App;
+  // Grows additively. Removing a class is a breaking `apiVersion` bump.
+}
+```
+
+### `host.workspace` — session coordinator (SRP axis: user focus)
+
+```ts
+interface WorkspaceAccess {
+  /** Current app the user is focused on. Observable. */
+  readonly currentApp: App | null;
+  readonly hydrated: boolean;
+  selectApp(id: string): void;
+  selectVersion(id: string): void;
+}
+```
+
+### `host.apiClient` — REST to asc-cli (SRP axis: how the host speaks to the CLI)
+
+```ts
+interface HostApiClient {
+  get<T>(path: string): Promise<T>;
+  post<T>(path: string, body: unknown): Promise<T>;
+  // delete / patch added only when a plugin needs them.
+}
+```
+
+### `host.settings` — persisted plugin settings (SRP axis: secret storage)
+
+**AI API keys live here, not in `localStorage`.** Backed by asc-cli; secret
+fields can opt into macOS keychain storage.
+
+```ts
+interface PluginSettings {
+  /** Load the settings blob for this plugin. Returns `{}` on first read.
+   *  Schema is plugin-owned — the store is opaque JSON. */
+  load<T extends Record<string, unknown>>(pluginId: string): Promise<T>;
+
+  /** Save the settings blob. Fields whose name matches `secretFields`
+   *  round-trip through the keychain instead of the plaintext JSON file. */
+  save<T extends Record<string, unknown>>(
+    pluginId: string,
+    value: T,
+    opts?: { secretFields?: readonly (keyof T)[] },
+  ): Promise<void>;
+
+  /** Subscribe to external changes (e.g. CLI rewrites the file). */
+  subscribe(pluginId: string, onChange: () => void): () => void;
+}
+```
+
+#### asc-cli side
+
+A new REST endpoint serves reads/writes. Path shape:
+
+```
+GET  /api/plugin-settings/<pluginId>            → { settings, secrets: { key: "<redacted>" } }
+PUT  /api/plugin-settings/<pluginId>            → replace the plaintext JSON
+PUT  /api/plugin-settings/<pluginId>/secret     → { key, value } → keychain only
+```
+
+Storage layout on disk:
+
+```
+~/.asc/plugin-settings/
+  asc-pro.ai.json          ← plaintext, readable JSON
+  asc-pro.ai.secrets.idx   ← list of secret keys persisted in keychain
+```
+
+Secret values never appear in the plaintext JSON; the browser reads them
+back through the same REST call.
+
+### `host.ui` — shared visual primitives (SRP axis: host design system)
+
+```ts
+interface HostUI {
+  /** Design tokens — colours, radii, spacing — as CSS custom property
+   *  names so plugins don't hardcode palette literals. */
+  tokens: Readonly<Record<string, string>>;
+
+  /** Button / Card / Modal / FormGroup React components re-exported from
+   *  the host so plugin UIs inherit the app's look-and-feel by default.
+   *  Keeps plugins from drifting visually. */
+  components: {
+    Card:       React.FC<{ children: React.ReactNode; className?: string }>;
+    Modal:      React.FC<{ open: boolean; onClose: () => void; children: React.ReactNode }>;
+    FormGroup:  React.FC<{ label: string; hint?: string; children: React.ReactNode }>;
+    Button:     React.FC<React.ButtonHTMLAttributes<HTMLButtonElement> & { tone?: 'primary' | 'secondary' | 'danger' }>;
+  };
+}
+```
 
 ### What the host does NOT expose
 
-- Anything under `infrastructure/`. Plugins never speak HTTP to the
-  backend directly through host internals; they go through
-  `host.apiClient` or their own `fetch`.
-- `pluginRegistry` itself. Plugins register via `ascPluginAPI.register`, not
-  by touching the registry.
+- `infrastructure/*` — the plugin speaks REST, not host internals.
+- `pluginRegistry` itself — register via `ascPluginAPI.register`.
+- Private helpers, hook internals, or anything under `shared/` that isn't
+  explicitly re-exported via `host.ui`.
 
-## Widget slot contract
+## Capability-typed widget slots (OCP refactor)
 
-Widget registration looks like:
+Instead of a growing catalog like `field.appInfo.name.trailing`,
+`field.appInfo.subtitle.trailing`, `field.review.response.trailing`, …
+the host ships a **small set of generic slot types** that every extensible
+surface reuses, with the real variation carried in a typed `kind`
+discriminator on the slot's context.
+
+### Slot types
 
 ```ts
-widgets: [
-  {
-    slot: 'field.appInfo.name.trailing',
-    component: () => import('./AIEnhanceButton.js'),
-    priority: 100, // lower renders earlier; defaults to 100
-  },
-]
+type SlotName =
+  | 'text.edit'       // any editable text field (input / textarea)
+  | 'page.toolbar'    // toolbar area of any page-level card
+  | 'list.rowAction'; // any list row's trailing action area
 ```
 
-The host declares slots where widgets can mount:
+Three slots. Adding a new editable text field anywhere in the app is just
+another `<PluginSlot slot="text.edit" ctx={{ kind: 'appInfo.name', … }} />`
+call. No new slot, no catalog bump, no doc update.
 
-```tsx
-<PluginSlot
-  slot="field.appInfo.name.trailing"
-  ctx={{
-    kind: 'field.appInfo.name',
-    text: primary.name,
-    onChange: (v) => primary.setName(v),
-    locale: appInfo.primaryLocale,
-    appInfo,
-  }}
-/>
+### Context shape per slot
+
+```ts
+// Discriminated-union by `slot`; kind is plugin-facing filtering info.
+type SlotContext =
+  | { slot: 'text.edit';    kind: TextEditKind;    text: string; onChange(v: string): void; locale: string; context?: Record<string, unknown> }
+  | { slot: 'page.toolbar'; kind: PageToolbarKind; context: Record<string, unknown> }
+  | { slot: 'list.rowAction'; kind: ListRowKind;   item: unknown };
+
+type TextEditKind =
+  | 'appInfo.name'
+  | 'appInfo.subtitle'
+  | 'appInfo.privacyPolicyUrl'
+  | 'version.description'
+  | 'version.whatsNew'
+  | 'version.keywords'
+  | 'version.promotionalText'
+  | 'review.response';
 ```
 
-Every widget for that slot receives `ctx` as its props. Context shape is
-**typed per slot** so plugins know exactly what to expect. A widget
-registered for slot X must accept that slot's `ctx` type; mismatches are a
-plugin bug.
-
-### Canonical slot catalog
-
-Slots are namespaced `<surface>.<entity>.<field>[.<position>]`. The catalog
-below is the set we ship day-one; adding a slot is a host change and needs
-a doc update here so plugin authors can target it.
-
-| Slot | Where it renders | `ctx` shape |
-|---|---|---|
-| `field.appInfo.name.trailing` | App Info → App Name input row | `{ text, onChange, locale, appInfo, appContext }` |
-| `field.appInfo.subtitle.trailing` | App Info → Subtitle input row | same as above |
-| `field.appInfo.privacyPolicyUrl.trailing` | App Info → Privacy Policy URL row | `{ text, onChange, locale, appInfo }` |
-| `field.version.description.trailing` | Version page → Description textarea | `{ text, onChange, locale, version, releaseContext }` |
-| `field.version.whatsNew.trailing` | Version page → What's New textarea | same |
-| `field.version.keywords.trailing` | Version page → Keywords input | same |
-| `field.version.promotionalText.trailing` | Version page → Promotional Text input | same |
-| `field.review.responseBody.trailing` | Review response editor | `{ text, onChange, review, customerContext }` |
-| `page.appInfo.toolbar` | Top of App Info page toolbar | `{ appInfo, app }` |
-| `page.version.toolbar` | Top of Version page toolbar | `{ version, app }` |
-
-`kind`, `text`, `onChange` are the load-bearing trio — any field-editing
-widget (AI, dictionary lookup, custom paste, …) uses the same shape.
-
-### Authoring a widget
+`TextEditKind` is the list of fields the host marks as *text-editable*.
+Plugins filter on it; an AI widget registers for `text.edit` and declines
+to render when `kind` isn't in its set:
 
 ```tsx
-// ai-enhance.js (compiled from TS)
-const { react: React } = window.ascPluginAPI.host;
-const { observer } = window.ascPluginAPI.host.mobxReactLite;
+function AIEnhanceButton(ctx: SlotContext & { slot: 'text.edit' }) {
+  if (!AI_ELIGIBLE_KINDS.has(ctx.kind)) return null;
+  return <button>✨</button>;
+}
 
-const AIEnhanceButton = observer(function AIEnhanceButton(ctx) {
-  const [open, setOpen] = React.useState(false);
-  return React.createElement(
-    'button',
-    { onClick: () => setOpen(true), disabled: ctx.text.length === 0 },
-    '✨ AI',
-  );
-});
-
-window.ascPluginAPI.register({
-  id: 'asc-pro',
-  name: 'ASC Pro',
-  version: '1.1',
-  widgets: [
-    { slot: 'field.appInfo.name.trailing',     component: () => ({ default: AIEnhanceButton }) },
-    { slot: 'field.appInfo.subtitle.trailing', component: () => ({ default: AIEnhanceButton }) },
-    // … one entry per targeted field
-  ],
+api.register({
+  widgets: [{ slot: 'text.edit', component: AIEnhanceButton }],
 });
 ```
 
-Plugins that prefer JSX compile their TS with esbuild; `build-framework.sh`
-already does that for every file under `plugin/ui/*.js`. Compiled output is
-plain JS, the runtime imports React from the host, bundle stays small.
+### Why this is OCP-clean
 
-## Build + install
+- **Host is closed for modification.** New text fields reuse
+  `text.edit` — no host-side slot catalog change.
+- **Plugins extend by filtering.** A plugin that wants to cover only
+  marketing fields just adjusts its own `AI_ELIGIBLE_KINDS`.
+- **Adding a new `kind` is additive.** Old plugins still work (they don't
+  handle the new kind; new plugins opt in).
 
-Current flow (from `asc-pro/build-framework.sh`):
+### Widget signature
 
-```
-Sources/ASCPro/*.swift        ─┐
-                                │  swiftc → ASCPro.dylib
-plugin/manifest.json            ├─► .build/ASCPro.plugin/
-plugin/ui/*.js (esbuild minify) │
-plugin/frames/*.png             │
-sim-capture (make)              │
-Baguette (./build.sh)          ─┘
+Every widget for slot `S` is a React component typed as
+`React.FC<SlotContext & { slot: S }>`. Nothing else. Widgets see
+the field's current text and an `onChange` callback — they mutate host
+state through normal React/MobX semantics.
 
-cp -r .build/ASCPro.plugin  ~/.asc/plugins/ASCPro.plugin
-```
+## Registration shape
 
-Restart asc-cli → browser reloads asc-command-center → `/api/plugins`
-returns the new UI list → `<script>` tags get injected → registered
-contributions appear.
+```ts
+export interface PluginRegistration {
+  id: string;            // globally unique (e.g. 'asc-pro.ai')
+  name: string;          // human-readable
+  version: string;       // plugin version (semver)
+  pages?:       PluginPage[];
+  sidebarItems?: PluginSidebarItem[];
+  widgets?:     PluginWidget[];
+}
 
-No change to this pipeline: adding AI is just adding more `.js` files to
-`plugin/ui/` and listing them in the manifest.
-
-## Dev-time workflow
-
-For plugin authors iterating fast, host supports two aids:
-
-1. **Path override.** `VITE_PLUGIN_PATH=/abs/path/to/plugin/ui` makes the
-   bootstrap fetch local files from Vite's dev server instead of
-   `/api/plugins`. Editing a JS file triggers Vite HMR; plugin re-registers
-   with the same id so the last registration wins.
-2. **Skip-install rebuild.** `./build-framework.sh --dev` writes to
-   `./.build/ASCPro.plugin/` but does not copy to `~/.asc/plugins/`. The
-   plugin is picked up via (1).
-
-Both aids are optional; production still uses the install path.
-
-## Security notes
-
-- Plugin JS runs in the host's document context with full DOM access. This
-  is by design (widgets need to be normal React components). Do not install
-  untrusted plugins.
-- API keys (e.g. for the AI plugin) are the plugin's concern. Current
-  pattern: `localStorage` under a namespaced key like `ascpro.ai.apiKey`.
-- Plugins cannot reach the asc-cli dylib directly — only via the REST API
-  the host already uses. Native capabilities are exposed as new REST
-  endpoints when necessary.
-
-## Versioning
-
-Every `PluginRegistration` carries `version`. Host logs unknown field names
-as warnings but does not reject — plugins are forward-compatible as long as
-they don't rely on a field the host version doesn't render.
-
-When breaking host-API changes happen, we bump the host's exposed
-`ascPluginAPI.version` and plugins can inspect it before registering:
-
-```js
-if (window.ascPluginAPI.version < '2.0') {
-  // fall back or bail with a clear console.error
+export interface PluginWidget {
+  slot:      SlotName;
+  component: React.FC<SlotContext>; // typed as the slot's context
+  priority?: number;                 // lower renders earlier; default 100
 }
 ```
 
-## Example — the AI plugin (planned, see `docs/plugins/ai-plugin.md`)
+The plugin `id` namespaces the settings store (`asc-pro.ai` ↔
+`~/.asc/plugin-settings/asc-pro.ai.json`) and the registry key. One
+plugin bundle can produce several registrations if it ships distinct
+features.
 
-Goals:
+## Boot sequence
 
-1. `✨ AI` button appears on every AI-eligible text field (via widgets).
-2. Clicking opens a sheet listing enhancements (translate, improve, SEO,
-   customer response) filtered by the field's `kind`.
-3. Uses the host's React, MobX, and workspace observables.
-4. Settings (OpenAI base URL, API key, model) stored in `localStorage`;
-   surfaced via a registered page at `/ai-settings`.
-5. Calls OpenAI-compatible endpoints from the browser. No new REST endpoint.
+```
+1. App.tsx mounts inside WorkspaceProvider.
+2. PluginBootstrap runs a useEffect:
+     a. Install window.ascPluginAPI (with `register` no-op until registry is ready).
+     b. fetch('/api/plugins')
+        → [{ id, name, apiVersion, ui: ['/api/plugins/<slug>/ui/...'] }, ...]
+     c. For each plugin:
+         – compatible(apiVersion)?  warn or skip
+         – for each .js entry: dynamic import()
+         – const handle = mod.activate(api)
+         – store handle for deactivation
+     d. Flip `pluginsReady = true`.
+3. Host React tree re-renders. Plugin pages become routes; widgets render
+   inside every <PluginSlot> that matches their slot.
+```
 
-Shipped as extra JS files inside the existing `ASCPro.plugin` bundle — no
-change to the plugin distribution model.
+`dynamic import()` gives plugin scripts a proper ES-module scope (no
+global leaks), a real `default` export for lifecycle, and free Vite HMR
+in dev.
 
-## Open items
+## Build + install (unchanged)
 
-- [ ] Typed `FieldSlotContext` kind-to-props map in `src/extensibility/plugin/slots.ts`.
-- [ ] `PluginBootstrap` component that fetches + injects.
-- [ ] `window.ascPluginAPI` installer (runs before bootstrap).
-- [ ] Extend `<PluginSlot>` to forward `ctx` as widget props.
-- [ ] Declare `peerDependencies` field on manifest for react/mobx version
-      pinning once we have plugins from outside the repo.
-- [ ] Versioned host API contract doc (`docs/plugins/host-api.md`).
+```
+$ cd asc-pro && ./build-framework.sh
+→ swiftc → ASCPro.dylib
+→ esbuild plugin/ui/*.js (minify)
+→ cp -r .build/ASCPro.plugin ~/.asc/plugins/ASCPro.plugin
+
+Restart asc-cli  → refresh asc-command-center → new plugin registers.
+```
+
+## Dev-time workflow
+
+- `VITE_PLUGIN_PATH=/abs/path/to/plugin/ui` — browser loads plugin JS from
+  Vite's dev server instead of `/api/plugins`. HMR on edits.
+- `./build-framework.sh --dev` — emit to `.build/ASCPro.plugin/` without
+  copying to `~/.asc/plugins`. Combined with the env override, you never
+  restart asc-cli.
+
+## Security
+
+- Plugin JS runs in the host's document context with full DOM access.
+  Don't install untrusted plugins.
+- **Secrets live in asc-cli (optionally keychain), not in localStorage.**
+  `host.settings` is the only allowed persistence path for secret data.
+- Plugins cannot reach the asc-cli dylib directly — only through REST
+  endpoints the host already trusts.
+
+## Versioning
+
+Host exposes `ascPluginAPI.version` (semver). Plugin manifest carries
+`apiVersion`. Semver rules:
+
+- **Patch / minor** — backwards-compatible additions (new slot kinds, new
+  domain classes, new settings helpers). Plugins keep working.
+- **Major** — breaking change (a slot type removed, a domain field
+  renamed). Plugins opt into new version explicitly.
+
+The host's `PluginBootstrap` refuses to load a plugin whose `apiVersion`
+major exceeds the host's version, and logs a descriptive error.
+
+## Open items (phase 1 scope)
+
+### Host — asc-command-center
+
+- [ ] `src/extensibility/plugin/PluginAPI.ts` — split `PluginAPI` into the
+      five host namespaces above.
+- [ ] `src/extensibility/plugin/slots.ts` — define `SlotName`, `SlotContext`,
+      `TextEditKind`, etc.
+- [ ] `src/extensibility/plugin/PluginBootstrap.tsx` — fetch, activate,
+      deactivate, HMR-friendly.
+- [ ] Install `window.ascPluginAPI` in `src/main.tsx` before the React
+      root mounts.
+- [ ] Extend `<PluginSlot>` to take `ctx` and forward as props.
+- [ ] Place `<PluginSlot slot="text.edit" ctx={{ kind, text, onChange, … }} />`
+      next to every `TextEditKind` field across existing pages.
+- [ ] `host.settings` client — wraps `GET/PUT /api/plugin-settings/:id`;
+      calls the new asc-cli endpoints.
+- [ ] `host.ui.components` re-exports — `Card`, `Modal`, `FormGroup`,
+      `Button`. Keep plugins visually consistent.
+
+### CLI — asc-cli
+
+- [ ] `PluginSettingsStore.swift` — reads/writes
+      `~/.asc/plugin-settings/<id>.json`; keychain-backed secret fields.
+- [ ] New REST endpoints in `ASCWebServer.swift`:
+       - `GET    /api/plugin-settings/:id`
+       - `PUT    /api/plugin-settings/:id`
+       - `PUT    /api/plugin-settings/:id/secret`
+       - `DELETE /api/plugin-settings/:id/secret/:key`
+- [ ] Add `apiVersion` to the `/api/plugins` response so the browser
+      bootstrap can reject incompatible plugins.
+
+### Doc
+
+- [ ] `docs/plugins/slots.md` — catalogue of every `kind` value per slot,
+      with screenshots of where they render. Updated every time a slot
+      mount is added (one-line diff).
+- [ ] `docs/plugins/host-api.md` — versioned API reference extracted from
+      `PluginAPI.ts`.
+- [ ] `docs/plugins/ai-plugin.md` — the upcoming AI plugin's design,
+      prompts, and schemas.
