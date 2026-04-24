@@ -1,6 +1,7 @@
 import type { AppInfo } from './AppInfo.ts';
 import type { AppInfoLocalization } from './AppInfoLocalization.ts';
 import type { Affordances } from '../../shared/types.ts';
+import type { AgeRatingDeclaration } from '../age-rating/AgeRatingDeclaration.ts';
 
 export interface AppInfoListHints {
   /**
@@ -42,4 +43,11 @@ export interface AppInfoRepository {
     localization: AppInfoLocalization,
   ): Promise<{ id: string; affordances: Affordances }>;
   deleteLocalization(localization: AppInfoLocalization): Promise<void>;
+
+  /** Follow the AppInfo's `getAgeRatingDeclaration` affordance (or a known
+   *  variant) and return the hydrated declaration with its own repository
+   *  attached so it can `save()` itself. Returns null when the backend
+   *  doesn't expose any variant — the UI should surface a "not available"
+   *  state rather than opening an un-saveable wizard. */
+  ageRating(appInfo: AppInfo): Promise<AgeRatingDeclaration | null>;
 }

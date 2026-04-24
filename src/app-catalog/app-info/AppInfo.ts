@@ -2,6 +2,7 @@ import { makeAutoObservable, runInAction } from 'mobx';
 import { AppInfoLocalization } from './AppInfoLocalization.ts';
 import type { AppInfoRepository } from './AppInfoRepository.ts';
 import type { Affordances } from '../../shared/types.ts';
+import type { AgeRatingDeclaration } from '../age-rating/AgeRatingDeclaration.ts';
 
 export interface AppInfoInit {
   id: string;
@@ -74,6 +75,10 @@ export class AppInfo {
   state: string | undefined;
   appStoreState: string | undefined;
   appStoreAgeRating: string | undefined;
+
+  /** The editable age-rating declaration, loaded on demand when the user
+   *  opens the wizard. Stays null until `loadAgeRating()` succeeds. */
+  ageRating: AgeRatingDeclaration | null = null;
 
   repository: AppInfoRepository | null = null;
 
@@ -159,6 +164,17 @@ export class AppInfo {
 
   get canCreateLocalization(): boolean {
     return 'createLocalization' in this.affordances;
+  }
+
+  /** True when the backend exposes a getter for the linked age-rating
+   *  declaration. Variants: `getAgeRatingDeclaration` (verb+resource),
+   *  `ageRatingDeclaration` (plain relationship), `getAgeRating` (shorter). */
+  get canLoadAgeRating(): boolean {
+    return (
+      'getAgeRatingDeclaration' in this.affordances ||
+      'ageRatingDeclaration' in this.affordances ||
+      'getAgeRating' in this.affordances
+    );
   }
 
   // ── Localization management ──
@@ -301,6 +317,23 @@ export class AppInfo {
   setRepository(repo: AppInfoRepository): void {
     this.repository = repo;
     for (const loc of this.localizations) loc.setRepository(repo);
+  }
+
+  /**
+   * Load the linked AgeRatingDeclaration and attach it to this AppInfo.
+   * Gates on the backend affordance — callers (the wizard sheet) should
+   * render an unsupported-state message if this returns null rather than
+   * opening an un-saveable editor. The declaration comes with its own
+   * repository already attached, so it can `save()` itself.
+   */
+  async loadAgeRating(): Promise<AgeRatingDeclaration | null> {
+    if (!this.canLoadAgeRating) return null;
+    if (!this.repository) {
+      throw new Error(`AppInfo ${this.id} has no repository attached`);
+    }
+    const declaration = await this.repository.ageRating(this);
+    runInAction(() => { this.ageRating = declaration; });
+    return declaration;
   }
 
   // ── Readiness helpers ──

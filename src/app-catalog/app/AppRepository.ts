@@ -1,6 +1,7 @@
 import type { App } from './App.ts';
 import type { Build } from '../../release/build/Build.ts';
 import type { Version, NewVersionInit } from '../../release/version/Version.ts';
+import type { AppInfo } from '../app-info/AppInfo.ts';
 
 /**
  * Port for the App aggregate. Infrastructure provides two implementations
@@ -17,4 +18,8 @@ export interface AppRepository {
   builds(app: App): Promise<Build[]>;
   versions(app: App): Promise<Version[]>;
   createVersion(app: App, init: NewVersionInit): Promise<Version>;
+  /** Load all AppInfo rows (one per version state) for the given app. The
+   *  domain picks the row matching the currently-selected version's state
+   *  via `App.appInfoFor(state)`. */
+  appInfos(app: App): Promise<AppInfo[]>;
 }

@@ -1,6 +1,8 @@
 import { AppInfo } from '../AppInfo.ts';
 import { AppInfoLocalization } from '../AppInfoLocalization.ts';
 import type { AppInfoListHints, AppInfoRepository } from '../AppInfoRepository.ts';
+import { AgeRatingDeclaration } from '../../age-rating/AgeRatingDeclaration.ts';
+import { RestAgeRatingDeclarationRepository } from '../../age-rating/infrastructure/AgeRatingDeclaration.api.ts';
 import { apiClient, normalizeLinks, type DataMode } from '../../../shared/api-client.tsx';
 import type { Affordances } from '../../../shared/types.ts';
 import { MockAppInfoRepository } from './AppInfo.mock.ts';
@@ -117,6 +119,19 @@ export class RestAppInfoRepository implements AppInfoRepository {
       const text = await res.text().catch(() => '');
       throw new Error(`DELETE ${url} failed: ${res.status} ${text}`);
     }
+  }
+
+  async ageRating(appInfo: AppInfo): Promise<AgeRatingDeclaration | null> {
+    const href =
+      appInfo.affordances.getAgeRatingDeclaration ??
+      appInfo.affordances.ageRatingDeclaration ??
+      appInfo.affordances.getAgeRating;
+    if (!href) return null;
+    const resp = await apiClient.get<{ data?: unknown } | Record<string, unknown>>(href);
+    const row = pickResource(resp) ?? {};
+    const decl = AgeRatingDeclaration.fromJSON(row);
+    decl.setRepository(new RestAgeRatingDeclarationRepository());
+    return decl;
   }
 
   // ── internals ──

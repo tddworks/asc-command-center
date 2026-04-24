@@ -1,6 +1,8 @@
 import { AppInfo } from '../AppInfo.ts';
 import { AppInfoLocalization } from '../AppInfoLocalization.ts';
 import type { AppInfoListHints, AppInfoRepository } from '../AppInfoRepository.ts';
+import { AgeRatingDeclaration } from '../../age-rating/AgeRatingDeclaration.ts';
+import { MockAgeRatingDeclarationRepository } from '../../age-rating/infrastructure/AgeRatingDeclaration.mock.ts';
 
 /**
  * In-memory AppInfo store. Seeds deterministic fixtures for known mock apps
@@ -14,6 +16,8 @@ import type { AppInfoListHints, AppInfoRepository } from '../AppInfoRepository.t
 export class MockAppInfoRepository implements AppInfoRepository {
   private store: Map<string, Snapshot> = new Map();
   private idSeed = 1000;
+  private ageRatingRepo = new MockAgeRatingDeclarationRepository();
+  private ageRatingsByAppInfoId: Map<string, AgeRatingDeclaration> = new Map();
 
   async list(appId: string, _hints?: AppInfoListHints): Promise<AppInfo[]> {
     if (!this.store.has(appId)) this.store.set(appId, seedFor(appId));
@@ -67,6 +71,18 @@ export class MockAppInfoRepository implements AppInfoRepository {
     const snap = this.findSnapshotFor(loc);
     if (!snap) return;
     snap.localizations = snap.localizations.filter((l) => l.id !== loc.id);
+  }
+
+  async ageRating(appInfo: AppInfo): Promise<AgeRatingDeclaration> {
+    // Deterministic declaration per AppInfo id — reuse on subsequent calls so
+    // the wizard can reopen without losing unsaved edits, and re-open shows
+    // saved state as expected.
+    const existing = this.ageRatingsByAppInfoId.get(appInfo.id);
+    if (existing) return existing;
+    const declId = `mock-rating-${appInfo.id}`;
+    const decl = await this.ageRatingRepo.get(declId);
+    this.ageRatingsByAppInfoId.set(appInfo.id, decl);
+    return decl;
   }
 
   // ── internals ──

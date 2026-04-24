@@ -2,6 +2,8 @@ import { App } from '../App.ts';
 import { Build } from '../../../release/build/Build.ts';
 import { Version, type NewVersionInit } from '../../../release/version/Version.ts';
 import { RestVersionRepository } from '../../../release/version/infrastructure/VersionRepository.api.ts';
+import { RestAppInfoRepository } from '../../app-info/infrastructure/AppInfo.api.ts';
+import type { AppInfo } from '../../app-info/AppInfo.ts';
 import { apiClient, normalizeLinks, type DataMode } from '../../../shared/api-client.tsx';
 import type { AppRepository } from '../AppRepository.ts';
 
@@ -11,6 +13,9 @@ export class RestAppRepository implements AppRepository {
    *  pushes the new Version into `app.versions` and the UI expects both to
    *  navigate through the same repo. */
   private readonly versionRepo = new RestVersionRepository();
+  /** Single AppInfo repository so hydrated AppInfos + their localizations
+   *  navigate through one handle. */
+  private readonly appInfoRepo = new RestAppInfoRepository();
 
   async list(): Promise<App[]> {
     // ?include=icon enriches each row with `iconAsset: { templateUrl, ... }`
@@ -42,6 +47,10 @@ export class RestAppRepository implements AppRepository {
       v.setRepository(this.versionRepo);
       return v;
     });
+  }
+
+  async appInfos(app: App): Promise<AppInfo[]> {
+    return this.appInfoRepo.list(app.id, { primaryLocale: app.primaryLocale });
   }
 
   async createVersion(app: App, init: NewVersionInit): Promise<Version> {
