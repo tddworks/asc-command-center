@@ -61,7 +61,13 @@ export async function bootstrapPlugins({
     }
 
     for (const file of plugin.ui ?? []) {
-      if (!file.endsWith('.js')) continue;
+      // Only `*.bundle.js` files are dynamic-imported as ES modules — the
+      // naming convention plugins use for their activate entry point.
+      // Other `.js` assets (legacy IIFEs, scripts loaded by plugin HTML
+      // pages served separately) stay available at their public URL but
+      // are never evaluated by the host. This keeps a plugin from
+      // accidentally mutating `document.body` at SPA boot time.
+      if (!file.endsWith('.bundle.js')) continue;
       const url = `/api/plugins/${plugin.slug}/${file}`;
       try {
         const mod = await resolveModule(url);

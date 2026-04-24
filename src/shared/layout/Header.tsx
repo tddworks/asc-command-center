@@ -18,7 +18,6 @@ const pageTitles: Record<string, string> = {
   '/code-signing': 'Code Signing',
   '/xcode-cloud': 'Xcode Cloud',
   '/users': 'Users & Roles',
-  '/simulators': 'Simulators',
   '/plugins': 'Plugins',
 };
 

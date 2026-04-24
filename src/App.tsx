@@ -28,7 +28,6 @@ const CodeSigningPage = lazy(() => import('./developer-tools/code-signing/pages/
 const SubmissionPage = lazy(() => import('./release/submission/pages/SubmissionPage.tsx'));
 const XcodeCloudPage = lazy(() => import('./developer-tools/xcode-cloud/pages/XcodeCloudPage.tsx'));
 const ReportsPage = lazy(() => import('./analytics/report/pages/ReportsPage.tsx'));
-const SimulatorPage = lazy(() => import('./developer-tools/simulator/pages/SimulatorPage.tsx'));
 const UserPage = lazy(() => import('./developer-tools/user/pages/UserPage.tsx'));
 const IrisPage = lazy(() => import('./extensibility/iris/pages/IrisPage.tsx'));
 const IAPPage = lazy(() => import('./monetization/iap/pages/IAPPage.tsx'));
@@ -97,7 +96,6 @@ const AppShell = observer(function AppShell() {
                   <Route path="/submissions" element={<SubmissionPage />} />
                   <Route path="/xcode-cloud" element={<XcodeCloudPage />} />
                   <Route path="/reports" element={<ReportsPage />} />
-                  <Route path="/simulators" element={<SimulatorPage />} />
                   <Route path="/users" element={<UserPage />} />
                   <Route path="/iris" element={<IrisPage />} />
                   <Route path="/iap" element={<IAPPage />} />
