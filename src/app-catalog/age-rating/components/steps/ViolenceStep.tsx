@@ -1,13 +1,20 @@
 import { observer } from 'mobx-react-lite';
 import type { AgeRatingDeclaration } from '../../AgeRatingDeclaration.ts';
-import { FrequencyRow, SectionCard } from '../AgeRatingRows.tsx';
+import {
+  FrequencyRow,
+  FrequencySectionHeader,
+  SectionCard,
+} from '../AgeRatingRows.tsx';
+import { WarningTriangleIcon } from '../AgeRatingIcons.tsx';
 
 export const ViolenceStep = observer(function ViolenceStep({
   declaration,
 }: { declaration: AgeRatingDeclaration }) {
   return (
-    <SectionCard title="Violence">
+    <SectionCard>
+      <FrequencySectionHeader title="Violence" icon={<WarningTriangleIcon />} />
       <FrequencyRow
+        first
         title="Cartoon or Fantasy Violence"
         description="Stylised, unrealistic combat or slapstick."
         value={declaration.violenceCartoonOrFantasy}

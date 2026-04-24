@@ -1,19 +1,25 @@
 import { observer } from 'mobx-react-lite';
 import type { AgeRatingDeclaration } from '../../AgeRatingDeclaration.ts';
-import { BooleanRow, SectionCard } from '../AgeRatingRows.tsx';
+import {
+  BooleanRow,
+  BooleanSectionHeader,
+  SectionCard,
+} from '../AgeRatingRows.tsx';
+import { GearIcon, GlobeIcon } from '../AgeRatingIcons.tsx';
 
 /**
- * Step 1 — In-app controls and capabilities. All boolean flags that answer
- * "does your app include this feature". Split into two sections so the
- * intent of each group reads at a glance.
+ * Step 1 — In-app controls and capabilities. Two sections of boolean flags
+ * answering "does your app include this feature".
  */
 export const FeaturesStep = observer(function FeaturesStep({
   declaration,
 }: { declaration: AgeRatingDeclaration }) {
   return (
     <>
-      <SectionCard title="In-App Controls">
+      <SectionCard>
+        <BooleanSectionHeader title="In-App Controls" icon={<GearIcon />} />
         <BooleanRow
+          first
           title="Parental Controls"
           description="The app lets parents restrict access to features or content."
           value={declaration.isParentalControls}
@@ -27,8 +33,10 @@ export const FeaturesStep = observer(function FeaturesStep({
         />
       </SectionCard>
 
-      <SectionCard title="Capabilities">
+      <SectionCard>
+        <BooleanSectionHeader title="Capabilities" icon={<GlobeIcon />} />
         <BooleanRow
+          first
           title="Unrestricted Web Access"
           description="The app opens the public web without content filters."
           value={declaration.isUnrestrictedWebAccess}

@@ -1,13 +1,20 @@
 import { observer } from 'mobx-react-lite';
 import type { AgeRatingDeclaration } from '../../AgeRatingDeclaration.ts';
-import { FrequencyRow, SectionCard } from '../AgeRatingRows.tsx';
+import {
+  FrequencyRow,
+  FrequencySectionHeader,
+  SectionCard,
+} from '../AgeRatingRows.tsx';
+import { HeartIcon } from '../AgeRatingIcons.tsx';
 
 export const SexualityStep = observer(function SexualityStep({
   declaration,
 }: { declaration: AgeRatingDeclaration }) {
   return (
-    <SectionCard title="Sexuality or Nudity">
+    <SectionCard>
+      <FrequencySectionHeader title="Sexuality or Nudity" icon={<HeartIcon />} />
       <FrequencyRow
+        first
         title="Mature or Suggestive Themes"
         description="Innuendo or sexually suggestive presentation."
         value={declaration.matureOrSuggestiveThemes}
