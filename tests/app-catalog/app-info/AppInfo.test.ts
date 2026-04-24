@@ -8,7 +8,7 @@ function stubRepo(overrides: Partial<AppInfoRepository> = {}): AppInfoRepository
     list: vi.fn(),
     saveCategories: vi.fn().mockResolvedValue(undefined),
     saveLocalization: vi.fn().mockResolvedValue(undefined),
-    createLocalization: vi.fn().mockResolvedValue({ id: 'new-id' }),
+    createLocalization: vi.fn().mockResolvedValue({ id: 'new-id', affordances: {} }),
     deleteLocalization: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
@@ -271,7 +271,13 @@ describe('AppInfo', () => {
   });
 
   it('save posts newly-added localizations and backfills the returned id', async () => {
-    const createLocalization = vi.fn().mockResolvedValue({ id: 'loc-fr-100' });
+    const createLocalization = vi.fn().mockResolvedValue({
+      id: 'loc-fr-100',
+      affordances: {
+        updateLocalization: '/api/v1/app-info-localizations/loc-fr-100',
+        delete: '/api/v1/app-info-localizations/loc-fr-100',
+      },
+    });
     const repo = stubRepo({ createLocalization });
     const info = makeInfo();
     info.setRepository(repo);
@@ -284,6 +290,34 @@ describe('AppInfo', () => {
     expect(added.hasUnsavedChanges).toBe(false);
     // New locales go through createLocalization, not saveLocalization.
     expect(repo.saveLocalization).not.toHaveBeenCalled();
+    // Affordances from the POST response land on the new loc so a follow-up
+    // edit in the same session can PATCH without a page refresh.
+    expect(added.canUpdate).toBe(true);
+    expect(added.canDelete).toBe(true);
+  });
+
+  it('save backfills affordances onto a newly-created locale so it can save itself next time', async () => {
+    const createLocalization = vi.fn().mockResolvedValue({
+      id: 'loc-fr-200',
+      affordances: {
+        updateLocalization: '/api/v1/app-info-localizations/loc-fr-200',
+      },
+    });
+    const saveLocalization = vi.fn().mockResolvedValue(undefined);
+    const repo = stubRepo({ createLocalization, saveLocalization });
+    const info = makeInfo();
+    info.setRepository(repo);
+    const added = info.addLocalization('fr-FR', { name: 'Boulangerie' });
+
+    // First save → POST creates the resource + seeds affordances.
+    await info.save();
+
+    // Second edit + save → PATCH fires on the same instance.
+    added.setSubtitle('Du pain frais');
+    await info.save();
+
+    expect(saveLocalization).toHaveBeenCalledTimes(1);
+    expect(saveLocalization).toHaveBeenCalledWith(added);
   });
 
   it('save deletes locales that were removed after the last save', async () => {

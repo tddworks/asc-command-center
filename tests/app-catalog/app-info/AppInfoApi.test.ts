@@ -232,13 +232,26 @@ describe('RestAppInfoRepository', () => {
 
   // ── createLocalization ──
 
-  it('createLocalization POSTs to the createLocalization affordance and backfills the returned id', async () => {
+  it('createLocalization POSTs to the createLocalization affordance and backfills id + affordances', async () => {
     let capturedInit: RequestInit | undefined;
     stubBackend({
       '/api/v1/app-infos/info-42/localizations': (init) => {
         if (init?.method === 'POST') {
           capturedInit = init;
-          return jsonResponse({ id: 'loc-fr-new' });
+          // Mimic the real backend's shape: `{data: [{_links, id, ...}]}`.
+          // The client runs normalizeLinks so `_links` becomes `affordances`.
+          return jsonResponse({
+            data: [{
+              _links: {
+                updateLocalization: { href: '/api/v1/app-info-localizations/loc-fr-new', method: 'PATCH'  },
+                delete:             { href: '/api/v1/app-info-localizations/loc-fr-new', method: 'DELETE' },
+              },
+              id: 'loc-fr-new',
+              locale: 'fr-FR',
+              name: 'Boulangerie',
+              subtitle: 'Du pain frais',
+            }],
+          });
         }
         // GET during hydrate — return a real en-US row so the adapter does
         // not synthesize an empty primary-locale placeholder that would
@@ -266,6 +279,9 @@ describe('RestAppInfoRepository', () => {
     });
     expect(added.id).toBe('loc-fr-new');
     expect(added.hasUnsavedChanges).toBe(false);
+    // Affordances flow in from the POST response so subsequent edits can PATCH.
+    expect(added.canUpdate).toBe(true);
+    expect(added.canDelete).toBe(true);
   });
 
   // ── deleteLocalization ──

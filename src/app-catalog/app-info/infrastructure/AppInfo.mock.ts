@@ -42,7 +42,7 @@ export class MockAppInfoRepository implements AppInfoRepository {
   async createLocalization(
     appInfo: AppInfo,
     loc: AppInfoLocalization,
-  ): Promise<{ id: string }> {
+  ): Promise<{ id: string; affordances: Record<string, string> }> {
     const snap = this.store.get(appInfo.appId);
     if (!snap) throw new Error(`No mock AppInfo for app ${appInfo.appId}`);
     const id = `mock-loc-${this.idSeed++}`;
@@ -54,7 +54,13 @@ export class MockAppInfoRepository implements AppInfoRepository {
       privacyPolicyUrl: loc.privacyPolicyUrl,
       privacyChoicesUrl: loc.privacyChoicesUrl,
     });
-    return { id };
+    return {
+      id,
+      affordances: {
+        updateLocalization: `/api/v1/app-info-localizations/${id}`,
+        delete: `/api/v1/app-info-localizations/${id}`,
+      },
+    };
   }
 
   async deleteLocalization(loc: AppInfoLocalization): Promise<void> {
