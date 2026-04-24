@@ -53,16 +53,50 @@ function AppInfoPage() {
     );
   }
 
+  // Single read-only gate: the selected version's editability. AppInfo is
+  // editable only when its corresponding version is editable (or rejected).
+  // The user picks the version in the global picker; the page reflects that
+  // choice without inventing a separate per-card capability.
+  const readOnly = !currentApp.canEdit;
+
   return (
     <div className="app-info-wrap">
       <AppIdentityStrip app={currentApp} />
-      <AppMetadataCard appInfo={appInfo} />
-      <LocalizationsCard appInfo={appInfo} />
-      <PrivacyComplianceCard appInfo={appInfo} />
-      <StickySaveBar appInfo={appInfo} />
+      {readOnly && <ReadOnlyBanner app={currentApp} />}
+      <AppMetadataCard appInfo={appInfo} readOnly={readOnly} />
+      <LocalizationsCard appInfo={appInfo} readOnly={readOnly} />
+      <PrivacyComplianceCard appInfo={appInfo} readOnly={readOnly} />
+      {!readOnly && <StickySaveBar appInfo={appInfo} />}
     </div>
   );
 }
+
+// ─── Read-only banner — explains why edits are disabled ─────────────
+
+const ReadOnlyBanner = observer(({ app }: { app: App }) => {
+  const v = app.selectedVersion;
+  const versionDesc = v ? `${v.versionString} · ${v.statusLabel}` : 'this version';
+  return (
+    <div
+      className="card"
+      role="status"
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        padding: '12px 16px',
+        borderLeft: '3px solid var(--warning, #f59e0b)',
+      }}
+    >
+      <span aria-hidden style={{ fontSize: 16 }}>🔒</span>
+      <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>
+        Read-only — viewing <strong style={{ color: 'var(--text-primary)' }}>{versionDesc}</strong>.
+        Switch to an editable version (Prepare for Submission) from the version picker
+        to make changes, or create a new one via Manage Versions.
+      </div>
+    </div>
+  );
+});
 
 // ─── App Identifiers — read-only identity info, mirrors the Localizations
 //     table used elsewhere on this page so the visual rhythm matches.
@@ -97,7 +131,7 @@ const AppIdentityStrip = observer(({ app }: { app: App }) => {
 
 // ─── App Metadata ───────────────────────────────────────────────────
 
-const AppMetadataCard = observer(({ appInfo }: { appInfo: AppInfo }) => {
+const AppMetadataCard = observer(({ appInfo, readOnly }: { appInfo: AppInfo; readOnly: boolean }) => {
   const primary = appInfo.localizationFor(appInfo.primaryLocale);
 
   return (
@@ -113,6 +147,7 @@ const AppMetadataCard = observer(({ appInfo }: { appInfo: AppInfo }) => {
             className="form-input"
             value={primary?.name ?? ''}
             placeholder="My App"
+            disabled={readOnly}
             onChange={(e) => primary?.setName(e.target.value)}
           />
         </div>
@@ -124,6 +159,7 @@ const AppMetadataCard = observer(({ appInfo }: { appInfo: AppInfo }) => {
             className="form-input"
             value={primary?.subtitle ?? ''}
             placeholder="A short description"
+            disabled={readOnly}
             onChange={(e) => primary?.setSubtitle(e.target.value || null)}
           />
         </div>
@@ -135,6 +171,7 @@ const AppMetadataCard = observer(({ appInfo }: { appInfo: AppInfo }) => {
               id="am-category"
               className="form-input select-styled"
               value={appInfo.primaryCategoryId ?? ''}
+              disabled={readOnly}
               onChange={(e) => appInfo.setPrimaryCategory(e.target.value || null)}
             >
               <option value="">—</option>
@@ -147,6 +184,7 @@ const AppMetadataCard = observer(({ appInfo }: { appInfo: AppInfo }) => {
               id="am-category-2"
               className="form-input select-styled"
               value={appInfo.secondaryCategoryId ?? ''}
+              disabled={readOnly}
               onChange={(e) => appInfo.setSecondaryCategory(e.target.value || null)}
             >
               <option value="">— None —</option>
@@ -163,7 +201,7 @@ const AppMetadataCard = observer(({ appInfo }: { appInfo: AppInfo }) => {
 
 // ─── Localizations ──────────────────────────────────────────────────
 
-const LocalizationsCard = observer(({ appInfo }: { appInfo: AppInfo }) => {
+const LocalizationsCard = observer(({ appInfo, readOnly }: { appInfo: AppInfo; readOnly: boolean }) => {
   const [editingLocale, setEditingLocale] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [newLocale, setNewLocale] = useState('');
@@ -187,9 +225,11 @@ const LocalizationsCard = observer(({ appInfo }: { appInfo: AppInfo }) => {
       <div className="toolbar">
         <div className="toolbar-left"><h3>Localizations</h3></div>
         <div className="toolbar-right">
-          <button type="button" className="btn btn-primary btn-sm" onClick={startAdd}>
-            + Add Locale
-          </button>
+          {!readOnly && (
+            <button type="button" className="btn btn-primary btn-sm" onClick={startAdd}>
+              + Add Locale
+            </button>
+          )}
         </div>
       </div>
 
@@ -223,7 +263,7 @@ const LocalizationsCard = observer(({ appInfo }: { appInfo: AppInfo }) => {
               <th>Locale</th>
               <th>Name</th>
               <th>Subtitle</th>
-              <th style={{ textAlign: 'right' }}>Actions</th>
+              {!readOnly && <th style={{ textAlign: 'right' }}>Actions</th>}
             </tr>
           </thead>
           <tbody>
@@ -233,10 +273,11 @@ const LocalizationsCard = observer(({ appInfo }: { appInfo: AppInfo }) => {
                 localization={loc}
                 isPrimary={loc.locale === appInfo.primaryLocale}
                 editing={editingLocale === loc.locale}
+                readOnly={readOnly}
                 onEdit={() => setEditingLocale(loc.locale)}
                 onDone={() => setEditingLocale(null)}
                 onDelete={
-                  loc.locale !== appInfo.primaryLocale
+                  !readOnly && loc.locale !== appInfo.primaryLocale
                     ? () => {
                         if (!confirm(`Remove ${loc.locale}?`)) return;
                         appInfo.removeLocalization(loc.locale);
@@ -257,12 +298,13 @@ interface LocaleRowProps {
   localization: AppInfoLocalization;
   isPrimary: boolean;
   editing: boolean;
+  readOnly: boolean;
   onEdit: () => void;
   onDone: () => void;
   onDelete?: () => void;
 }
 
-const LocaleTableRow = observer(({ localization, isPrimary, editing, onEdit, onDone, onDelete }: LocaleRowProps) => {
+const LocaleTableRow = observer(({ localization, isPrimary, editing, readOnly, onEdit, onDone, onDelete }: LocaleRowProps) => {
   return (
     <tr>
       <td className="cell-primary">
@@ -272,7 +314,7 @@ const LocaleTableRow = observer(({ localization, isPrimary, editing, onEdit, onD
         )}
       </td>
       <td>
-        {editing ? (
+        {editing && !readOnly ? (
           <input
             className="form-input"
             value={localization.name}
@@ -284,7 +326,7 @@ const LocaleTableRow = observer(({ localization, isPrimary, editing, onEdit, onD
         )}
       </td>
       <td>
-        {editing ? (
+        {editing && !readOnly ? (
           <input
             className="form-input"
             value={localization.subtitle ?? ''}
@@ -295,6 +337,7 @@ const LocaleTableRow = observer(({ localization, isPrimary, editing, onEdit, onD
           localization.subtitle || <span style={{ color: 'var(--text-muted)' }}>—</span>
         )}
       </td>
+      {!readOnly && (
       <td style={{ textAlign: 'right' }}>
         <div style={{ display: 'inline-flex', gap: 6 }}>
           {editing ? (
@@ -307,13 +350,14 @@ const LocaleTableRow = observer(({ localization, isPrimary, editing, onEdit, onD
           )}
         </div>
       </td>
+      )}
     </tr>
   );
 });
 
 // ─── Privacy & Compliance ──────────────────────────────────────────
 
-const PrivacyComplianceCard = observer(({ appInfo }: { appInfo: AppInfo }) => {
+const PrivacyComplianceCard = observer(({ appInfo, readOnly }: { appInfo: AppInfo; readOnly: boolean }) => {
   return (
     <div className="card">
       <div className="toolbar">
@@ -329,6 +373,7 @@ const PrivacyComplianceCard = observer(({ appInfo }: { appInfo: AppInfo }) => {
             className="form-input"
             placeholder="https://yourwebsite.com/privacy"
             value={appInfo.privacyPolicyUrl ?? ''}
+            disabled={readOnly}
             onChange={(e) => appInfo.setPrivacyPolicyUrl(e.target.value || null)}
           />
           <div className="form-hint">Required · Apple rejects submissions without it.</div>
@@ -341,6 +386,7 @@ const PrivacyComplianceCard = observer(({ appInfo }: { appInfo: AppInfo }) => {
             className="form-input"
             placeholder="https://yourwebsite.com/privacy-choices"
             value={appInfo.privacyChoicesUrl ?? ''}
+            disabled={readOnly}
             onChange={(e) => appInfo.setPrivacyChoicesUrl(e.target.value || null)}
           />
           <div className="form-hint">Optional · California opt-out URL.</div>
@@ -357,15 +403,17 @@ const PrivacyComplianceCard = observer(({ appInfo }: { appInfo: AppInfo }) => {
             name="content-rights"
             selectedTone="blue"
             value={appInfo.contentRightsDeclaration}
-            onChange={(id) => appInfo.setContentRightsDeclaration(id)}
+            onChange={(id) => { if (!readOnly) appInfo.setContentRightsDeclaration(id); }}
             options={[
               {
                 id: 'DOES_NOT_USE_THIRD_PARTY_CONTENT',
                 title: 'No, it does not contain, show, or access third-party content',
+                disabled: readOnly,
               },
               {
                 id: 'USES_THIRD_PARTY_CONTENT',
                 title: 'Yes, it contains, shows, or accesses third-party content, and I have the necessary rights',
+                disabled: readOnly,
               },
             ]}
           />
