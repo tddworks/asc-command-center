@@ -6,6 +6,7 @@ import type { AppInfoLocalization } from '../AppInfoLocalization.ts';
 import type { App } from '../../app/App.ts';
 import { RadioCard } from '../../../shared/components/RadioCard.tsx';
 import { APP_CATEGORIES } from '../AppCategoryRegistry.ts';
+import { AgeRatingWizardSheet } from '../../age-rating/pages/AgeRatingWizardSheet.tsx';
 
 // Human-friendly labels for Apple's age-rating api ids.
 const AGE_RATING_LABELS: Record<string, { label: string; sub: string }> = {
@@ -406,7 +407,7 @@ const PrivacyComplianceCard = observer(({ appInfo, readOnly }: { appInfo: AppInf
 
         <div className="form-group">
           <label className="form-label">Age Rating</label>
-          <AgeRatingCard rating={appInfo.appStoreAgeRating} />
+          <AgeRatingCard appInfo={appInfo} disabled={readOnly} />
         </div>
 
         <div className="form-group" style={{ marginBottom: 0 }}>
@@ -435,29 +436,43 @@ const PrivacyComplianceCard = observer(({ appInfo, readOnly }: { appInfo: AppInf
   );
 });
 
-// ─── Age rating card (read-only for now; opens placeholder) ──────
+// ─── Age rating card — opens the 7-step wizard on click. ─────────────
 
-function AgeRatingCard({ rating }: { rating: string | undefined }) {
+const AgeRatingCard = observer(function AgeRatingCard({
+  appInfo, disabled,
+}: { appInfo: AppInfo; disabled: boolean }) {
+  const [wizardOpen, setWizardOpen] = useState(false);
+  const rating = appInfo.appStoreAgeRating;
   const meta = (rating ? AGE_RATING_LABELS[rating] : undefined) ?? AGE_RATING_LABELS.UNRATED;
   return (
-    <button
-      type="button"
-      className="age-rating-card"
-      onClick={() => alert('Age rating editor is not implemented yet — coming soon.')}
-    >
-      <span className="age-rating-badge">{meta.label}</span>
-      <span className="age-rating-text">
-        <span className="age-rating-title">
-          {rating ? `Ages ${meta.label}` : 'No rating set'}
+    <>
+      <button
+        type="button"
+        className="age-rating-card"
+        onClick={() => setWizardOpen(true)}
+        disabled={disabled}
+        style={{ opacity: disabled ? 0.6 : 1, cursor: disabled ? 'not-allowed' : 'pointer' }}
+      >
+        <span className="age-rating-badge">{meta.label}</span>
+        <span className="age-rating-text">
+          <span className="age-rating-title">
+            {rating ? `Ages ${meta.label}` : 'No rating set'}
+          </span>
+          <span className="age-rating-sub">{meta.sub}</span>
         </span>
-        <span className="age-rating-sub">{meta.sub}</span>
-      </span>
-      <span className="age-rating-chevron" aria-hidden>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
-      </span>
-    </button>
+        <span className="age-rating-chevron" aria-hidden>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="9 6 15 12 9 18"/></svg>
+        </span>
+      </button>
+      {wizardOpen && (
+        <AgeRatingWizardSheet
+          appInfo={appInfo}
+          onClose={() => setWizardOpen(false)}
+        />
+      )}
+    </>
   );
-}
+});
 
 // ─── Sticky save bar ───────────────────────────────────────────────
 
