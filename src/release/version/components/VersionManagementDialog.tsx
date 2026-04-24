@@ -66,7 +66,13 @@ export const VersionManagementDialog = observer(function VersionManagementDialog
     trimmed === editableVersion!.versionString &&
     (copyright.trim() || null) === editableVersion!.copyright;
 
-  const isDisabled = processing || trimmed.length === 0 || isAlreadyPublished || unchanged;
+  const cannotCreateHere = !isUpdateMode && !app.canCreateVersion;
+  const isDisabled =
+    processing ||
+    trimmed.length === 0 ||
+    isAlreadyPublished ||
+    unchanged ||
+    cannotCreateHere;
 
   async function submit(): Promise<void> {
     setProcessing(true);
@@ -130,6 +136,13 @@ export const VersionManagementDialog = observer(function VersionManagementDialog
             {isAlreadyPublished && (
               <div className="form-hint" style={{ color: '#b45309' }}>
                 A version with this number already exists on {PLATFORM_LABELS[platform]}.
+              </div>
+            )}
+            {cannotCreateHere && (
+              <div className="form-hint" style={{ color: '#b45309' }}>
+                No editable version exists for {PLATFORM_LABELS[platform]} and the
+                backend doesn't expose a createVersion affordance — pick another
+                platform or ask the backend to ship the affordance.
               </div>
             )}
             <div className="form-hint">

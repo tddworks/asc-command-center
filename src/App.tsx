@@ -17,7 +17,6 @@ import { CommandLogModal } from './shared/components/CommandLogModal.tsx';
 
 const DashboardPage = lazy(() => import('./dashboard/pages/DashboardPage.tsx'));
 const AppList = lazy(() => import('./app-catalog/app/pages/AppList.tsx'));
-const AppDetail = lazy(() => import('./app-catalog/app/pages/AppDetail.tsx'));
 const VersionList = lazy(() => import('./release/version/pages/VersionList.tsx'));
 const BuildList = lazy(() => import('./release/build/pages/BuildList.tsx'));
 const ReviewList = lazy(() => import('./customer-relations/review/pages/ReviewList.tsx'));
@@ -70,7 +69,6 @@ function AppShell() {
                 <Routes>
                   <Route path="/" element={<DashboardPage />} />
                   <Route path="/apps" element={<AppList />} />
-                  <Route path="/apps/:appId" element={<AppDetail />} />
                   <Route path="/versions" element={<VersionList />} />
                   <Route path="/apps/:appId/versions" element={<VersionList />} />
                   <Route path="/builds" element={<BuildList />} />
