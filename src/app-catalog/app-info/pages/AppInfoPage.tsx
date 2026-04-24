@@ -64,21 +64,32 @@ function AppInfoPage() {
   );
 }
 
-// ─── App Identifiers — read-only identity info, mirrors other cards ──
+// ─── App Identifiers — read-only identity info, mirrors the Localizations
+//     table used elsewhere on this page so the visual rhythm matches.
 
 const AppIdentityStrip = observer(({ app }: { app: App }) => {
+  const rows: Array<[string, string]> = [
+    ['Bundle ID', app.bundleId],
+    ['SKU', app.sku],
+    ['App ID', app.id],
+    ['Primary Language', app.primaryLocale],
+  ];
   return (
     <div className="card">
       <div className="toolbar">
         <div className="toolbar-left"><h3>App Identifiers</h3></div>
       </div>
-      <div className="card-body padded">
-        <dl>
-          <dt>Bundle ID</dt><dd>{app.bundleId}</dd>
-          <dt>SKU</dt><dd>{app.sku}</dd>
-          <dt>App ID</dt><dd>{app.id}</dd>
-          <dt>Primary Language</dt><dd>{app.primaryLocale}</dd>
-        </dl>
+      <div className="table-wrapper">
+        <table>
+          <tbody>
+            {rows.map(([label, value]) => (
+              <tr key={label}>
+                <td style={{ width: '30%', color: 'var(--text-muted)' }}>{label}</td>
+                <td className="cell-mono" style={{ textAlign: 'right' }}>{value}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
