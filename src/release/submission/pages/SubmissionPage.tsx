@@ -42,7 +42,11 @@ export default function SubmissionPage() {
             </button>
           </div>
 
-          {loading && <div className="spinner" style={{ marginTop: 12 }}>Loading submission...</div>}
+          {loading && (
+            <div className="loading" style={{ marginTop: 12, padding: 12 }}>
+              <span className="spinner" /><span>Loading submission...</span>
+            </div>
+          )}
           {error && <div className="error" style={{ marginTop: 12 }}>Error: {error.message}</div>}
 
           {submission && !loading && (
