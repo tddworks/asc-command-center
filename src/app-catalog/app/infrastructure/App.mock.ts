@@ -61,6 +61,10 @@ export class MockAppRepository implements AppRepository {
     return mockAppendVersion(app.id, init, this.versionRepo);
   }
 
+  async appInfos(app: App): Promise<AppInfo[]> {
+    return this.appInfoRepo.list(app.id, { primaryLocale: app.primaryLocale });
+  }
+
   private fixtures(): App[] {
     return [
       new App(

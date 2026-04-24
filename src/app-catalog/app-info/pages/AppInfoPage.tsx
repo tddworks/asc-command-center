@@ -1,7 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { useWorkspace } from '../../../workspace/ASCWorkspace.hooks.tsx';
-import { useAppInfo } from '../AppInfo.hooks.ts';
 import type { AppInfo } from '../AppInfo.ts';
 import type { AppInfoLocalization } from '../AppInfoLocalization.ts';
 import type { App } from '../../app/App.ts';
@@ -21,11 +20,24 @@ function AppInfoPage() {
   const workspace = useWorkspace();
   const currentApp = workspace?.currentApp ?? null;
   const selectedVersion = currentApp?.selectedVersion ?? null;
-  const { appInfo, loading, error } = useAppInfo(
-    currentApp?.id ?? null,
-    selectedVersion?.state ?? null,
-    currentApp?.primaryLocale ?? null,
-  );
+
+  // Domain-driven loading — `App.loadAppInfos` populates `app.appInfos` and
+  // the component picks the row matching the selected version via
+  // `appInfoFor(state)`. No slice-level hook needed.
+  const [loading, setLoading] = useState<boolean>(!!currentApp);
+  const [error, setError] = useState<Error | null>(null);
+  useEffect(() => {
+    if (!currentApp) { setLoading(false); return; }
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    currentApp.loadAppInfos()
+      .catch((e) => { if (!cancelled) setError(e as Error); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [currentApp?.id]);
+
+  const appInfo = currentApp?.appInfoFor(selectedVersion?.state ?? null) ?? null;
 
   if (!workspace?.hydrated) return <div className="loading"><span className="spinner" /><span>Loading…</span></div>;
 
