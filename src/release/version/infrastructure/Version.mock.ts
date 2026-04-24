@@ -18,7 +18,7 @@ interface VersionRow {
 const store: Map<string, VersionRow[]> = new Map();
 let idSeed = 9000;
 
-function seedFor(appId: string): VersionRow[] {
+function seedFor(_appId: string): VersionRow[] {
   return [
     {
       id: 'v-1',
