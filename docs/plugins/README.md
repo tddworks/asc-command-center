@@ -513,3 +513,16 @@ major exceeds the host's version, and logs a descriptive error.
       `PluginAPI.ts`.
 - [ ] `docs/plugins/ai-plugin.md` — the upcoming AI plugin's design,
       prompts, and schemas.
+
+###   To run live
+
+cd /asc-pro && ./build-framework.sh
+# → ~/.asc/plugins/ASCPro.plugin/ui/ai.bundle.js exists
+
+cd /asc-cli && swift run asc web
+# asc-cli boots, /api/plugins lists ASC Pro with apiVersion 1.0.0
+
+cd /asc-command-center && npm run dev
+# host loads /api/plugins → dynamic-imports ai.bundle.js →
+# plugin calls api.register → ✨ buttons appear next to every
+# AI-eligible text field; Settings page at /ai-settings.
