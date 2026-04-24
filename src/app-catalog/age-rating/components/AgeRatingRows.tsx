@@ -77,10 +77,12 @@ function SectionHeader({ title, icon }: { title: string; icon?: ReactNode }) {
 
 // ── Row shell ──────────────────────────────────────────────────────
 
-function Row({ title, description, children, first }: {
+function Row({ title, description, children, first: _first }: {
   title: string;
   description: string;
   children: ReactNode;
+  /** Legacy flag — SwiftUI design has no dividers between rows, kept in the
+   *  signature so existing call-sites compile without a mass rename. */
   first?: boolean;
 }) {
   return (
@@ -89,14 +91,13 @@ function Row({ title, description, children, first }: {
         display: 'flex',
         alignItems: 'center',
         gap: 16,
-        padding: '12px 16px',
-        borderTop: first ? 'none' : '1px solid var(--border-light, rgba(148, 163, 184, 0.18))',
+        padding: '14px 16px',
       }}
     >
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{
           fontSize: 13,
-          fontWeight: 500,
+          fontWeight: 600,
           color: 'var(--text-primary)',
           marginBottom: 4,
         }}>
@@ -131,10 +132,10 @@ export function BooleanRow({ title, description, value, onChange, disabled, firs
     <Row title={title} description={description} first={first}>
       <div style={{ display: 'inline-flex', gap: 6 }}>
         <CapsuleButton selected={value === false} disabled={disabled} onClick={() => onChange(false)}>
-          No
+          NO
         </CapsuleButton>
         <CapsuleButton selected={value === true} disabled={disabled} onClick={() => onChange(true)}>
-          Yes
+          YES
         </CapsuleButton>
       </div>
     </Row>
@@ -155,8 +156,8 @@ function CapsuleButton({
       onClick={onClick}
       disabled={disabled}
       style={{
-        width: 48,
-        height: 26,
+        width: 58,
+        height: 30,
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -164,10 +165,11 @@ function CapsuleButton({
         border: 'none',
         background: selected
           ? 'var(--accent, #2563eb)'
-          : 'var(--bg, rgba(148, 163, 184, 0.22))',
+          : 'rgba(148, 163, 184, 0.22)',
         color: selected ? '#fff' : 'var(--text-secondary)',
-        fontSize: 12,
-        fontWeight: 500,
+        fontSize: 11,
+        fontWeight: 700,
+        letterSpacing: '0.04em',
         cursor: disabled ? 'not-allowed' : 'pointer',
         opacity: disabled ? 0.5 : 1,
         transition: 'all 120ms',
