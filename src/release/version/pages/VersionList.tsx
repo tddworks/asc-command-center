@@ -3,6 +3,8 @@ import { observer } from 'mobx-react-lite';
 import { workspace } from '../../../workspace/workspaceInstance.ts';
 import { ReleaseType, type Version } from '../Version.ts';
 import { RadioCard } from '../../../shared/components/RadioCard.tsx';
+import { PluginSlot } from '../../../extensibility/plugin/PluginSlot.tsx';
+import type { TextEditKind } from '../../../extensibility/plugin/slots.ts';
 
 function VersionPage() {
   const currentApp = workspace.currentApp;
@@ -237,9 +239,16 @@ const StoryDescriptionCard = observer(({
         {loc && (
           <>
             <div className="form-group">
-              <label className="form-label" htmlFor="sd-description">
-                App Description <span style={{ color: '#dc2626' }}>*</span>
-              </label>
+              <VersionFieldHeader
+                htmlFor="sd-description"
+                label={<>App Description <span style={{ color: '#dc2626' }}>*</span></>}
+                kind="version.description"
+                text={loc.description}
+                onChange={(v) => loc.setDescription(v)}
+                locale={loc.locale}
+                maxLength={4000}
+                version={version}
+              />
               <textarea
                 id="sd-description"
                 className="form-input"
@@ -255,7 +264,16 @@ const StoryDescriptionCard = observer(({
             </div>
 
             <div className="form-group">
-              <label className="form-label" htmlFor="sd-whatsnew">What's New</label>
+              <VersionFieldHeader
+                htmlFor="sd-whatsnew"
+                label="What's New"
+                kind="version.whatsNew"
+                text={loc.whatsNew}
+                onChange={(v) => loc.setWhatsNew(v)}
+                locale={loc.locale}
+                maxLength={4000}
+                version={version}
+              />
               <textarea
                 id="sd-whatsnew"
                 className="form-input"
@@ -271,7 +289,16 @@ const StoryDescriptionCard = observer(({
             </div>
 
             <div className="form-group">
-              <label className="form-label" htmlFor="sd-keywords">Keywords</label>
+              <VersionFieldHeader
+                htmlFor="sd-keywords"
+                label="Keywords"
+                kind="version.keywords"
+                text={loc.keywords}
+                onChange={(v) => loc.setKeywords(v)}
+                locale={loc.locale}
+                maxLength={100}
+                version={version}
+              />
               <input
                 id="sd-keywords"
                 className="form-input"
@@ -286,7 +313,16 @@ const StoryDescriptionCard = observer(({
             </div>
 
             <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label" htmlFor="sd-promo">Promotional Text</label>
+              <VersionFieldHeader
+                htmlFor="sd-promo"
+                label="Promotional Text"
+                kind="version.promotionalText"
+                text={loc.promotionalText}
+                onChange={(v) => loc.setPromotionalText(v)}
+                locale={loc.locale}
+                maxLength={170}
+                version={version}
+              />
               <input
                 id="sd-promo"
                 className="form-input"
@@ -305,6 +341,32 @@ const StoryDescriptionCard = observer(({
     </div>
   );
 });
+
+/** Label + `text.edit` plugin slot on one row. Keeps the four Story &
+ *  Description fields tidy without repeating the same 10 lines of
+ *  boilerplate per field. */
+function VersionFieldHeader({
+  htmlFor, label, kind, text, onChange, locale, maxLength, version,
+}: {
+  htmlFor: string;
+  label: React.ReactNode;
+  kind: Extract<TextEditKind, `version.${string}`>;
+  text: string;
+  onChange: (v: string) => void;
+  locale: string;
+  maxLength?: number;
+  version: Version;
+}) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+      <label className="form-label" htmlFor={htmlFor}>{label}</label>
+      <PluginSlot
+        slot="text.edit"
+        ctx={{ slot: 'text.edit', kind, text, onChange, locale, maxLength, version }}
+      />
+    </div>
+  );
+}
 
 // ─── Support Contact ───────────────────────────────────────────────
 
