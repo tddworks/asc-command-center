@@ -49,9 +49,11 @@ export class RestAppInfoRepository implements AppInfoRepository {
   }
 
   async saveLocalization(loc: AppInfoLocalization): Promise<void> {
-    const url = loc.affordances.update;
+    const url = loc.updateUrl;
     if (!url) {
-      this.warnOnce('saveLocalization', 'update');
+      this.warnMissingAffordance('saveLocalization', loc.affordances, [
+        'update', 'updateLocalization', 'updateAppInfoLocalization',
+      ]);
       return this.mockFallback.saveLocalization(loc);
     }
     await this.sendJSON('PATCH', url, {
@@ -93,9 +95,11 @@ export class RestAppInfoRepository implements AppInfoRepository {
   }
 
   async deleteLocalization(loc: AppInfoLocalization): Promise<void> {
-    const url = loc.affordances.delete;
+    const url = loc.deleteUrl;
     if (!url) {
-      this.warnOnce('deleteLocalization', 'delete');
+      this.warnMissingAffordance('deleteLocalization', loc.affordances, [
+        'delete', 'deleteLocalization', 'deleteAppInfoLocalization',
+      ]);
       return this.mockFallback.deleteLocalization(loc);
     }
     const res = await fetch(url, { method: 'DELETE' });
@@ -173,6 +177,21 @@ export class RestAppInfoRepository implements AppInfoRepository {
     console.warn(
       `[AppInfo] ${key}: backend did not expose \`${affordance}\` affordance — ` +
       'falling back to the in-memory mock for this operation.',
+    );
+  }
+
+  private warnMissingAffordance(
+    key: 'saveCategories' | 'saveLocalization' | 'createLocalization' | 'deleteLocalization',
+    actualAffordances: Affordances,
+    triedKeys: readonly string[],
+  ): void {
+    if (this.warned[key]) return;
+    this.warned[key] = true;
+    console.warn(
+      `[AppInfo] ${key}: none of the expected affordances ` +
+      `[${triedKeys.join(', ')}] were exposed by the backend — ` +
+      'falling back to the in-memory mock for this operation. ' +
+      `Affordances actually present: [${Object.keys(actualAffordances).join(', ') || '(none)'}]`,
     );
   }
 }

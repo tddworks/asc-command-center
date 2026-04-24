@@ -174,6 +174,62 @@ describe('RestAppInfoRepository', () => {
     expect(info.hasUnsavedChanges).toBe(false);
   });
 
+  it('saveLocalization follows the verb+resource variant (updateAppInfoLocalization)', async () => {
+    // Backend ships the affordance under its canonical verb+resource key,
+    // not the shorter `update`. Stub the list to return that shape and
+    // confirm the PATCH still fires at the right URL.
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const url = typeof input === 'string' ? input : (input as URL).toString();
+      if (url.endsWith('/app-infos')) {
+        return jsonResponse({
+          data: [{
+            _links: {
+              listLocalizations: { href: '/api/v1/app-infos/info-7/localizations' },
+              updateCategories:  { href: '/api/v1/app-infos/info-7' },
+            },
+            id: 'info-7',
+            appId: 'app-9',
+            primaryCategoryId: 'FINANCE',
+            state: 'PREPARE_FOR_SUBMISSION',
+            appStoreState: 'PREPARE_FOR_SUBMISSION',
+          }],
+        });
+      }
+      if (url.endsWith('/localizations')) {
+        return jsonResponse({
+          data: [{
+            _links: {
+              updateAppInfoLocalization: { href: '/api/v1/app-info-localizations/loc-7-en', method: 'PATCH' },
+            },
+            id: 'loc-7-en',
+            locale: 'en-US',
+            name: 'Shop',
+            subtitle: null,
+          }],
+        });
+      }
+      if (url === '/api/v1/app-info-localizations/loc-7-en') {
+        expect(init!.method).toBe('PATCH');
+        expect(JSON.parse(init!.body as string)).toEqual({
+          name: 'Renamed',
+          subtitle: null,
+          privacyPolicyUrl: null,
+          privacyChoicesUrl: null,
+        });
+        return jsonResponse({});
+      }
+      return new Response('not stubbed: ' + url, { status: 404 });
+    });
+
+    const repo = new RestAppInfoRepository();
+    const [info] = await repo.list('app-9');
+    info.localizationFor('en-US')!.setName('Renamed');
+
+    await info.save();
+
+    expect(info.hasUnsavedChanges).toBe(false);
+  });
+
   // ── createLocalization ──
 
   it('createLocalization POSTs to the createLocalization affordance and backfills the returned id', async () => {

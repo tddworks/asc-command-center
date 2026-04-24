@@ -1,5 +1,17 @@
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { AppInfoLocalization, type AppInfoLocalizationInit } from '../../../src/app-catalog/app-info/AppInfoLocalization.ts';
+import type { AppInfoRepository } from '../../../src/app-catalog/app-info/AppInfoRepository.ts';
+
+function stubRepo(overrides: Partial<AppInfoRepository> = {}): AppInfoRepository {
+  return {
+    list: vi.fn(),
+    saveCategories: vi.fn().mockResolvedValue(undefined),
+    saveLocalization: vi.fn().mockResolvedValue(undefined),
+    createLocalization: vi.fn().mockResolvedValue({ id: 'new-id' }),
+    deleteLocalization: vi.fn().mockResolvedValue(undefined),
+    ...overrides,
+  };
+}
 
 function make(overrides: Partial<AppInfoLocalizationInit> = {}) {
   return new AppInfoLocalization({
@@ -149,14 +161,77 @@ describe('AppInfoLocalization', () => {
     expect(loc.canUpdate).toBe(true);
   });
 
+  it('canUpdate accepts the verb+resource variant updateAppInfoLocalization', () => {
+    const loc = make({ affordances: { updateAppInfoLocalization: '/api/v1/app-info-localizations/loc-1' } });
+    expect(loc.canUpdate).toBe(true);
+  });
+
+  it('canUpdate accepts the shorter updateLocalization variant', () => {
+    const loc = make({ affordances: { updateLocalization: '/api/v1/app-info-localizations/loc-1' } });
+    expect(loc.canUpdate).toBe(true);
+  });
+
   it('canUpdate is false when the update affordance is absent', () => {
     expect(make().canUpdate).toBe(false);
   });
 
-  it('canDelete reflects the delete affordance', () => {
+  it('updateUrl returns the first matching affordance URL', () => {
+    const loc = make({ affordances: {
+      updateAppInfoLocalization: '/api/v1/app-info-localizations/loc-1',
+    } });
+    expect(loc.updateUrl).toBe('/api/v1/app-info-localizations/loc-1');
+  });
+
+  it('canDelete reflects the delete affordance, accepting verb+resource variants', () => {
     expect(make().canDelete).toBe(false);
-    const removable = make({ affordances: { delete: '/api/v1/app-info-localizations/loc-1' } });
-    expect(removable.canDelete).toBe(true);
+    expect(make({ affordances: { delete: '/x' } }).canDelete).toBe(true);
+    expect(make({ affordances: { deleteAppInfoLocalization: '/x' } }).canDelete).toBe(true);
+    expect(make({ affordances: { deleteLocalization: '/x' } }).canDelete).toBe(true);
+  });
+
+  // ── Self-persistence ──
+
+  it('save delegates to repository.saveLocalization then clears dirty', async () => {
+    const repo = stubRepo();
+    const loc = make();
+    loc.setRepository(repo);
+    loc.setName('Edited');
+
+    await loc.save();
+
+    expect(repo.saveLocalization).toHaveBeenCalledWith(loc);
+    expect(loc.hasUnsavedChanges).toBe(false);
+  });
+
+  it('save propagates errors and keeps dirty state', async () => {
+    const repo = stubRepo({ saveLocalization: vi.fn().mockRejectedValue(new Error('boom')) });
+    const loc = make();
+    loc.setRepository(repo);
+    loc.setName('Edited');
+
+    await expect(loc.save()).rejects.toThrow('boom');
+    expect(loc.hasUnsavedChanges).toBe(true);
+  });
+
+  it('save throws when no repository is attached', async () => {
+    const loc = make();
+    loc.setName('Edited');
+    await expect(loc.save()).rejects.toThrow(/no repository/i);
+  });
+
+  it('delete delegates to repository.deleteLocalization', async () => {
+    const repo = stubRepo();
+    const loc = make();
+    loc.setRepository(repo);
+
+    await loc.delete();
+
+    expect(repo.deleteLocalization).toHaveBeenCalledWith(loc);
+  });
+
+  it('delete throws when no repository is attached', async () => {
+    const loc = make();
+    await expect(loc.delete()).rejects.toThrow(/no repository/i);
   });
 
   // ── Identity for unsaved (locally-added) locales ──
