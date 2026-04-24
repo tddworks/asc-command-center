@@ -105,20 +105,23 @@ export interface HostApiClient {
 // ── host.settings ────────────────────────────────────────────────────
 
 /** Plugin-scoped persisted settings store. Backed by asc-cli on disk
- *  (plaintext JSON) with optional keychain storage for secret fields.
- *  Browsers falling back to localStorage is a dev-only concession;
- *  production always round-trips through asc-cli. */
+ *  (plaintext JSON at `~/.asc/plugin-settings/<id>.json`). Browser falls
+ *  back to localStorage when the asc-cli endpoints aren't deployed yet;
+ *  otherwise production always round-trips through asc-cli so settings
+ *  survive browser wipes and sync across browsers on the same machine.
+ *
+ *  NOTE: plaintext only. We intentionally do not offer keychain storage
+ *  for "secret" fields — the tradeoff was that it adds API surface and
+ *  CLI complexity for marginal benefit (macOS-only, no iOS/other).
+ *  Plugins that hold long-lived credentials should tell the user the
+ *  file lives at `~/.asc/plugin-settings/<id>.json` and ensure the user
+ *  trusts the machine. */
 export interface PluginSettings {
   /** Load the current settings blob. Returns `{}` if nothing is stored. */
   load<T extends Record<string, unknown>>(pluginId: string): Promise<T>;
 
-  /** Save the settings blob. Any field name listed in `secretFields`
-   *  round-trips through the keychain instead of the plaintext file. */
-  save<T extends Record<string, unknown>>(
-    pluginId: string,
-    value: T,
-    opts?: { secretFields?: readonly (keyof T)[] },
-  ): Promise<void>;
+  /** Save the settings blob. Overwrites prior contents. */
+  save<T extends Record<string, unknown>>(pluginId: string, value: T): Promise<void>;
 
   /** Subscribe to external writes (another tab, CLI edit). Returns an
    *  unsubscribe function. Implementation may poll — plugins should not

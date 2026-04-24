@@ -1,27 +1,10 @@
-import type { PluginSettings, HostUI } from './PluginAPI.ts';
+import type { HostUI } from './PluginAPI.ts';
 
 /**
- * Placeholder implementations used until their real versions land:
- *   • settings — task #37 wires REST + keychain via asc-cli.
- *   • ui       — task #39 re-exports the host design-system components.
- *
- * These stubs keep `installPluginAPI` compilable and runnable without
- * blocking plugin registration work. A plugin that calls a stubbed
- * feature gets a clear console warning.
+ * Placeholder host.ui — the real re-exports land with task #39. Using the
+ * existing `.card` / `.modal` / `.btn` CSS classes so the stub already
+ * looks consistent with the host.
  */
-
-export const stubSettings: PluginSettings = {
-  async load() {
-    console.warn('[pluginAPI.settings] not wired yet — returning {}');
-    return {} as never;
-  },
-  async save() {
-    console.warn('[pluginAPI.settings] not wired yet — no-op save');
-  },
-  subscribe() {
-    return () => {};
-  },
-};
 
 export const stubUI: HostUI = {
   tokens: {},
