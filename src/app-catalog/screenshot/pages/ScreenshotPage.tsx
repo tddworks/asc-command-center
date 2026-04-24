@@ -30,7 +30,7 @@ function ScreenshotPage() {
     selectedLocale,
   );
 
-  if (!workspace?.hydrated) return <div className="spinner">Loading…</div>;
+  if (!workspace?.hydrated) return <div className="loading"><span className="spinner" /><span>Loading…</span></div>;
 
   if (!currentApp) {
     return (

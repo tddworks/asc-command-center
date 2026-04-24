@@ -35,7 +35,7 @@ const ScreenshotPage = lazy(() => import('./app-catalog/screenshot/pages/Screens
 const PluginsPage = lazy(() => import('./extensibility/plugin/pages/PluginsPage.tsx'));
 
 function LoadingSpinner() {
-  return <div className="spinner">Loading...</div>;
+  return <div className="loading"><span className="spinner" /><span>Loading...</span></div>;
 }
 
 function AppShell() {

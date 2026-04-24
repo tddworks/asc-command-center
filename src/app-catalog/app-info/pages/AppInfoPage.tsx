@@ -27,7 +27,7 @@ function AppInfoPage() {
     currentApp?.primaryLocale ?? null,
   );
 
-  if (!workspace?.hydrated) return <div className="spinner">Loading…</div>;
+  if (!workspace?.hydrated) return <div className="loading"><span className="spinner" /><span>Loading…</span></div>;
 
   if (!currentApp) {
     return (
@@ -40,7 +40,7 @@ function AppInfoPage() {
     );
   }
 
-  if (loading) return <div className="spinner">Loading app info…</div>;
+  if (loading) return <div className="loading"><span className="spinner" /><span>Loading app info…</span></div>;
 
   if (error || !appInfo) {
     return (

@@ -6,7 +6,7 @@ function AppList() {
   const workspace = useWorkspace();
 
   if (!workspace || !workspace.hydrated) {
-    return <div className="spinner">Loading apps...</div>;
+    return <div className="loading"><span className="spinner" /><span>Loading apps...</span></div>;
   }
 
   return (

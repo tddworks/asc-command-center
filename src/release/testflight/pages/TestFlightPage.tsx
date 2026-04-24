@@ -6,7 +6,7 @@ export default function TestFlightPage({ appId = 'app-1' }: { appId?: string }) 
   const { betaGroups, loading, error } = useTestFlight(appId);
   const [testerEmail, setTesterEmail] = useState('');
 
-  if (loading) return <div className="spinner">Loading beta groups...</div>;
+  if (loading) return <div className="loading"><span className="spinner" /><span>Loading beta groups...</span></div>;
   if (error) return <div className="error">Error: {error.message}</div>;
 
   return (

@@ -4,7 +4,7 @@ import { AffordanceBar } from '../../../shared/components/AffordanceBar.tsx';
 export default function IAPPage({ appId = 'app-1' }: { appId?: string }) {
   const { iaps, loading, error } = useInAppPurchases(appId);
 
-  if (loading) return <div className="spinner">Loading in-app purchases...</div>;
+  if (loading) return <div className="loading"><span className="spinner" /><span>Loading in-app purchases...</span></div>;
   if (error) return <div className="error">Error: {error.message}</div>;
 
   return (

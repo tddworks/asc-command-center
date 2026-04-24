@@ -19,7 +19,7 @@ const perfMetrics = [
 export default function ReportsPage() {
   const { reports, loading, error } = useReports();
 
-  if (loading) return <div className="spinner">Loading reports...</div>;
+  if (loading) return <div className="loading"><span className="spinner" /><span>Loading reports...</span></div>;
   if (error) return <div className="error">Error: {error.message}</div>;
 
   return (

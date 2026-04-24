@@ -34,7 +34,7 @@ export default function CodeSigningPage() {
 
 function BundleIdsTab() {
   const { bundleIds, loading, error } = useBundleIds();
-  if (loading) return <div className="spinner">Loading bundle IDs...</div>;
+  if (loading) return <div className="loading"><span className="spinner" /><span>Loading bundle IDs...</span></div>;
   if (error) return <div className="error">Error: {error.message}</div>;
 
   return (
@@ -72,7 +72,7 @@ function BundleIdsTab() {
 
 function CertificatesTab() {
   const { certificates, loading, error } = useCertificates();
-  if (loading) return <div className="spinner">Loading certificates...</div>;
+  if (loading) return <div className="loading"><span className="spinner" /><span>Loading certificates...</span></div>;
   if (error) return <div className="error">Error: {error.message}</div>;
 
   return (
@@ -112,7 +112,7 @@ function CertificatesTab() {
 
 function DevicesTab() {
   const { devices, loading, error } = useDevices();
-  if (loading) return <div className="spinner">Loading devices...</div>;
+  if (loading) return <div className="loading"><span className="spinner" /><span>Loading devices...</span></div>;
   if (error) return <div className="error">Error: {error.message}</div>;
 
   return (
@@ -150,7 +150,7 @@ function DevicesTab() {
 
 function ProfilesTab() {
   const { profiles, loading, error } = useProfiles();
-  if (loading) return <div className="spinner">Loading profiles...</div>;
+  if (loading) return <div className="loading"><span className="spinner" /><span>Loading profiles...</span></div>;
   if (error) return <div className="error">Error: {error.message}</div>;
 
   return (
