@@ -8,6 +8,8 @@ import {
   mockAppendVersion,
 } from '../../../release/version/infrastructure/Version.mock.ts';
 import { MockVersionRepository } from '../../../release/version/infrastructure/VersionRepository.mock.ts';
+import { MockAppInfoRepository } from '../../app-info/infrastructure/AppInfo.mock.ts';
+import type { AppInfo } from '../../app-info/AppInfo.ts';
 
 /**
  * Generate an SVG data URI that stands in for a real app icon in mock mode.
@@ -34,6 +36,8 @@ export class MockAppRepository implements AppRepository {
   /** Shared across every call into this mock so a Version created in one
    *  interaction shows up in the next `versions()` list. */
   private readonly versionRepo = new MockVersionRepository();
+  /** Single AppInfo mock so state mutations persist across list calls. */
+  private readonly appInfoRepo = new MockAppInfoRepository();
 
   async list(): Promise<App[]> {
     return this.fixtures();

@@ -3,6 +3,7 @@ import type { Affordances } from '../../shared/types.ts';
 import type { AppRepository } from './AppRepository.ts';
 import type { Build } from '../../release/build/Build.ts';
 import { Version, VersionState, type NewVersionInit, type Platform } from '../../release/version/Version.ts';
+import type { AppInfo } from '../app-info/AppInfo.ts';
 
 export interface AppInit {
   id: string;
@@ -40,6 +41,11 @@ export class App {
 
   /** Versions loaded for this app (populated by loadVersions()). */
   versions: Version[] = [];
+
+  /** AppInfo rows (one per version state — editable + live) populated by
+   *  loadAppInfos(). The page-level UI reads the row that matches the
+   *  selected version via `appInfoFor(state)`. */
+  appInfos: AppInfo[] = [];
 
   /** The version the user is currently focused on (sidebar pin, etc.). */
   selectedVersion: Version | null = null;
@@ -185,6 +191,33 @@ export class App {
         v.platform === platform &&
         (v.state === VersionState.PrepareForSubmission || v.state === VersionState.Rejected),
       ) ?? null
+    );
+  }
+
+  /**
+   * Load the AppInfo rows for this app. Mirrors `loadVersions`: gates on a
+   * capability (here: "we can view versions", since AppInfos are scoped per
+   * version state), hits the repository, mutates in place.
+   */
+  async loadAppInfos(): Promise<AppInfo[]> {
+    if (!this.canViewVersions) {
+      runInAction(() => { this.appInfos = []; });
+      return [];
+    }
+    const list = await this.requireRepo().appInfos(this);
+    runInAction(() => { this.appInfos = list; });
+    return list;
+  }
+
+  /** Pick the AppInfo row whose `appStoreState` matches the given version
+   *  state. Falls back to the first loaded row so the page always has a
+   *  target when only one AppInfo is returned. */
+  appInfoFor(versionState: string | null | undefined): AppInfo | null {
+    if (!versionState) return this.appInfos[0] ?? null;
+    return (
+      this.appInfos.find((i) => i.appStoreState === versionState) ??
+      this.appInfos[0] ??
+      null
     );
   }
 
