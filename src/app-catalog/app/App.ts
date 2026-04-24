@@ -87,6 +87,15 @@ export class App {
     return 'createVersion' in this.affordances;
   }
 
+  /** Can the user open the Manage Versions sheet at all? True when there's
+   *  either a create path (new version allowed) or at least one loaded
+   *  version the backend says is editable — so update-only flows still work
+   *  on backends that haven't shipped the `createVersion` affordance. */
+  get canManageVersions(): boolean {
+    if (this.canCreateVersion) return true;
+    return this.versions.some((v) => v.canEdit);
+  }
+
   // ── Display ──
 
   get displayName(): string {

@@ -4,6 +4,7 @@ import { useWorkspace } from '../../../workspace/ASCWorkspace.hooks.tsx';
 import { useAppInfo } from '../AppInfo.hooks.ts';
 import type { AppInfo } from '../AppInfo.ts';
 import type { AppInfoLocalization } from '../AppInfoLocalization.ts';
+import type { App } from '../../app/App.ts';
 import { RadioCard } from '../../../shared/components/RadioCard.tsx';
 import { APP_CATEGORIES } from '../AppCategoryRegistry.ts';
 
@@ -54,6 +55,7 @@ function AppInfoPage() {
 
   return (
     <div className="app-info-wrap">
+      <AppIdentityStrip app={currentApp} />
       <AppMetadataCard appInfo={appInfo} />
       <LocalizationsCard appInfo={appInfo} />
       <PrivacyComplianceCard appInfo={appInfo} />
@@ -61,6 +63,26 @@ function AppInfoPage() {
     </div>
   );
 }
+
+// ─── App Identifiers — read-only identity info, mirrors other cards ──
+
+const AppIdentityStrip = observer(({ app }: { app: App }) => {
+  return (
+    <div className="card">
+      <div className="toolbar">
+        <div className="toolbar-left"><h3>App Identifiers</h3></div>
+      </div>
+      <div className="card-body padded">
+        <dl>
+          <dt>Bundle ID</dt><dd>{app.bundleId}</dd>
+          <dt>SKU</dt><dd>{app.sku}</dd>
+          <dt>App ID</dt><dd>{app.id}</dd>
+          <dt>Primary Language</dt><dd>{app.primaryLocale}</dd>
+        </dl>
+      </div>
+    </div>
+  );
+});
 
 // ─── App Metadata ───────────────────────────────────────────────────
 

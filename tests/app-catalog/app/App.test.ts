@@ -231,6 +231,32 @@ describe('App', () => {
     expect(withAff.canCreateVersion).toBe(true);
   });
 
+  it('canManageVersions is true when createVersion is allowed', () => {
+    const app = new App(appInit({ affordances: { createVersion: '/api/v1/apps/a-1/versions' } }));
+    expect(app.canManageVersions).toBe(true);
+  });
+
+  it('canManageVersions is true when any loaded version is editable via updateVersion', async () => {
+    const editable = new Version('v-1', 'a-1', '2.0', VersionState.PrepareForSubmission, Platform.iOS, {
+      updateVersion: '/api/v1/versions/v-1',
+    });
+    const repo = stubRepo({ versions: vi.fn().mockResolvedValue([editable]) });
+    const app = new App(appInit({ affordances: { getVersions: '/api/v1/apps/a-1/versions' } }), repo);
+    await app.loadVersions();
+
+    expect(app.canCreateVersion).toBe(false);
+    expect(app.canManageVersions).toBe(true);
+  });
+
+  it('canManageVersions is false when neither createVersion nor any canEdit version exists', async () => {
+    const live = new Version('v-1', 'a-1', '1.0', VersionState.ReadyForSale, Platform.iOS, {});
+    const repo = stubRepo({ versions: vi.fn().mockResolvedValue([live]) });
+    const app = new App(appInit({ affordances: { getVersions: '/api/v1/apps/a-1/versions' } }), repo);
+    await app.loadVersions();
+
+    expect(app.canManageVersions).toBe(false);
+  });
+
   it('createVersion delegates to the repository with the init payload', async () => {
     const created = new Version('v-new', 'a-1', '3.0', VersionState.PrepareForSubmission, Platform.iOS, {});
     const repo = stubRepo({ createVersion: vi.fn().mockResolvedValue(created) });
