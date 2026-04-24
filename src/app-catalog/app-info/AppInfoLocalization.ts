@@ -1,5 +1,9 @@
-import { makeAutoObservable } from 'mobx';
+import { makeAutoObservable, runInAction } from 'mobx';
 import type { Affordances } from '../../shared/types.ts';
+// Type-only import — AppInfoRepository depends on AppInfo which depends on
+// AppInfoLocalization. The cycle only exists at the type level; this keeps
+// runtime module resolution clean.
+import type { AppInfoRepository } from './AppInfoRepository.ts';
 
 export interface AppInfoLocalizationInit {
   /** Backend resource id. Empty string for a locally-added locale awaiting save. */
@@ -38,6 +42,11 @@ export class AppInfoLocalization {
   privacyChoicesUrl: string | null;
   affordances: Affordances;
 
+  /** Repository handle the entity uses to save/delete itself. Attached by the
+   *  parent aggregate (`AppInfo.setRepository`) after hydrate or after a
+   *  successful create, so each locale owns its own lifecycle. */
+  repository: AppInfoRepository | null = null;
+
   private snapshot: Snapshot;
 
   constructor(init: AppInfoLocalizationInit) {
@@ -50,7 +59,11 @@ export class AppInfoLocalization {
     this.affordances = init.affordances ?? {};
     this.snapshot = this.captureSnapshot();
 
-    makeAutoObservable(this, { locale: false });
+    makeAutoObservable(this, { locale: false, repository: false });
+  }
+
+  setRepository(repo: AppInfoRepository): void {
+    this.repository = repo;
   }
 
   // ── Setters ──
@@ -72,13 +85,40 @@ export class AppInfoLocalization {
   }
 
   // ── Capability checks ──
+  //
+  // The backend's affordance keys follow a `verb+resource` convention
+  // (`updateVersion`, `updateCategories`, `updateAppInfoLocalization`). Older
+  // fixtures and some endpoints use the shorter `update` / `delete`. We
+  // accept every variant so REST + mock behave the same regardless of which
+  // shape the backend ships.
+
+  private static readonly UPDATE_KEYS = ['update', 'updateLocalization', 'updateAppInfoLocalization'] as const;
+  private static readonly DELETE_KEYS = ['delete', 'deleteLocalization', 'deleteAppInfoLocalization'] as const;
 
   get canUpdate(): boolean {
-    return 'update' in this.affordances;
+    return AppInfoLocalization.UPDATE_KEYS.some((k) => k in this.affordances);
   }
 
   get canDelete(): boolean {
-    return 'delete' in this.affordances;
+    return AppInfoLocalization.DELETE_KEYS.some((k) => k in this.affordances);
+  }
+
+  /** URL to PATCH this localization, or null when no affordance is exposed. */
+  get updateUrl(): string | null {
+    for (const key of AppInfoLocalization.UPDATE_KEYS) {
+      const url = this.affordances[key];
+      if (url) return url;
+    }
+    return null;
+  }
+
+  /** URL to DELETE this localization, or null when no affordance is exposed. */
+  get deleteUrl(): string | null {
+    for (const key of AppInfoLocalization.DELETE_KEYS) {
+      const url = this.affordances[key];
+      if (url) return url;
+    }
+    return null;
   }
 
   // ── Dirty tracking ──
@@ -106,6 +146,27 @@ export class AppInfoLocalization {
   markSaved(assignedId?: string): void {
     if (assignedId !== undefined) this.id = assignedId;
     this.snapshot = this.captureSnapshot();
+  }
+
+  // ── Self-persistence ──
+  //
+  // Each localization owns its own save/delete so the aggregate just has to
+  // orchestrate — iterate its children, call `loc.save()` on the dirty ones,
+  // `loc.delete()` on the removed ones. The aggregate never speaks HTTP.
+
+  async save(): Promise<void> {
+    if (!this.repository) {
+      throw new Error(`AppInfoLocalization ${this.id || '(new)'} has no repository attached`);
+    }
+    await this.repository.saveLocalization(this);
+    runInAction(() => this.markSaved());
+  }
+
+  async delete(): Promise<void> {
+    if (!this.repository) {
+      throw new Error(`AppInfoLocalization ${this.id || '(new)'} has no repository attached`);
+    }
+    await this.repository.deleteLocalization(this);
   }
 
   private captureSnapshot(): Snapshot {
