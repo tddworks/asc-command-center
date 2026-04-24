@@ -1,15 +1,121 @@
+import type { ReactNode } from 'react';
 import { ContentFrequency } from '../AgeRatingDeclaration.ts';
 
 /**
- * Shared leaf components for the age-rating wizard. Each row poses one
- * question to the user and lets them pick a value; the `null` state means
- * "not yet answered" so the UI stays honest about what has and hasn't been
- * reviewed.
+ * Age-rating wizard leaf components, ported from the SwiftUI design in
+ * `AgeRatingBooleanRow.swift` / `AgeRatingFrequencyRow.swift`.
  *
- * Visually compact: tri-state pills for yes/no and a three-way pill set
- * (None / Infrequent / Frequent) for the mature-content scale. Matches
- * Apple's App Store Connect flow without trying to copy its exact chrome.
+ * Layout:
+ *  • Section header — icon + title on a muted band.
+ *  • Row           — title + description left-aligned, controls right-aligned,
+ *                    subtle hairline divider between rows.
+ *  • Boolean       — two stand-alone 48×26 capsule buttons (No / Yes).
+ *  • Frequency     — a segmented capsule container with three inner pills.
  */
+
+// ── Section wrapper ────────────────────────────────────────────────
+
+export function SectionCard({ children }: { children: ReactNode }) {
+  return (
+    <div
+      style={{
+        background: 'var(--bg-card)',
+        border: '1px solid var(--border)',
+        borderRadius: 10,
+        boxShadow: '0 4px 8px rgba(0, 0, 0, 0.04)',
+        marginBottom: 16,
+        overflow: 'hidden',
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+export function BooleanSectionHeader({ title, icon }: { title: string; icon?: ReactNode }) {
+  return <SectionHeader title={title} icon={icon} />;
+}
+
+export function FrequencySectionHeader({ title, icon }: { title: string; icon?: ReactNode }) {
+  return <SectionHeader title={title} icon={icon} />;
+}
+
+function SectionHeader({ title, icon }: { title: string; icon?: ReactNode }) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 8,
+        padding: '10px 16px',
+        background: 'var(--bg-hover, rgba(148, 163, 184, 0.12))',
+        borderBottom: '1px solid var(--border-light, var(--border))',
+      }}
+    >
+      {icon && (
+        <span style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          width: 16,
+          height: 16,
+          color: 'var(--accent, #2563eb)',
+        }}>
+          {icon}
+        </span>
+      )}
+      <span style={{
+        fontSize: 13,
+        fontWeight: 600,
+        color: 'var(--text-primary)',
+      }}>
+        {title}
+      </span>
+    </div>
+  );
+}
+
+// ── Row shell ──────────────────────────────────────────────────────
+
+function Row({ title, description, children, first }: {
+  title: string;
+  description: string;
+  children: ReactNode;
+  first?: boolean;
+}) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 16,
+        padding: '12px 16px',
+        borderTop: first ? 'none' : '1px solid var(--border-light, rgba(148, 163, 184, 0.18))',
+      }}
+    >
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{
+          fontSize: 13,
+          fontWeight: 500,
+          color: 'var(--text-primary)',
+          marginBottom: 4,
+        }}>
+          {title}
+        </div>
+        <div style={{
+          fontSize: 11.5,
+          color: 'var(--text-muted)',
+          lineHeight: 1.55,
+        }}>
+          {description}
+        </div>
+      </div>
+      <div style={{ flexShrink: 0 }}>{children}</div>
+    </div>
+  );
+}
+
+// ── Boolean row ────────────────────────────────────────────────────
 
 interface BooleanRowProps {
   title: string;
@@ -17,92 +123,51 @@ interface BooleanRowProps {
   value: boolean | null;
   onChange: (v: boolean) => void;
   disabled?: boolean;
+  first?: boolean;
 }
 
-export function BooleanRow({ title, description, value, onChange, disabled }: BooleanRowProps) {
+export function BooleanRow({ title, description, value, onChange, disabled, first }: BooleanRowProps) {
   return (
-    <div className="ar-row">
-      <div className="ar-row-text">
-        <div className="ar-row-title">{title}</div>
-        <div className="ar-row-desc">{description}</div>
+    <Row title={title} description={description} first={first}>
+      <div style={{ display: 'inline-flex', gap: 6 }}>
+        <CapsuleButton selected={value === false} disabled={disabled} onClick={() => onChange(false)}>
+          No
+        </CapsuleButton>
+        <CapsuleButton selected={value === true} disabled={disabled} onClick={() => onChange(true)}>
+          Yes
+        </CapsuleButton>
       </div>
-      <div className="ar-row-controls">
-        <PillButton selected={value === false} disabled={disabled} onClick={() => onChange(false)} tone="neutral">No</PillButton>
-        <PillButton selected={value === true}  disabled={disabled} onClick={() => onChange(true)}  tone="accent">Yes</PillButton>
-      </div>
-    </div>
+    </Row>
   );
 }
 
-interface FrequencyRowProps {
-  title: string;
-  description: string;
-  value: ContentFrequency | null;
-  onChange: (v: ContentFrequency) => void;
-  disabled?: boolean;
-}
-
-export function FrequencyRow({ title, description, value, onChange, disabled }: FrequencyRowProps) {
-  const options: Array<{ id: ContentFrequency; label: string; tone: Tone }> = [
-    { id: ContentFrequency.None,            label: 'None',       tone: 'neutral' },
-    { id: ContentFrequency.InfrequentMild,  label: 'Infrequent', tone: 'amber'   },
-    { id: ContentFrequency.FrequentIntense, label: 'Frequent',   tone: 'red'     },
-  ];
-  return (
-    <div className="ar-row">
-      <div className="ar-row-text">
-        <div className="ar-row-title">{title}</div>
-        <div className="ar-row-desc">{description}</div>
-      </div>
-      <div className="ar-row-controls">
-        {options.map((o) => (
-          <PillButton
-            key={o.id}
-            selected={value === o.id}
-            disabled={disabled}
-            onClick={() => onChange(o.id)}
-            tone={o.tone}
-          >
-            {o.label}
-          </PillButton>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-type Tone = 'neutral' | 'accent' | 'amber' | 'red';
-
-function PillButton({
-  children, selected, disabled, onClick, tone,
+function CapsuleButton({
+  children, selected, disabled, onClick,
 }: {
-  children: React.ReactNode;
+  children: ReactNode;
   selected: boolean;
   disabled?: boolean;
   onClick: () => void;
-  tone: Tone;
 }) {
-  const bg = selected
-    ? (tone === 'accent' ? 'var(--accent, #2563eb)'
-      : tone === 'amber' ? '#f59e0b'
-      : tone === 'red'   ? '#dc2626'
-      : 'var(--text-secondary)')
-    : 'transparent';
-  const color = selected ? '#fff' : 'var(--text-secondary)';
-  const border = selected ? bg : 'var(--border)';
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
       style={{
-        padding: '6px 14px',
-        fontSize: 12,
-        fontWeight: 600,
+        width: 48,
+        height: 26,
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
         borderRadius: 999,
-        background: bg,
-        color,
-        border: `1px solid ${border}`,
+        border: 'none',
+        background: selected
+          ? 'var(--accent, #2563eb)'
+          : 'var(--bg, rgba(148, 163, 184, 0.22))',
+        color: selected ? '#fff' : 'var(--text-secondary)',
+        fontSize: 12,
+        fontWeight: 500,
         cursor: disabled ? 'not-allowed' : 'pointer',
         opacity: disabled ? 0.5 : 1,
         transition: 'all 120ms',
@@ -113,16 +178,85 @@ function PillButton({
   );
 }
 
-export function SectionCard({
-  title, children,
-}: {
+// ── Frequency row ──────────────────────────────────────────────────
+
+interface FrequencyRowProps {
   title: string;
-  children: React.ReactNode;
+  description: string;
+  value: ContentFrequency | null;
+  onChange: (v: ContentFrequency) => void;
+  disabled?: boolean;
+  first?: boolean;
+}
+
+const FREQUENCY_OPTIONS: Array<{ id: ContentFrequency; label: string }> = [
+  { id: ContentFrequency.None,            label: 'None'       },
+  { id: ContentFrequency.InfrequentMild,  label: 'Infrequent' },
+  { id: ContentFrequency.FrequentIntense, label: 'Frequent'   },
+];
+
+export function FrequencyRow({ title, description, value, onChange, disabled, first }: FrequencyRowProps) {
+  return (
+    <Row title={title} description={description} first={first}>
+      <div
+        role="radiogroup"
+        style={{
+          display: 'inline-flex',
+          gap: 2,
+          padding: 3,
+          borderRadius: 999,
+          background: 'var(--bg, rgba(148, 163, 184, 0.22))',
+        }}
+      >
+        {FREQUENCY_OPTIONS.map((o) => (
+          <SegmentButton
+            key={o.id}
+            selected={value === o.id}
+            disabled={disabled}
+            onClick={() => onChange(o.id)}
+          >
+            {o.label}
+          </SegmentButton>
+        ))}
+      </div>
+    </Row>
+  );
+}
+
+function SegmentButton({
+  children, selected, disabled, onClick,
+}: {
+  children: ReactNode;
+  selected: boolean;
+  disabled?: boolean;
+  onClick: () => void;
 }) {
   return (
-    <div className="card" style={{ marginBottom: 16 }}>
-      <div className="toolbar"><div className="toolbar-left"><h3 style={{ fontSize: 14 }}>{title}</h3></div></div>
-      <div style={{ padding: '4px 0' }}>{children}</div>
-    </div>
+    <button
+      type="button"
+      role="radio"
+      aria-checked={selected}
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        height: 24,
+        padding: '0 12px',
+        display: 'inline-flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: 999,
+        border: 'none',
+        background: selected ? 'var(--accent, #2563eb)' : 'transparent',
+        color: selected ? '#fff' : 'var(--text-secondary)',
+        fontSize: 11,
+        fontWeight: 500,
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: disabled ? 0.5 : 1,
+        transition: 'all 120ms',
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {children}
+    </button>
   );
 }
