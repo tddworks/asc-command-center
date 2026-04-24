@@ -1,7 +1,8 @@
 import { makeAutoObservable, runInAction } from 'mobx';
 import { App } from '../app-catalog/app/App.ts';
-import type { Apps } from '../app-catalog/app/Apps.ts';
+import { Apps } from '../app-catalog/app/Apps.ts';
 import type { WorkspaceStore } from './WorkspaceStore.ts';
+import type { AppRepository } from '../app-catalog/app/AppRepository.ts';
 
 /**
  * ASCWorkspace — session-level coordinator.
@@ -22,11 +23,29 @@ export class ASCWorkspace {
   currentApp: App | null = null;
   hydrated = false;
 
+  /** Mutable so `switchMode` can swap the underlying repository without
+   *  replacing the singleton — callers keep the same reference. */
+  private appsRoot: Apps;
+
   constructor(
-    private readonly appsRoot: Apps,
+    appsRoot: Apps,
     private readonly store: WorkspaceStore,
   ) {
+    this.appsRoot = appsRoot;
     makeAutoObservable(this, {}, { autoBind: true });
+  }
+
+  /** Swap the underlying repository (e.g. mock→rest toggle) and re-hydrate
+   *  in place. Singleton consumers keep their reference; observer-wrapped
+   *  components re-render when `apps` / `currentApp` mutate. */
+  async switchMode(repo: AppRepository): Promise<void> {
+    runInAction(() => {
+      this.appsRoot = new Apps(repo);
+      this.apps = [];
+      this.currentApp = null;
+      this.hydrated = false;
+    });
+    await this.hydrate();
   }
 
   /** Load all apps and restore the pinned focus. Call once on boot. */
