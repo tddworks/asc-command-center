@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { useWorkspace } from '../../../workspace/ASCWorkspace.hooks.tsx';
-import { useAppInfo } from '../../app-info/AppInfo.hooks.ts';
 import { useScreenshotSets } from '../Screenshot.hooks.ts';
 import { dimensions, type DisplayTypeMeta } from '../ScreenshotDisplayType.ts';
 import type { Screenshot } from '../Screenshot.ts';
@@ -12,13 +11,13 @@ function ScreenshotPage() {
   const currentApp = workspace?.currentApp ?? null;
   const version = currentApp?.selectedVersion ?? null;
 
-  // Locales for the language switcher come from the current AppInfo —
-  // same source the App Info page uses.
-  const { appInfo } = useAppInfo(
-    currentApp?.id ?? null,
-    version?.state ?? null,
-    currentApp?.primaryLocale ?? null,
-  );
+  // Locales for the language switcher come from the current AppInfo, loaded
+  // via the domain: `App.loadAppInfos()` populates `app.appInfos`.
+  useEffect(() => {
+    if (!currentApp) return;
+    currentApp.loadAppInfos().catch(() => { /* noop — page handles absence */ });
+  }, [currentApp?.id]);
+  const appInfo = currentApp?.appInfoFor(version?.state ?? null) ?? null;
   const availableLocales = appInfo?.localizations.map((l) => l.locale) ?? [];
   const defaultLocale = currentApp?.primaryLocale ?? availableLocales[0] ?? 'en-US';
 
