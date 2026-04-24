@@ -7,6 +7,7 @@ import type { App } from '../../app/App.ts';
 import { RadioCard } from '../../../shared/components/RadioCard.tsx';
 import { APP_CATEGORIES } from '../AppCategoryRegistry.ts';
 import { AgeRatingWizardSheet } from '../../age-rating/pages/AgeRatingWizardSheet.tsx';
+import { PluginSlot } from '../../../extensibility/plugin/PluginSlot.tsx';
 
 // Human-friendly labels for Apple's age-rating api ids.
 const AGE_RATING_LABELS: Record<string, { label: string; sub: string }> = {
@@ -153,7 +154,23 @@ const AppMetadataCard = observer(({ appInfo, readOnly }: { appInfo: AppInfo; rea
       </div>
       <div className="card-body padded">
         <div className="form-group">
-          <label className="form-label" htmlFor="am-name">App Name</label>
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+            <label className="form-label" htmlFor="am-name">App Name</label>
+            {primary && !readOnly && (
+              <PluginSlot
+                slot="text.edit"
+                ctx={{
+                  slot: 'text.edit',
+                  kind: 'appInfo.name',
+                  text: primary.name,
+                  onChange: (v) => primary.setName(v),
+                  locale: appInfo.primaryLocale,
+                  maxLength: 30,
+                  appInfo,
+                }}
+              />
+            )}
+          </div>
           <input
             id="am-name"
             className="form-input"
@@ -165,7 +182,23 @@ const AppMetadataCard = observer(({ appInfo, readOnly }: { appInfo: AppInfo; rea
         </div>
 
         <div className="form-group">
-          <label className="form-label" htmlFor="am-subtitle">Subtitle</label>
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+            <label className="form-label" htmlFor="am-subtitle">Subtitle</label>
+            {primary && !readOnly && (
+              <PluginSlot
+                slot="text.edit"
+                ctx={{
+                  slot: 'text.edit',
+                  kind: 'appInfo.subtitle',
+                  text: primary.subtitle ?? '',
+                  onChange: (v) => primary.setSubtitle(v || null),
+                  locale: appInfo.primaryLocale,
+                  maxLength: 30,
+                  appInfo,
+                }}
+              />
+            )}
+          </div>
           <input
             id="am-subtitle"
             className="form-input"
@@ -377,9 +410,24 @@ const PrivacyComplianceCard = observer(({ appInfo, readOnly }: { appInfo: AppInf
       </div>
       <div className="card-body padded">
         <div className="form-group">
-          <label className="form-label" htmlFor="pc-privacy">
-            Privacy Policy URL <span style={{ color: '#dc2626' }}>*</span>
-          </label>
+          <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+            <label className="form-label" htmlFor="pc-privacy">
+              Privacy Policy URL <span style={{ color: '#dc2626' }}>*</span>
+            </label>
+            {!readOnly && (
+              <PluginSlot
+                slot="text.edit"
+                ctx={{
+                  slot: 'text.edit',
+                  kind: 'appInfo.privacyPolicyUrl',
+                  text: appInfo.privacyPolicyUrl ?? '',
+                  onChange: (v) => appInfo.setPrivacyPolicyUrl(v || null),
+                  locale: appInfo.primaryLocale,
+                  appInfo,
+                }}
+              />
+            )}
+          </div>
           <input
             id="pc-privacy"
             className="form-input"
