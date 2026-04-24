@@ -94,13 +94,25 @@ export const AgeRatingWizardSheet = observer(function AgeRatingWizardSheet({
   return (
     <div className="modal-overlay open" role="dialog" aria-modal="true" aria-labelledby="ar-title">
       <div className="modal" style={{
-        maxWidth: 900,
+        maxWidth: 880,
         width: '92vw',
-        height: '82vh',
+        height: 640,
+        maxHeight: '90vh',
         display: 'flex',
         flexDirection: 'column',
       }}>
-        <div className="modal-header" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 14, padding: '20px 24px' }}>
+        <div
+          className="modal-header"
+          style={{
+            flexDirection: 'column',
+            alignItems: 'stretch',
+            gap: 12,
+            padding: '18px 22px 14px',
+            // Drop the inherited divider — Swift design has none here; the
+            // progress strip below the header does the visual separation.
+            borderBottom: 'none',
+          }}
+        >
           <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 16 }}>
             <div style={{ minWidth: 0 }}>
               <h3 id="ar-title" style={{ marginBottom: 4 }}>Age Ratings</h3>
@@ -113,7 +125,7 @@ export const AgeRatingWizardSheet = observer(function AgeRatingWizardSheet({
           <StepProgressIndicator currentStep={step} />
         </div>
 
-        <div className="modal-body" style={{ flex: 1, overflowY: 'auto', padding: '16px 24px' }}>
+        <div className="modal-body" style={{ flex: 1, overflowY: 'auto', padding: '14px 22px' }}>
           {loading && <div className="loading"><span className="spinner" /><span>Loading age rating…</span></div>}
           {error && (
             <div className="form-hint" role="alert" style={{ color: 'var(--danger-text, #b91c1c)' }}>
@@ -135,7 +147,7 @@ export const AgeRatingWizardSheet = observer(function AgeRatingWizardSheet({
           )}
         </div>
 
-        <div className="modal-footer">
+        <div className="modal-footer" style={{ borderTop: 'none' }}>
           <WizardNavigation
             currentStep={step}
             isSaving={saving}
