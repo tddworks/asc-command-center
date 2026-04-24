@@ -8,6 +8,29 @@ import { RadioCard } from '../../../shared/components/RadioCard.tsx';
 import { APP_CATEGORIES } from '../AppCategoryRegistry.ts';
 import { AgeRatingWizardSheet } from '../../age-rating/pages/AgeRatingWizardSheet.tsx';
 import { PluginSlot } from '../../../extensibility/plugin/PluginSlot.tsx';
+import type { BatchTargets } from '../../../extensibility/plugin/slots.ts';
+
+// Build cross-locale batch targets for a single field. Called by the
+// primary-locale slot so the plugin can fan out one enhancement across
+// every sibling locale. Siblings omit `batch` to avoid double-rendering
+// the button.
+function batchFor(
+  appInfo: AppInfo,
+  field: 'name' | 'subtitle',
+  sourceText: string,
+): BatchTargets {
+  const targets = appInfo.localizations
+    .filter((l) => l.locale !== appInfo.primaryLocale)
+    .map((l) => ({
+      locale: l.locale,
+      current: field === 'name' ? l.name : (l.subtitle ?? ''),
+      setText: (v: string) => {
+        if (field === 'name') l.setName(v);
+        else l.setSubtitle(v || null);
+      },
+    }));
+  return { sourceLocale: appInfo.primaryLocale, sourceText, targets };
+}
 
 // Human-friendly labels for Apple's age-rating api ids.
 const AGE_RATING_LABELS: Record<string, { label: string; sub: string }> = {
@@ -146,6 +169,8 @@ const AppIdentityStrip = observer(({ app }: { app: App }) => {
 
 const AppMetadataCard = observer(({ appInfo, readOnly }: { appInfo: AppInfo; readOnly: boolean }) => {
   const primary = appInfo.localizationFor(appInfo.primaryLocale);
+  const nameBatch = primary ? batchFor(appInfo, 'name', primary.name) : undefined;
+  const subtitleBatch = primary ? batchFor(appInfo, 'subtitle', primary.subtitle ?? '') : undefined;
 
   return (
     <div className="card">
@@ -167,6 +192,7 @@ const AppMetadataCard = observer(({ appInfo, readOnly }: { appInfo: AppInfo; rea
                   locale: appInfo.primaryLocale,
                   maxLength: 30,
                   appInfo,
+                  batch: nameBatch,
                 }}
               />
             )}
@@ -195,6 +221,7 @@ const AppMetadataCard = observer(({ appInfo, readOnly }: { appInfo: AppInfo; rea
                   locale: appInfo.primaryLocale,
                   maxLength: 30,
                   appInfo,
+                  batch: subtitleBatch,
                 }}
               />
             )}
@@ -352,6 +379,11 @@ interface LocaleRowProps {
 }
 
 const LocaleTableRow = observer(({ localization, appInfo, isPrimary, editing, readOnly, onEdit, onDone, onDelete }: LocaleRowProps) => {
+  // Only the primary-locale row carries `batch` — that's where the
+  // batch-translate button should appear. Sibling rows translate into
+  // themselves via the primary row's fanout.
+  const nameBatch = isPrimary ? batchFor(appInfo, 'name', localization.name) : undefined;
+  const subtitleBatch = isPrimary ? batchFor(appInfo, 'subtitle', localization.subtitle ?? '') : undefined;
   return (
     <tr>
       <td className="cell-primary">
@@ -380,6 +412,7 @@ const LocaleTableRow = observer(({ localization, appInfo, isPrimary, editing, re
                 locale: localization.locale,
                 maxLength: 30,
                 appInfo,
+                batch: nameBatch,
               }}
             />
           </div>
@@ -407,6 +440,7 @@ const LocaleTableRow = observer(({ localization, appInfo, isPrimary, editing, re
                 locale: localization.locale,
                 maxLength: 30,
                 appInfo,
+                batch: subtitleBatch,
               }}
             />
           </div>
