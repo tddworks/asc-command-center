@@ -2,7 +2,7 @@ import { makeAutoObservable, runInAction } from 'mobx';
 import type { Affordances } from '../../shared/types.ts';
 import type { AppRepository } from './AppRepository.ts';
 import type { Build } from '../../release/build/Build.ts';
-import { Version } from '../../release/version/Version.ts';
+import { Version, VersionState, type NewVersionInit, type Platform } from '../../release/version/Version.ts';
 
 export interface AppInit {
   id: string;
@@ -83,6 +83,10 @@ export class App {
     return 'listBuilds' in this.affordances || 'getBuilds' in this.affordances;
   }
 
+  get canCreateVersion(): boolean {
+    return 'createVersion' in this.affordances;
+  }
+
   // ── Display ──
 
   get displayName(): string {
@@ -138,6 +142,41 @@ export class App {
       }
     });
     return list;
+  }
+
+  /**
+   * Create a new AppStoreVersion under this app and push it into `versions`.
+   * Gates on the `createVersion` capability — call sites should disable the
+   * button when `canCreateVersion` is false, but we throw here too so a
+   * programmer error surfaces immediately rather than silently no-op'ing.
+   * The newly-created version becomes `selectedVersion` so the editor UI
+   * opens on it without an extra click.
+   */
+  async createVersion(init: NewVersionInit): Promise<Version> {
+    if (!this.canCreateVersion) {
+      throw new Error(`App ${this.id} cannot createVersion — affordance missing`);
+    }
+    const created = await this.requireRepo().createVersion(this, init);
+    runInAction(() => {
+      this.versions = [...this.versions, created];
+      this.selectedVersion = created;
+    });
+    return created;
+  }
+
+  /**
+   * Find a loaded version on this app that is still editable for the given
+   * platform. Used by the VersionManagementDialog to flip between create-mode
+   * (no editable version → empty input) and update-mode (edit versionString
+   * on the existing row). Matches the Swift SDK's `editableVersion` logic.
+   */
+  editableVersionForPlatform(platform: Platform | string): Version | null {
+    return (
+      this.versions.find((v) =>
+        v.platform === platform &&
+        (v.state === VersionState.PrepareForSubmission || v.state === VersionState.Rejected),
+      ) ?? null
+    );
   }
 
   /** Pin a different version as current. Throws if id is not in `versions`. */

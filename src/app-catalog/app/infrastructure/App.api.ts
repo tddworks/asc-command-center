@@ -1,11 +1,17 @@
 import { App } from '../App.ts';
 import { Build } from '../../../release/build/Build.ts';
-import { Version } from '../../../release/version/Version.ts';
+import { Version, type NewVersionInit } from '../../../release/version/Version.ts';
 import { RestVersionRepository } from '../../../release/version/infrastructure/VersionRepository.api.ts';
 import { apiClient, type DataMode } from '../../../shared/api-client.tsx';
 import type { AppRepository } from '../AppRepository.ts';
 
 export class RestAppRepository implements AppRepository {
+  /** Keep one instance so a Version created via `createVersion` shares a
+   *  repository with Versions returned from `versions()` — the aggregate
+   *  pushes the new Version into `app.versions` and the UI expects both to
+   *  navigate through the same repo. */
+  private readonly versionRepo = new RestVersionRepository();
+
   async list(): Promise<App[]> {
     // ?include=icon enriches each row with `iconAsset: { templateUrl, ... }`
     // so AppIcon renders real Apple CDN icons without a second request.
@@ -31,12 +37,42 @@ export class RestAppRepository implements AppRepository {
     const json = await apiClient.get<{ data: Record<string, unknown>[] }>(
       `/api/v1/apps/${app.id}/versions`,
     );
-    const versionRepo = new RestVersionRepository();
     return json.data.map((row) => {
       const v = Version.fromJSON(row);
-      v.setRepository(versionRepo);
+      v.setRepository(this.versionRepo);
       return v;
     });
+  }
+
+  async createVersion(app: App, init: NewVersionInit): Promise<Version> {
+    const url = app.affordances.createVersion;
+    if (!url) {
+      // Shouldn't happen — App.createVersion gates on canCreateVersion — but
+      // surface loudly if it does so the missing affordance doesn't hide.
+      throw new Error(`App ${app.id} has no createVersion affordance`);
+    }
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        versionString: init.versionString,
+        platform: init.platform,
+        copyright: init.copyright ?? null,
+      }),
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new Error(`POST ${url} failed: ${res.status} ${text}`);
+    }
+    const json = (await res.json().catch(() => null)) as
+      | { data?: Record<string, unknown>; id?: string; versionString?: string }
+      | null;
+    // Accept either a bare resource ({ id, ... }) or a wrapped one ({ data: {...} }).
+    const row = (json?.data ?? json) as Record<string, unknown> | null;
+    if (!row || !row.id) throw new Error(`POST ${url} did not return an id`);
+    const v = Version.fromJSON({ ...row, appId: row.appId ?? app.id });
+    v.setRepository(this.versionRepo);
+    return v;
   }
 }
 

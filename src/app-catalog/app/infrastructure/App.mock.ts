@@ -1,9 +1,13 @@
 import { App } from '../App.ts';
 import { Build } from '../../../release/build/Build.ts';
-import { Version } from '../../../release/version/Version.ts';
+import { Version, type NewVersionInit } from '../../../release/version/Version.ts';
 import type { AppRepository } from '../AppRepository.ts';
 import { mockBuilds } from '../../../release/build/infrastructure/Build.mock.ts';
-import { mockVersions } from '../../../release/version/infrastructure/Version.mock.ts';
+import {
+  mockVersionsWithRepo,
+  mockAppendVersion,
+} from '../../../release/version/infrastructure/Version.mock.ts';
+import { MockVersionRepository } from '../../../release/version/infrastructure/VersionRepository.mock.ts';
 
 /**
  * Generate an SVG data URI that stands in for a real app icon in mock mode.
@@ -27,6 +31,10 @@ function svgIcon(glyph: string, from: string, to: string): string {
 }
 
 export class MockAppRepository implements AppRepository {
+  /** Shared across every call into this mock so a Version created in one
+   *  interaction shows up in the next `versions()` list. */
+  private readonly versionRepo = new MockVersionRepository();
+
   async list(): Promise<App[]> {
     return this.fixtures();
   }
@@ -42,12 +50,11 @@ export class MockAppRepository implements AppRepository {
   }
 
   async versions(app: App): Promise<Version[]> {
-    const { MockVersionRepository } = await import('../../../release/version/infrastructure/VersionRepository.mock.ts');
-    const versionRepo = new MockVersionRepository();
-    return mockVersions(app.id).map((v) => {
-      v.setRepository(versionRepo);
-      return v;
-    });
+    return mockVersionsWithRepo(app.id, this.versionRepo);
+  }
+
+  async createVersion(app: App, init: NewVersionInit): Promise<Version> {
+    return mockAppendVersion(app.id, init, this.versionRepo);
   }
 
   private fixtures(): App[] {
@@ -65,6 +72,7 @@ export class MockAppRepository implements AppRepository {
             getBuilds: '/api/v1/apps/app-1/builds',
             getReviews: '/api/v1/apps/app-1/reviews',
             getTestFlight: '/api/v1/apps/app-1/beta-groups',
+            createVersion: '/api/v1/apps/app-1/versions',
           },
           iconUrl: svgIcon('⛅', '#60A5FA', '#2563EB'),
         },
@@ -81,6 +89,7 @@ export class MockAppRepository implements AppRepository {
           affordances: {
             getVersions: '/api/v1/apps/app-2/versions',
             getBuilds: '/api/v1/apps/app-2/builds',
+            createVersion: '/api/v1/apps/app-2/versions',
           },
           contentRightsDeclaration: 'USES_THIRD_PARTY_CONTENT',
           iconUrl: svgIcon('🏋️', '#34D399', '#059669'),

@@ -9,6 +9,7 @@ function stubRepo(overrides: Partial<AppRepository> = {}): AppRepository {
     get: vi.fn(),
     builds: vi.fn(),
     versions: vi.fn(),
+    createVersion: vi.fn(),
     ...overrides,
   };
 }

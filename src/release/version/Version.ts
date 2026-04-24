@@ -13,6 +13,24 @@ export enum VersionState {
   PendingDeveloperRelease = 'PENDING_DEVELOPER_RELEASE',
 }
 
+/** Apple `Platform` values. Strings match the backend payload exactly so
+ *  they flow through `Version.fromJSON` without translation. */
+export enum Platform {
+  iOS = 'IOS',
+  macOS = 'MAC_OS',
+  tvOS = 'TV_OS',
+  visionOS = 'VISION_OS',
+}
+
+/** Init payload for `App.createVersion(...)`. Minimal — the backend fills in
+ *  state (PREPARE_FOR_SUBMISSION) and identity; anything else the user wants
+ *  to edit goes through `version.save()` after creation. */
+export interface NewVersionInit {
+  platform: Platform;
+  versionString: string;
+  copyright?: string | null;
+}
+
 export enum ReleaseType {
   Manual = 'MANUAL',
   AfterApproval = 'AFTER_APPROVAL',
