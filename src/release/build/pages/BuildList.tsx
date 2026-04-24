@@ -18,7 +18,7 @@ export default function BuildList({ appId = 'app-1' }: { appId?: string }) {
   const { builds, loading, error } = useBuilds(appId);
   const [filter, setFilter] = useState<Filter>('all');
 
-  if (loading) return <div className="spinner">Loading builds...</div>;
+  if (loading) return <div className="loading"><span className="spinner" /><span>Loading builds...</span></div>;
   if (error) return <div className="error">Error: {error.message}</div>;
 
   const filtered = applyFilter(builds, filter);

@@ -88,7 +88,7 @@ export default function SimulatorPage() {
   const available = filtered.filter((d) => !d.isBooted);
   const bootedCount = simulators.filter((d) => d.isBooted).length;
 
-  if (loading) return <div className="spinner">Loading simulators...</div>;
+  if (loading) return <div className="loading"><span className="spinner" /><span>Loading simulators...</span></div>;
   if (error) return <div className="error">Error: {error.message}</div>;
 
   return (

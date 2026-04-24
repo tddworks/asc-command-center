@@ -4,7 +4,7 @@ import { AffordanceBar } from '../../../shared/components/AffordanceBar.tsx';
 export default function UserPage() {
   const { users, loading, error } = useUsers();
 
-  if (loading) return <div className="spinner">Loading users...</div>;
+  if (loading) return <div className="loading"><span className="spinner" /><span>Loading users...</span></div>;
   if (error) return <div className="error">Error: {error.message}</div>;
 
   return (

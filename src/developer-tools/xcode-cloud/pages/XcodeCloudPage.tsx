@@ -7,7 +7,7 @@ export default function XcodeCloudPage() {
   const [selectedProductId, setSelectedProductId] = useState('');
   const { workflows, loading: workflowsLoading } = useWorkflows(selectedProductId);
 
-  if (productsLoading) return <div className="spinner">Loading products...</div>;
+  if (productsLoading) return <div className="loading"><span className="spinner" /><span>Loading products...</span></div>;
   if (productsError) return <div className="error">Error: {productsError.message}</div>;
 
   return (
@@ -52,7 +52,7 @@ export default function XcodeCloudPage() {
             <h3>Workflows</h3>
           </div>
           {workflowsLoading ? (
-            <div className="spinner">Loading workflows...</div>
+            <div className="loading"><span className="spinner" /><span>Loading workflows...</span></div>
           ) : (
             <div className="table-wrapper">
               <table className="data-table">

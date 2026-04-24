@@ -38,7 +38,7 @@ function VersionPage() {
     setSelectedLocale(defaultLocale);
   }, [defaultLocale, version?.id]);
 
-  if (!workspace?.hydrated) return <div className="spinner">Loading…</div>;
+  if (!workspace?.hydrated) return <div className="loading"><span className="spinner" /><span>Loading…</span></div>;
 
   if (!currentApp) {
     return (

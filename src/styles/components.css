@@ -396,8 +396,26 @@ textarea.form-input { min-height: 80px; resize: vertical; line-height: 1.5; }
   border-top-color: var(--accent);
   border-radius: 50%;
   animation: spin 600ms linear infinite;
+  /* Defensive: if a caller nests text in here, prevent the spin from
+     propagating to it — render as a small inline block with nothing else. */
+  flex-shrink: 0;
+  box-sizing: border-box;
 }
 @keyframes spin { to { transform: rotate(360deg); } }
+
+/* Loading state — pairs the spinner with a label. Replaces the anti-pattern
+   of putting label text inside the 20×20 `.spinner` (which inherits the
+   spin transform and wraps one letter per line). */
+.loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 40px 24px;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+.loading .spinner { width: 16px; height: 16px; }
 
 .skeleton {
   background: linear-gradient(90deg, var(--bg) 25%, var(--bg-hover) 50%, var(--bg) 75%);

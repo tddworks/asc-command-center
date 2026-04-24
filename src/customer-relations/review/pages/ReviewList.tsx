@@ -17,7 +17,7 @@ export default function ReviewList({ appId = 'app-1' }: { appId?: string }) {
   const { reviews, loading, error } = useReviews(appId);
   const [filter, setFilter] = useState<Filter>('all');
 
-  if (loading) return <div className="spinner">Loading reviews...</div>;
+  if (loading) return <div className="loading"><span className="spinner" /><span>Loading reviews...</span></div>;
   if (error) return <div className="error">Error: {error.message}</div>;
 
   const filtered = applyFilter(reviews, filter);

@@ -4,7 +4,7 @@ import { AffordanceBar } from '../../../shared/components/AffordanceBar.tsx';
 export default function SubscriptionPage({ appId = 'app-1' }: { appId?: string }) {
   const { groups, loading, error } = useSubscriptionGroups(appId);
 
-  if (loading) return <div className="spinner">Loading subscriptions...</div>;
+  if (loading) return <div className="loading"><span className="spinner" /><span>Loading subscriptions...</span></div>;
   if (error) return <div className="error">Error: {error.message}</div>;
 
   return (
