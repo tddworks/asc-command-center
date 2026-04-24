@@ -1,13 +1,20 @@
 import { observer } from 'mobx-react-lite';
 import type { AgeRatingDeclaration } from '../../AgeRatingDeclaration.ts';
-import { FrequencyRow, SectionCard } from '../AgeRatingRows.tsx';
+import {
+  FrequencyRow,
+  FrequencySectionHeader,
+  SectionCard,
+} from '../AgeRatingRows.tsx';
+import { QuestionIcon } from '../AgeRatingIcons.tsx';
 
 export const MatureThemesStep = observer(function MatureThemesStep({
   declaration,
 }: { declaration: AgeRatingDeclaration }) {
   return (
-    <SectionCard title="Mature Themes">
+    <SectionCard>
+      <FrequencySectionHeader title="Mature Themes" icon={<QuestionIcon />} />
       <FrequencyRow
+        first
         title="Profanity or Crude Humor"
         description="Swearing, vulgarity, or crude jokes."
         value={declaration.profanityOrCrudeHumor}

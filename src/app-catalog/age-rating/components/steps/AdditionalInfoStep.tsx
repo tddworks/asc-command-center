@@ -5,7 +5,8 @@ import {
   KidsAgeBand,
   AppStoreAgeRating,
 } from '../../AgeRatingDeclaration.ts';
-import { SectionCard } from '../AgeRatingRows.tsx';
+import { BooleanSectionHeader, SectionCard } from '../AgeRatingRows.tsx';
+import { LinkIcon, PersonCheckIcon, StarCircleIcon } from '../AgeRatingIcons.tsx';
 
 const RATING_LABEL: Record<AppStoreAgeRating, string> = {
   [AppStoreAgeRating.FourPlus]:      '4+',
@@ -53,7 +54,8 @@ export const AdditionalInfoStep = observer(function AdditionalInfoStep({
 
   return (
     <>
-      <SectionCard title="Calculated Rating">
+      <SectionCard>
+        <BooleanSectionHeader title="Calculated Rating" icon={<StarCircleIcon />} />
         <div style={{ display: 'flex', alignItems: 'center', gap: 14, padding: 16 }}>
           <div
             style={{
@@ -78,8 +80,9 @@ export const AdditionalInfoStep = observer(function AdditionalInfoStep({
         </div>
       </SectionCard>
 
-      <SectionCard title="Age Categories">
-        <div style={{ padding: '8px 16px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <SectionCard>
+        <BooleanSectionHeader title="Age Categories" icon={<PersonCheckIcon />} />
+        <div style={{ padding: '14px 16px', display: 'flex', flexDirection: 'column', gap: 8 }}>
           <CategoryRow
             selected={category === 'none'}
             label="Not Applicable"
@@ -134,7 +137,8 @@ export const AdditionalInfoStep = observer(function AdditionalInfoStep({
         </div>
       </SectionCard>
 
-      <SectionCard title="Age Suitability URL">
+      <SectionCard>
+        <BooleanSectionHeader title="Age Suitability URL" icon={<LinkIcon />} />
         <div style={{ padding: 16 }}>
           <div style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 8 }}>
             Optional link to your own age-suitability explanation, shown on the App Store.

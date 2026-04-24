@@ -1,14 +1,23 @@
 import { observer } from 'mobx-react-lite';
 import type { AgeRatingDeclaration } from '../../AgeRatingDeclaration.ts';
-import { BooleanRow, FrequencyRow, SectionCard } from '../AgeRatingRows.tsx';
+import {
+  BooleanRow,
+  BooleanSectionHeader,
+  FrequencyRow,
+  FrequencySectionHeader,
+  SectionCard,
+} from '../AgeRatingRows.tsx';
+import { CheckmarkCircleIcon, DiceIcon } from '../AgeRatingIcons.tsx';
 
 export const ChanceActivitiesStep = observer(function ChanceActivitiesStep({
   declaration,
 }: { declaration: AgeRatingDeclaration }) {
   return (
     <>
-      <SectionCard title="Chance-Based Activities">
+      <SectionCard>
+        <FrequencySectionHeader title="Chance-Based Activities" icon={<DiceIcon />} />
         <FrequencyRow
+          first
           title="Simulated Gambling"
           description="Casino-style games that don't use real currency."
           value={declaration.gamblingSimulated}
@@ -22,8 +31,10 @@ export const ChanceActivitiesStep = observer(function ChanceActivitiesStep({
         />
       </SectionCard>
 
-      <SectionCard title="Select if the app has…">
+      <SectionCard>
+        <BooleanSectionHeader title="Select if the app has…" icon={<CheckmarkCircleIcon />} />
         <BooleanRow
+          first
           title="Gambling"
           description="Real-money wagering, betting, or lotteries."
           value={declaration.isGambling}
