@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { runInAction } from 'mobx';
 import { observer } from 'mobx-react-lite';
 import type { AppInfo } from '../../app-info/AppInfo.ts';
 import {
@@ -182,9 +183,10 @@ function StepBody({
 
 /**
  * "No to all" / "None to all" — stamps a safe default onto every field the
- * current step owns. Only offered on steps that ask questions; the final
- * review step doesn't get one. A value the user already picked is left
- * alone; only untouched (`null`) fields flip.
+ * current step owns. Overwrites all of them (not just unanswered ones) so
+ * the button doubles as a reset. Wrapped in `runInAction` so MobX sees the
+ * whole sweep as one batched action, matching the skill's rule for post-
+ * UI-event mutations.
  */
 function leftActionForStep(
   step: AgeRatingWizardStep,
@@ -198,16 +200,14 @@ function leftActionForStep(
   return {
     label,
     onClick: () => {
-      if (booleanKeys) {
-        for (const k of booleanKeys) {
-          if (declaration[k] === null) (declaration[k] as boolean | null) = false;
+      runInAction(() => {
+        if (booleanKeys) {
+          for (const k of booleanKeys) declaration[k] = false;
         }
-      }
-      if (frequencyKeys) {
-        for (const k of frequencyKeys) {
-          if (declaration[k] === null) (declaration[k] as ContentFrequency | null) = ContentFrequency.None;
+        if (frequencyKeys) {
+          for (const k of frequencyKeys) declaration[k] = ContentFrequency.None;
         }
-      }
+      });
     },
   };
 }
