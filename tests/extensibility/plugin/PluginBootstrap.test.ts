@@ -36,7 +36,11 @@ describe('bootstrapPlugins', () => {
   it('activates every plugin listed in the manifest', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse({
       plugins: [
-        { name: 'asc-pro', slug: 'asc-pro', ui: ['ui/foo.js', 'ui/bar.html'], apiVersion: '1.0.0' },
+        // Only *.bundle.js entries are dynamic-imported; .html and plain
+        // .js files stay available as static assets but are never
+        // evaluated by the host. This keeps legacy IIFE scripts from
+        // mutating the SPA's DOM at boot.
+        { name: 'asc-pro', slug: 'asc-pro', ui: ['ui/foo.bundle.js', 'ui/legacy.js', 'ui/bar.html'], apiVersion: '1.0.0' },
       ],
     }));
 
@@ -47,15 +51,14 @@ describe('bootstrapPlugins', () => {
     const api = fakeApi();
     await bootstrapPlugins({ api, resolveModule });
 
-    // Only the .js file is resolved — .html entries are static assets.
     expect(resolveModule).toHaveBeenCalledTimes(1);
-    expect(resolveModule).toHaveBeenCalledWith('/api/plugins/asc-pro/ui/foo.js');
+    expect(resolveModule).toHaveBeenCalledWith('/api/plugins/asc-pro/ui/foo.bundle.js');
     expect(activate).toHaveBeenCalledWith(api);
   });
 
   it('returns deactivate handles from each activate call', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse({
-      plugins: [{ name: 'p1', slug: 'p1', ui: ['ui/a.js'] }],
+      plugins: [{ name: 'p1', slug: 'p1', ui: ['ui/a.bundle.js'] }],
     }));
     const deactivate = vi.fn();
     const resolveModule = vi.fn().mockResolvedValue({
@@ -72,8 +75,8 @@ describe('bootstrapPlugins', () => {
   it('isolates failures: one bad plugin does not break the rest', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse({
       plugins: [
-        { name: 'broken', slug: 'broken', ui: ['ui/x.js'] },
-        { name: 'good',   slug: 'good',   ui: ['ui/y.js'] },
+        { name: 'broken', slug: 'broken', ui: ['ui/x.bundle.js'] },
+        { name: 'good',   slug: 'good',   ui: ['ui/y.bundle.js'] },
       ],
     }));
     const goodActivate = vi.fn();
@@ -89,7 +92,20 @@ describe('bootstrapPlugins', () => {
 
   it('skips plugins with an incompatible apiVersion major', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse({
-      plugins: [{ name: 'future', slug: 'future', ui: ['ui/z.js'], apiVersion: '2.0.0' }],
+      plugins: [{ name: 'future', slug: 'future', ui: ['ui/z.bundle.js'], apiVersion: '2.0.0' }],
+    }));
+    const resolveModule = vi.fn();
+
+    await bootstrapPlugins({ api: fakeApi(), resolveModule });
+
+    expect(resolveModule).not.toHaveBeenCalled();
+  });
+
+  it('ignores unlisted non-bundle .js files so legacy IIFE scripts never evaluate', async () => {
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse({
+      plugins: [
+        { name: 'legacy', slug: 'legacy', ui: ['ui/legacy.js', 'ui/page.html'] },
+      ],
     }));
     const resolveModule = vi.fn();
 
