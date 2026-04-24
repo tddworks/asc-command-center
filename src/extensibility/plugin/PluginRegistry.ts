@@ -1,3 +1,4 @@
+import { makeAutoObservable } from 'mobx';
 import type {
   PluginRegistration,
   PluginPage,
@@ -12,27 +13,42 @@ import type { SlotName } from './slots.ts';
  * which makes HMR and hot-reload straightforward. `unregister` removes a
  * plugin's contributions cleanly on deactivation.
  *
- * The registry stays focused on *what* is registered — resolvers (pages,
- * sidebar items, widgets) are thin read-only methods. Adding a new
- * contribution type means adding a new field on `PluginRegistration`
- * and a resolver here; it does not require rewriting existing methods.
+ * Observable: mutations propagate through MobX so `observer()`-wrapped
+ * consumers (Sidebar, AppShell) re-render when plugins register *after*
+ * initial page load — plugins are dynamic-imported by PluginBootstrap so
+ * the Sidebar mounts first and the AI item lands a few ms later.
+ *
+ * Adding a new contribution type means adding a field on
+ * `PluginRegistration` and a resolver here; existing resolvers stay
+ * closed for modification.
  */
 export class PluginRegistry {
   private plugins: Map<string, PluginRegistration> = new Map();
+  /** Observable tick — MobX doesn't track Map mutations automatically, so
+   *  we bump this on every change and touch it in every read. Consumers
+   *  subscribe transparently via `observer()`. */
+  private revision = 0;
+
+  constructor() {
+    makeAutoObservable(this, {}, { autoBind: true });
+  }
 
   register(plugin: PluginRegistration): void {
     this.plugins.set(plugin.id, plugin);
+    this.revision++;
   }
 
   unregister(id: string): void {
-    this.plugins.delete(id);
+    if (this.plugins.delete(id)) this.revision++;
   }
 
   getPages(): PluginPage[] {
+    void this.revision; // observe
     return [...this.plugins.values()].flatMap((p) => p.pages ?? []);
   }
 
   getSidebarItems(): PluginSidebarItem[] {
+    void this.revision; // observe
     return [...this.plugins.values()].flatMap((p) => p.sidebarItems ?? []);
   }
 
@@ -41,6 +57,7 @@ export class PluginRegistry {
    *  the literal slot; TypeScript's variance check can't express that
    *  narrowing across our discriminated-union shape. */
   getWidgets<S extends SlotName>(slot: S): PluginWidget<S>[] {
+    void this.revision; // observe
     const all = [...this.plugins.values()].flatMap((p) => p.widgets ?? []);
     return all
       .filter((w) => w.slot === slot)
@@ -48,10 +65,12 @@ export class PluginRegistry {
   }
 
   getAll(): PluginRegistration[] {
+    void this.revision; // observe
     return [...this.plugins.values()];
   }
 
   has(id: string): boolean {
+    void this.revision; // observe
     return this.plugins.has(id);
   }
 }

@@ -1,4 +1,5 @@
 import { Suspense, lazy, useEffect, useState } from 'react';
+import { observer } from 'mobx-react-lite';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { PluginProvider } from './extensibility/plugin/PluginContext.tsx';
 import { pluginRegistry } from './extensibility/plugin/PluginRegistry.ts';
@@ -56,7 +57,7 @@ function WorkspaceModeBridge() {
   return null;
 }
 
-function AppShell() {
+const AppShell = observer(function AppShell() {
   const mode = useDataMode();
   const toggleMode = useToggleMode();
   const { entries: commandLogEntries } = useCommandLog();
@@ -133,7 +134,7 @@ function AppShell() {
       </PluginProvider>
     </BrowserRouter>
   );
-}
+});
 
 export function App() {
   return (
