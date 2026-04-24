@@ -114,6 +114,74 @@ describe('RestAppRepository.createVersion', () => {
 
     await expect(
       repo.createVersion(makeApp(), { platform: Platform.iOS, versionString: '1.0.0' }),
-    ).rejects.toThrow(/did not return an id/);
+    ).rejects.toThrow(/no resource id was found/);
+  });
+
+  it('hydrates from the asc backend shape — { data: [ { _links, id, ... } ] }', async () => {
+    stubBackend({
+      '/api/v1/apps/app-9/versions': () =>
+        jsonResponse({
+          data: [
+            {
+              _links: {
+                updateVersion:    { href: '/api/v1/versions/v-real', method: 'PATCH' },
+                submitForReview:  { href: '/api/v1/versions/v-real/submit', method: 'POST' },
+                listLocalizations:{ href: '/api/v1/versions/v-real/localizations', method: 'GET' },
+              },
+              appId: 'app-9',
+              id: 'v-real',
+              platform: 'MAC_OS',
+              state: 'PREPARE_FOR_SUBMISSION',
+              versionString: '1.0.0',
+            },
+          ],
+        }),
+    });
+    const repo = new RestAppRepository();
+
+    const v = await repo.createVersion(makeApp(), { platform: Platform.macOS, versionString: '1.0.0' });
+
+    expect(v.id).toBe('v-real');
+    expect(v.versionString).toBe('1.0.0');
+    expect(v.platform).toBe('MAC_OS');
+    // _links should have been flattened so the new Version is fully usable.
+    expect(v.canEdit).toBe(true);
+    expect(v.canSubmit).toBe(true);
+    expect(v.affordances.updateVersion).toBe('/api/v1/versions/v-real');
+  });
+
+  it('hydrates from a JSON:API-shaped response (data.id + data.attributes)', async () => {
+    stubBackend({
+      '/api/v1/apps/app-9/versions': () =>
+        jsonResponse({
+          data: {
+            id: 'v-jsonapi',
+            type: 'appStoreVersions',
+            attributes: { versionString: '5.0.0', platform: 'IOS' },
+            affordances: { updateVersion: '/api/v1/versions/v-jsonapi' },
+          },
+        }),
+    });
+    const repo = new RestAppRepository();
+
+    const v = await repo.createVersion(makeApp(), { platform: Platform.iOS, versionString: '5.0.0' });
+    expect(v.id).toBe('v-jsonapi');
+    expect(v.versionString).toBe('5.0.0');
+    expect(v.canEdit).toBe(true);
+  });
+
+  it('follows the Location header when the body has no id', async () => {
+    stubBackend({
+      '/api/v1/apps/app-9/versions': () => new Response('', {
+        status: 201,
+        headers: { Location: '/api/v1/versions/v-followed' },
+      }),
+      '/api/v1/versions/v-followed': () =>
+        jsonResponse({ data: { id: 'v-followed', versionString: '6.0.0', affordances: {} } }),
+    });
+    const repo = new RestAppRepository();
+
+    const v = await repo.createVersion(makeApp(), { platform: Platform.iOS, versionString: '6.0.0' });
+    expect(v.id).toBe('v-followed');
   });
 });

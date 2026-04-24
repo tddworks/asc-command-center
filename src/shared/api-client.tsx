@@ -75,8 +75,10 @@ class ApiError extends Error {
   }
 }
 
-/** Convert REST _links to flat affordances on every item in a response */
-function normalizeLinks(data: unknown): unknown {
+/** Convert REST _links to flat affordances on every item in a response.
+ *  Exported so adapters that need to do raw `fetch` (POST with non-JSON
+ *  responses, follow Location, …) can apply the same normalization. */
+export function normalizeLinks(data: unknown): unknown {
   if (Array.isArray(data)) return data.map(normalizeLinks);
   if (data && typeof data === 'object') {
     const obj = data as Record<string, unknown>;
