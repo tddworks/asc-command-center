@@ -316,6 +316,7 @@ const LocalizationsCard = observer(({ appInfo, readOnly }: { appInfo: AppInfo; r
               <LocaleTableRow
                 key={loc.locale}
                 localization={loc}
+                appInfo={appInfo}
                 isPrimary={loc.locale === appInfo.primaryLocale}
                 editing={editingLocale === loc.locale}
                 readOnly={readOnly}
@@ -341,6 +342,7 @@ const LocalizationsCard = observer(({ appInfo, readOnly }: { appInfo: AppInfo; r
 
 interface LocaleRowProps {
   localization: AppInfoLocalization;
+  appInfo: AppInfo;
   isPrimary: boolean;
   editing: boolean;
   readOnly: boolean;
@@ -349,7 +351,7 @@ interface LocaleRowProps {
   onDelete?: () => void;
 }
 
-const LocaleTableRow = observer(({ localization, isPrimary, editing, readOnly, onEdit, onDone, onDelete }: LocaleRowProps) => {
+const LocaleTableRow = observer(({ localization, appInfo, isPrimary, editing, readOnly, onEdit, onDone, onDelete }: LocaleRowProps) => {
   return (
     <tr>
       <td className="cell-primary">
@@ -360,24 +362,54 @@ const LocaleTableRow = observer(({ localization, isPrimary, editing, readOnly, o
       </td>
       <td>
         {editing && !readOnly ? (
-          <input
-            className="form-input"
-            value={localization.name}
-            placeholder="Name"
-            onChange={(e) => localization.setName(e.target.value)}
-          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <input
+              className="form-input"
+              value={localization.name}
+              placeholder="Name"
+              style={{ flex: 1 }}
+              onChange={(e) => localization.setName(e.target.value)}
+            />
+            <PluginSlot
+              slot="text.edit"
+              ctx={{
+                slot: 'text.edit',
+                kind: 'appInfo.name',
+                text: localization.name,
+                onChange: (v) => localization.setName(v),
+                locale: localization.locale,
+                maxLength: 30,
+                appInfo,
+              }}
+            />
+          </div>
         ) : (
           localization.name || <span style={{ color: 'var(--text-muted)' }}>—</span>
         )}
       </td>
       <td>
         {editing && !readOnly ? (
-          <input
-            className="form-input"
-            value={localization.subtitle ?? ''}
-            placeholder="Subtitle"
-            onChange={(e) => localization.setSubtitle(e.target.value || null)}
-          />
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <input
+              className="form-input"
+              value={localization.subtitle ?? ''}
+              placeholder="Subtitle"
+              style={{ flex: 1 }}
+              onChange={(e) => localization.setSubtitle(e.target.value || null)}
+            />
+            <PluginSlot
+              slot="text.edit"
+              ctx={{
+                slot: 'text.edit',
+                kind: 'appInfo.subtitle',
+                text: localization.subtitle ?? '',
+                onChange: (v) => localization.setSubtitle(v || null),
+                locale: localization.locale,
+                maxLength: 30,
+                appInfo,
+              }}
+            />
+          </div>
         ) : (
           localization.subtitle || <span style={{ color: 'var(--text-muted)' }}>—</span>
         )}

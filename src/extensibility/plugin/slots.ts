@@ -76,6 +76,27 @@ export interface TextEditSlotContext {
   version?: Version;
   review?: Review;
   app?: App;
+  /** Populated when the same logical field exists on sibling locales —
+   *  the batch-translate button iterates this list to fan out a single
+   *  enhancement across every locale. Only the primary-locale instance
+   *  of a field should carry `batch`; others omit it so their slot
+   *  doesn't also show the button. */
+  batch?: BatchTargets;
+}
+
+/** Cross-locale targets for a single field. The source is the primary
+ *  locale's text; each target is another locale's sibling field plus a
+ *  setter the widget calls with the translation result. */
+export interface BatchTargets {
+  sourceLocale: string;
+  sourceText: string;
+  targets: readonly BatchTarget[];
+}
+
+export interface BatchTarget {
+  locale: string;
+  current: string;
+  setText: (v: string) => void;
 }
 
 export interface PageToolbarSlotContext {
