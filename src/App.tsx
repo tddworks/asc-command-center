@@ -2,6 +2,7 @@ import { Suspense, lazy, useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { PluginProvider } from './extensibility/plugin/PluginContext.tsx';
 import { pluginRegistry } from './extensibility/plugin/PluginRegistry.ts';
+import { PluginBootstrap } from './extensibility/plugin/PluginBootstrap.tsx';
 import {
   DataModeProviderComponent,
   CommandLogProvider,
@@ -139,9 +140,11 @@ export function App() {
     <ThemeProvider>
       <DataModeProviderComponent>
         <WorkspaceModeBridge />
-        <CommandLogProvider>
-          <AppShell />
-        </CommandLogProvider>
+        <PluginBootstrap api={window.ascPluginAPI}>
+          <CommandLogProvider>
+            <AppShell />
+          </CommandLogProvider>
+        </PluginBootstrap>
       </DataModeProviderComponent>
     </ThemeProvider>
   );
