@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { observer } from 'mobx-react-lite';
-import { useWorkspace } from '../../workspace/ASCWorkspace.hooks.tsx';
+import { workspace } from '../../workspace/workspaceInstance.ts';
 import { VersionManagementDialog } from '../../release/version/components/VersionManagementDialog.tsx';
 
 /**
@@ -19,10 +19,9 @@ import { VersionManagementDialog } from '../../release/version/components/Versio
  * render the icon but tooltip-explain why it's off.
  */
 function VersionPicker() {
-  const workspace = useWorkspace();
   const [manageOpen, setManageOpen] = useState(false);
 
-  if (!workspace?.hydrated) return null;
+  if (!workspace.hydrated) return null;
   const app = workspace.currentApp;
   if (!app) return null;
 

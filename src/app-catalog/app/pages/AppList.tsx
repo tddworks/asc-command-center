@@ -1,11 +1,9 @@
 import { observer } from 'mobx-react-lite';
-import { useWorkspace } from '../../../workspace/ASCWorkspace.hooks.tsx';
+import { workspace } from '../../../workspace/workspaceInstance.ts';
 import { AppCard } from '../components/AppCard.tsx';
 
 function AppList() {
-  const workspace = useWorkspace();
-
-  if (!workspace || !workspace.hydrated) {
+  if (!workspace.hydrated) {
     return <div className="loading"><span className="spinner" /><span>Loading apps...</span></div>;
   }
 

@@ -1,14 +1,13 @@
 import { useEffect, useState } from 'react';
 import { observer } from 'mobx-react-lite';
-import { useWorkspace } from '../../../workspace/ASCWorkspace.hooks.tsx';
+import { workspace } from '../../../workspace/workspaceInstance.ts';
 import { useScreenshotSets } from '../Screenshot.hooks.ts';
 import { dimensions, type DisplayTypeMeta } from '../ScreenshotDisplayType.ts';
 import type { Screenshot } from '../Screenshot.ts';
 import type { ScreenshotSet } from '../ScreenshotSet.ts';
 
 function ScreenshotPage() {
-  const workspace = useWorkspace();
-  const currentApp = workspace?.currentApp ?? null;
+  const currentApp = workspace.currentApp;
   const version = currentApp?.selectedVersion ?? null;
 
   // Locales for the language switcher come from the current AppInfo, loaded
@@ -29,7 +28,7 @@ function ScreenshotPage() {
     selectedLocale,
   );
 
-  if (!workspace?.hydrated) return <div className="loading"><span className="spinner" /><span>Loading…</span></div>;
+  if (!workspace.hydrated) return <div className="loading"><span className="spinner" /><span>Loading…</span></div>;
 
   if (!currentApp) {
     return (

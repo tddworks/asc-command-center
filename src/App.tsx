@@ -1,4 +1,4 @@
-import { Suspense, lazy, useState } from 'react';
+import { Suspense, lazy, useEffect, useState } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { PluginProvider } from './extensibility/plugin/PluginContext.tsx';
 import { pluginRegistry } from './extensibility/plugin/PluginRegistry.ts';
@@ -9,7 +9,8 @@ import {
   useToggleMode,
   useCommandLog,
 } from './shared/api-client.tsx';
-import { WorkspaceProvider } from './workspace/ASCWorkspace.hooks.tsx';
+import { workspace } from './workspace/workspaceInstance.ts';
+import { repositoryFor } from './app-catalog/app/infrastructure/App.api.ts';
 import { ThemeProvider, useTheme } from './shared/components/ThemeProvider.tsx';
 import { Sidebar } from './shared/layout/Sidebar.tsx';
 import { Header } from './shared/layout/Header.tsx';
@@ -36,6 +37,22 @@ const PluginsPage = lazy(() => import('./extensibility/plugin/pages/PluginsPage.
 
 function LoadingSpinner() {
   return <div className="loading"><span className="spinner" /><span>Loading...</span></div>;
+}
+
+/** Bridges the React-land DataMode context to the module-level workspace
+ *  singleton. Lives inside the React tree so it can read the context, but
+ *  does not own the workspace state — it just forwards mode changes to
+ *  `workspace.switchMode(repo)`. */
+function WorkspaceModeBridge() {
+  const mode = useDataMode();
+  useEffect(() => {
+    let cancelled = false;
+    repositoryFor(mode).then((repo) => {
+      if (!cancelled) workspace.switchMode(repo);
+    });
+    return () => { cancelled = true; };
+  }, [mode]);
+  return null;
 }
 
 function AppShell() {
@@ -121,11 +138,10 @@ export function App() {
   return (
     <ThemeProvider>
       <DataModeProviderComponent>
-        <WorkspaceProvider>
-          <CommandLogProvider>
-            <AppShell />
-          </CommandLogProvider>
-        </WorkspaceProvider>
+        <WorkspaceModeBridge />
+        <CommandLogProvider>
+          <AppShell />
+        </CommandLogProvider>
       </DataModeProviderComponent>
     </ThemeProvider>
   );
