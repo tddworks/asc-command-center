@@ -52,7 +52,7 @@ function SelectedAppCard() {
 
 const ObservedSelectedAppCard = observer(SelectedAppCard);
 
-export function Sidebar() {
+export const Sidebar = observer(function Sidebar() {
   const registry = usePluginRegistry();
   const pluginItems = registry.getSidebarItems();
 
@@ -207,4 +207,4 @@ export function Sidebar() {
       </div>
     </aside>
   );
-}
+});
