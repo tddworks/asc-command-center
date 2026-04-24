@@ -252,29 +252,39 @@ export class AppInfo {
     }
     const repo = this.repository;
 
-    // 1. Newly-added locales → POST and backfill id.
+    // 1. Newly-added locales → POST. Creation stays on the aggregate because
+    //    it needs parent context (the `createLocalization` affordance lives
+    //    on AppInfo itself). After creation we hand the repo AND the fresh
+    //    affordances to the new locale so it owns its own lifecycle — a
+    //    subsequent edit on the same session can PATCH without a list refresh.
     for (const loc of this.localizations) {
       if (loc.id === '') {
-        const { id } = await repo.createLocalization(this, loc);
-        runInAction(() => loc.markSaved(id));
+        const { id, affordances } = await repo.createLocalization(this, loc);
+        runInAction(() => {
+          loc.markSaved(id);
+          loc.affordances = affordances;
+          loc.setRepository(repo);
+        });
       }
     }
 
-    // 2. Existing dirty locales → PATCH.
+    // 2. Existing dirty locales save themselves. The aggregate only asks
+    //    "are you dirty?" — the child knows how to persist.
     for (const loc of this.localizations) {
       if (loc.id !== '' && loc.hasUnsavedChanges) {
-        await repo.saveLocalization(loc);
-        runInAction(() => loc.markSaved());
+        await loc.save();
       }
     }
 
-    // 3. Removed locales → DELETE. Locally-added-then-removed entries never
-    //    hit the backend, so they're skipped via the empty-id check.
+    // 3. Removed locales delete themselves. Locally-added-then-removed
+    //    entries never hit the backend (empty id → skip).
     for (const loc of this.removedBuffer.values()) {
-      if (loc.id !== '') await repo.deleteLocalization(loc);
+      if (loc.id !== '') await loc.delete();
     }
 
     // 4. Category-level fields → PATCH only when they actually changed.
+    //    Categories aren't a child entity, so the aggregate still owns this
+    //    via the port directly.
     if (this.categoriesDirty) {
       await repo.saveCategories(this);
     }
@@ -285,8 +295,12 @@ export class AppInfo {
     });
   }
 
+  /** Attach a repository to this aggregate and every child localization.
+   *  Cascading keeps the pattern "each domain object owns its lifecycle"
+   *  consistent — callers don't have to remember to also wire up children. */
   setRepository(repo: AppInfoRepository): void {
     this.repository = repo;
+    for (const loc of this.localizations) loc.setRepository(repo);
   }
 
   // ── Readiness helpers ──

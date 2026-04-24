@@ -1,5 +1,6 @@
 import type { AppInfo } from './AppInfo.ts';
 import type { AppInfoLocalization } from './AppInfoLocalization.ts';
+import type { Affordances } from '../../shared/types.ts';
 
 export interface AppInfoListHints {
   /**
@@ -32,9 +33,13 @@ export interface AppInfoRepository {
   list(appId: string, hints?: AppInfoListHints): Promise<AppInfo[]>;
   saveCategories(appInfo: AppInfo): Promise<void>;
   saveLocalization(localization: AppInfoLocalization): Promise<void>;
+  /** Returns the fresh id AND affordances assigned by the backend so the
+   *  aggregate can promote the placeholder locale to a fully-capable entity
+   *  in one go — a user who adds a locale should be able to PATCH or DELETE
+   *  it immediately, without waiting for a list refresh. */
   createLocalization(
     appInfo: AppInfo,
     localization: AppInfoLocalization,
-  ): Promise<{ id: string }>;
+  ): Promise<{ id: string; affordances: Affordances }>;
   deleteLocalization(localization: AppInfoLocalization): Promise<void>;
 }

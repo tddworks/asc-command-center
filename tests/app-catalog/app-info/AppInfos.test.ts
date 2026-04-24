@@ -9,7 +9,7 @@ function stubRepo(overrides: Partial<AppInfoRepository> = {}): AppInfoRepository
     list: vi.fn(),
     saveCategories: vi.fn().mockResolvedValue(undefined),
     saveLocalization: vi.fn().mockResolvedValue(undefined),
-    createLocalization: vi.fn().mockResolvedValue({ id: 'new-id' }),
+    createLocalization: vi.fn().mockResolvedValue({ id: 'new-id', affordances: {} }),
     deleteLocalization: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };

@@ -1,7 +1,7 @@
 import { AppInfo } from '../AppInfo.ts';
 import { AppInfoLocalization } from '../AppInfoLocalization.ts';
 import type { AppInfoListHints, AppInfoRepository } from '../AppInfoRepository.ts';
-import { apiClient, type DataMode } from '../../../shared/api-client.tsx';
+import { apiClient, normalizeLinks, type DataMode } from '../../../shared/api-client.tsx';
 import type { Affordances } from '../../../shared/types.ts';
 import { MockAppInfoRepository } from './AppInfo.mock.ts';
 
@@ -14,18 +14,16 @@ import { MockAppInfoRepository } from './AppInfo.mock.ts';
  *
  * SAVE — the aggregate orchestrates, this adapter just owns the HTTP calls:
  *   • `saveCategories`     → PATCH `appInfo.affordances.updateCategories`
- *   • `saveLocalization`   → PATCH `loc.affordances.update`
+ *   • `saveLocalization`   → PATCH `loc.updateUrl` (update / updateLocalization / updateAppInfoLocalization)
  *   • `createLocalization` → POST  `appInfo.affordances.createLocalization`
- *   • `deleteLocalization` → DELETE `loc.affordances.delete`
+ *   • `deleteLocalization` → DELETE `loc.deleteUrl`
  *
- * When an affordance is missing (backend hasn't shipped it yet) we fall back
- * to the in-memory mock store for that specific operation and warn once. This
- * keeps the UI working while the backend catches up.
+ * When an affordance is missing we throw an explicit error that names the
+ * keys we looked for AND the keys the backend actually shipped. No silent
+ * fallback — a save that didn't persist anything is worse than a save that
+ * fails visibly, because the user walks away thinking their changes landed.
  */
 export class RestAppInfoRepository implements AppInfoRepository {
-  private readonly mockFallback = new MockAppInfoRepository();
-  private warned: Partial<Record<'saveCategories' | 'saveLocalization' | 'createLocalization' | 'deleteLocalization', boolean>> = {};
-
   async list(appId: string, hints?: AppInfoListHints): Promise<AppInfo[]> {
     const resp = await apiClient.get<{ data: Record<string, unknown>[] }>(
       `/api/v1/apps/${appId}/app-infos`,
@@ -36,8 +34,7 @@ export class RestAppInfoRepository implements AppInfoRepository {
   async saveCategories(appInfo: AppInfo): Promise<void> {
     const url = appInfo.affordances.updateCategories;
     if (!url) {
-      this.warnOnce('saveCategories', 'updateCategories');
-      return;
+      throw missingAffordance('saveCategories', ['updateCategories'], appInfo.affordances);
     }
     // Always include contentRightsDeclaration — sending `null` is the only
     // way to clear it, which the previous conditional body was blocking.
@@ -51,10 +48,11 @@ export class RestAppInfoRepository implements AppInfoRepository {
   async saveLocalization(loc: AppInfoLocalization): Promise<void> {
     const url = loc.updateUrl;
     if (!url) {
-      this.warnMissingAffordance('saveLocalization', loc.affordances, [
-        'update', 'updateLocalization', 'updateAppInfoLocalization',
-      ]);
-      return this.mockFallback.saveLocalization(loc);
+      throw missingAffordance(
+        `saveLocalization(${loc.locale})`,
+        ['update', 'updateLocalization', 'updateAppInfoLocalization'],
+        loc.affordances,
+      );
     }
     await this.sendJSON('PATCH', url, {
       name: loc.name,
@@ -67,11 +65,14 @@ export class RestAppInfoRepository implements AppInfoRepository {
   async createLocalization(
     appInfo: AppInfo,
     loc: AppInfoLocalization,
-  ): Promise<{ id: string }> {
+  ): Promise<{ id: string; affordances: Affordances }> {
     const url = appInfo.affordances.createLocalization;
     if (!url) {
-      this.warnOnce('createLocalization', 'createLocalization');
-      return this.mockFallback.createLocalization(appInfo, loc);
+      throw missingAffordance(
+        `createLocalization(${loc.locale})`,
+        ['createLocalization'],
+        appInfo.affordances,
+      );
     }
     const res = await fetch(url, {
       method: 'POST',
@@ -88,19 +89,28 @@ export class RestAppInfoRepository implements AppInfoRepository {
       const text = await res.text().catch(() => '');
       throw new Error(`POST ${url} failed: ${res.status} ${text}`);
     }
-    const json = (await res.json().catch(() => null)) as { id?: string; data?: { id?: string } } | null;
-    const id = json?.id ?? json?.data?.id;
-    if (!id) throw new Error(`POST ${url} did not return an id`);
-    return { id };
+    // Normalize once so `_links` → `affordances` flattening is the same as
+    // the list/hydrate path. Then peel the row out of whatever wrapper the
+    // backend used: bare, `{data}`, or `{data: [...]}`.
+    const raw = await res.json().catch(() => null);
+    const row = pickResource(raw);
+    if (!row || typeof row.id !== 'string') {
+      throw new Error(`POST ${url} did not return a resource with an id`);
+    }
+    return {
+      id: row.id,
+      affordances: (row.affordances as Affordances | undefined) ?? {},
+    };
   }
 
   async deleteLocalization(loc: AppInfoLocalization): Promise<void> {
     const url = loc.deleteUrl;
     if (!url) {
-      this.warnMissingAffordance('deleteLocalization', loc.affordances, [
-        'delete', 'deleteLocalization', 'deleteAppInfoLocalization',
-      ]);
-      return this.mockFallback.deleteLocalization(loc);
+      throw missingAffordance(
+        `deleteLocalization(${loc.locale})`,
+        ['delete', 'deleteLocalization', 'deleteAppInfoLocalization'],
+        loc.affordances,
+      );
     }
     const res = await fetch(url, { method: 'DELETE' });
     if (!res.ok) {
@@ -167,33 +177,45 @@ export class RestAppInfoRepository implements AppInfoRepository {
       throw new Error(`${method} ${url} failed: ${res.status} ${text}`);
     }
   }
+}
 
-  private warnOnce(
-    key: 'saveCategories' | 'saveLocalization' | 'createLocalization' | 'deleteLocalization',
-    affordance: string,
-  ): void {
-    if (this.warned[key]) return;
-    this.warned[key] = true;
-    console.warn(
-      `[AppInfo] ${key}: backend did not expose \`${affordance}\` affordance — ` +
-      'falling back to the in-memory mock for this operation.',
-    );
-  }
+/** Builds an error that names exactly what's wrong: which operation, the
+ *  affordance keys the client looked for, and the keys the backend actually
+ *  shipped. Surfacing both sides in one message makes the mismatch trivial
+ *  to resolve — either the client learns the backend's key or the backend
+ *  ships the missing one. */
+function missingAffordance(
+  operation: string,
+  triedKeys: readonly string[],
+  actual: Affordances,
+): Error {
+  const present = Object.keys(actual);
+  return new Error(
+    `[AppInfo] ${operation}: none of [${triedKeys.join(', ')}] affordances were ` +
+    `exposed by the backend. Present affordances: [${present.join(', ') || '(none)'}]. ` +
+    'Either the backend needs to ship the affordance, or add the actual key name ' +
+    'to the accepted variants in AppInfoLocalization / AppInfo.',
+  );
+}
 
-  private warnMissingAffordance(
-    key: 'saveCategories' | 'saveLocalization' | 'createLocalization' | 'deleteLocalization',
-    actualAffordances: Affordances,
-    triedKeys: readonly string[],
-  ): void {
-    if (this.warned[key]) return;
-    this.warned[key] = true;
-    console.warn(
-      `[AppInfo] ${key}: none of the expected affordances ` +
-      `[${triedKeys.join(', ')}] were exposed by the backend — ` +
-      'falling back to the in-memory mock for this operation. ' +
-      `Affordances actually present: [${Object.keys(actualAffordances).join(', ') || '(none)'}]`,
-    );
+/**
+ * Pull a single resource row out of whatever wrapper the backend used, and
+ * run `normalizeLinks` so `_links` shows up as flat `affordances`. Handles:
+ *   - bare:    `{ id, ... }`
+ *   - wrapped: `{ data: { id, ... } }`
+ *   - array:   `{ data: [ { id, ... } ] }` (create endpoints sometimes wrap
+ *              the created row in a single-element list).
+ */
+function pickResource(raw: unknown): Record<string, unknown> | null {
+  if (!raw || typeof raw !== 'object') return null;
+  const normalized = normalizeLinks(raw) as Record<string, unknown>;
+  if (typeof normalized.id === 'string') return normalized;
+  const data = normalized.data;
+  if (data && typeof data === 'object') {
+    const row = Array.isArray(data) ? (data[0] as Record<string, unknown>) : (data as Record<string, unknown>);
+    if (row && typeof row.id === 'string') return row;
   }
+  return null;
 }
 
 export async function repositoryFor(mode: DataMode): Promise<AppInfoRepository> {
