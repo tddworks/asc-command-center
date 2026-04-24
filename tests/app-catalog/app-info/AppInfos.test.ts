@@ -11,6 +11,7 @@ function stubRepo(overrides: Partial<AppInfoRepository> = {}): AppInfoRepository
     saveLocalization: vi.fn().mockResolvedValue(undefined),
     createLocalization: vi.fn().mockResolvedValue({ id: 'new-id', affordances: {} }),
     deleteLocalization: vi.fn().mockResolvedValue(undefined),
+    ageRating: vi.fn().mockResolvedValue(null),
     ...overrides,
   };
 }

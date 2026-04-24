@@ -11,6 +11,7 @@ function stubRepo(overrides: Partial<AppRepository> = {}): AppRepository {
     builds: vi.fn(),
     versions: vi.fn(),
     createVersion: vi.fn(),
+    appInfos: vi.fn().mockResolvedValue([]),
     ...overrides,
   };
 }
