@@ -10,7 +10,7 @@ import { Version } from '../../release/version/Version.ts';
 import { VersionLocalization } from '../../release/version/VersionLocalization.ts';
 import { AgeRatingDeclaration } from '../../app-catalog/age-rating/AgeRatingDeclaration.ts';
 import { apiClient } from '../../shared/api-client.tsx';
-import type { ASCWorkspace } from '../../workspace/ASCWorkspace.ts';
+import { workspace } from '../../workspace/workspaceInstance.ts';
 
 import { pluginRegistry } from './PluginRegistry.ts';
 import { PLUGIN_API_VERSION, type PluginAPI, type PluginSettings, type HostUI } from './PluginAPI.ts';
@@ -20,14 +20,11 @@ import { PLUGIN_API_VERSION, type PluginAPI, type PluginSettings, type HostUI } 
  *
  * Called exactly once from `main.tsx` before the React root mounts, so
  * plugin modules dynamic-imported by `PluginBootstrap` can rely on the
- * global being present on first evaluation. The workspace handle is
- * passed in via a getter because it becomes available asynchronously
- * (WorkspaceProvider hydrates it); the API itself lives for the app
- * lifetime.
+ * global being present on first evaluation. Workspace / domain / apiClient
+ * handles are live module references (no accessor indirection) — the
+ * workspace singleton is already the source of truth.
  */
 export interface InstallOptions {
-  /** Accessor — returns null until WorkspaceProvider finishes hydrating. */
-  getWorkspace: () => ASCWorkspace | null;
   /** Settings store implementation. Initial cut is a thin stub — real
    *  REST client lands with task #37. */
   settings: PluginSettings;
@@ -36,14 +33,13 @@ export interface InstallOptions {
   ui: HostUI;
 }
 
-/** Global typing for `window.ascPluginAPI`. */
 declare global {
   interface Window {
     ascPluginAPI: PluginAPI;
   }
 }
 
-export function installPluginAPI({ getWorkspace, settings, ui }: InstallOptions): PluginAPI {
+export function installPluginAPI({ settings, ui }: InstallOptions): PluginAPI {
   const api: PluginAPI = {
     version: PLUGIN_API_VERSION,
     register(registration) {
@@ -65,13 +61,9 @@ export function installPluginAPI({ getWorkspace, settings, ui }: InstallOptions)
         AgeRatingDeclaration,
       },
       workspace: {
-        get workspace() {
-          const ws = getWorkspace();
-          if (!ws) throw new Error('[asc-pluginAPI] workspace not hydrated yet');
-          return ws;
-        },
-        currentApp: () => getWorkspace()?.currentApp ?? null,
-        selectedVersion: () => getWorkspace()?.currentApp?.selectedVersion ?? null,
+        workspace,
+        currentApp: () => workspace.currentApp,
+        selectedVersion: () => workspace.currentApp?.selectedVersion ?? null,
       },
       apiClient: {
         get: (path) => apiClient.get(path),
