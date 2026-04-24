@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest';
 import { App, type AppInit } from '../../../src/app-catalog/app/App.ts';
 import { Build, BuildProcessingState } from '../../../src/release/build/Build.ts';
-import { Version, VersionState } from '../../../src/release/version/Version.ts';
+import { Version, VersionState, Platform } from '../../../src/release/version/Version.ts';
 import type { AppRepository } from '../../../src/app-catalog/app/AppRepository.ts';
 
 function stubRepo(overrides: Partial<AppRepository> = {}): AppRepository {
@@ -10,6 +10,7 @@ function stubRepo(overrides: Partial<AppRepository> = {}): AppRepository {
     get: vi.fn(),
     builds: vi.fn(),
     versions: vi.fn(),
+    createVersion: vi.fn(),
     ...overrides,
   };
 }
@@ -191,6 +192,104 @@ describe('App', () => {
     await app.loadVersions();
 
     expect(app.selectedVersion?.id).toBe('v-2');
+  });
+
+  // ── editableVersionForPlatform ──
+
+  it('editableVersionForPlatform returns an editable version matching the platform', async () => {
+    const ios = new Version('v-1', 'a-1', '2.0', VersionState.PrepareForSubmission, Platform.iOS, {});
+    const mac = new Version('v-2', 'a-1', '2.0', VersionState.ReadyForSale, Platform.macOS, {});
+    const repo = stubRepo({ versions: vi.fn().mockResolvedValue([ios, mac]) });
+    const app = new App(appInit({ affordances: { getVersions: '/api/v1/apps/a-1/versions' } }), repo);
+    await app.loadVersions();
+
+    expect(app.editableVersionForPlatform(Platform.iOS)).toBe(ios);
+    expect(app.editableVersionForPlatform(Platform.macOS)).toBeNull();
+  });
+
+  it('editableVersionForPlatform treats rejected versions as editable', async () => {
+    const rejected = new Version('v-1', 'a-1', '1.4', VersionState.Rejected, Platform.iOS, {});
+    const repo = stubRepo({ versions: vi.fn().mockResolvedValue([rejected]) });
+    const app = new App(appInit({ affordances: { getVersions: '/api/v1/apps/a-1/versions' } }), repo);
+    await app.loadVersions();
+
+    expect(app.editableVersionForPlatform(Platform.iOS)).toBe(rejected);
+  });
+
+  it('editableVersionForPlatform returns null when no version matches the platform', () => {
+    const app = new App(appInit());
+    expect(app.editableVersionForPlatform(Platform.tvOS)).toBeNull();
+  });
+
+  // ── Navigation: createVersion ──
+
+  it('canCreateVersion reflects the createVersion affordance', () => {
+    expect(new App(appInit()).canCreateVersion).toBe(false);
+    const withAff = new App(appInit({
+      affordances: { createVersion: '/api/v1/apps/a-1/versions' },
+    }));
+    expect(withAff.canCreateVersion).toBe(true);
+  });
+
+  it('createVersion delegates to the repository with the init payload', async () => {
+    const created = new Version('v-new', 'a-1', '3.0', VersionState.PrepareForSubmission, Platform.iOS, {});
+    const repo = stubRepo({ createVersion: vi.fn().mockResolvedValue(created) });
+    const app = new App(
+      appInit({ affordances: { createVersion: '/api/v1/apps/a-1/versions' } }),
+      repo,
+    );
+
+    const result = await app.createVersion({ platform: Platform.iOS, versionString: '3.0' });
+
+    expect(result).toBe(created);
+    expect(repo.createVersion).toHaveBeenCalledWith(app, {
+      platform: Platform.iOS,
+      versionString: '3.0',
+    });
+  });
+
+  it('createVersion appends to versions and selects the new one', async () => {
+    const existing = new Version('v-1', 'a-1', '1.0', VersionState.ReadyForSale, Platform.iOS, {});
+    const created = new Version('v-2', 'a-1', '2.0', VersionState.PrepareForSubmission, Platform.iOS, {});
+    const repo = stubRepo({
+      versions: vi.fn().mockResolvedValue([existing]),
+      createVersion: vi.fn().mockResolvedValue(created),
+    });
+    const app = new App(
+      appInit({
+        affordances: {
+          getVersions: '/api/v1/apps/a-1/versions',
+          createVersion: '/api/v1/apps/a-1/versions',
+        },
+      }),
+      repo,
+    );
+    await app.loadVersions();
+
+    await app.createVersion({ platform: Platform.iOS, versionString: '2.0' });
+
+    expect(app.versions).toEqual([existing, created]);
+    expect(app.selectedVersion).toBe(created);
+  });
+
+  it('createVersion throws when canCreateVersion is false', async () => {
+    const repo = stubRepo({ createVersion: vi.fn() });
+    const app = new App(appInit(), repo);
+
+    await expect(
+      app.createVersion({ platform: Platform.iOS, versionString: '1.0' }),
+    ).rejects.toThrow(/createVersion/);
+    expect(repo.createVersion).not.toHaveBeenCalled();
+  });
+
+  it('createVersion throws when no repository is attached', async () => {
+    const app = new App(appInit({
+      affordances: { createVersion: '/api/v1/apps/a-1/versions' },
+    }));
+
+    await expect(
+      app.createVersion({ platform: Platform.iOS, versionString: '1.0' }),
+    ).rejects.toThrow(/no repository attached/);
   });
 
   // ── selectVersion ──
