@@ -53,6 +53,19 @@ export class RestAppRepository implements AppRepository {
     return this.appInfoRepo.list(app.id, { primaryLocale: app.primaryLocale });
   }
 
+  async updateContentRights(app: App): Promise<void> {
+    const url = `/api/v1/apps/${app.id}`;
+    const res = await fetch(url, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ contentRightsDeclaration: app.contentRightsDeclaration }),
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => '');
+      throw new Error(`PATCH ${url} failed: ${res.status} ${text}`);
+    }
+  }
+
   async createVersion(app: App, init: NewVersionInit): Promise<Version> {
     const url = app.affordances.createVersion;
     if (!url) {

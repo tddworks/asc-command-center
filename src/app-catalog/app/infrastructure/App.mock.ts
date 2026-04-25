@@ -65,6 +65,11 @@ export class MockAppRepository implements AppRepository {
     return this.appInfoRepo.list(app.id, { primaryLocale: app.primaryLocale });
   }
 
+  async updateContentRights(_app: App): Promise<void> {
+    // Mock mode: the value is already set on the in-memory App; nothing
+    // else to persist.
+  }
+
   private fixtures(): App[] {
     return [
       new App(

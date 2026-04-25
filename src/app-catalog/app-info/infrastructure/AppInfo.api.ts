@@ -38,12 +38,12 @@ export class RestAppInfoRepository implements AppInfoRepository {
     if (!url) {
       throw missingAffordance('saveCategories', ['updateCategories'], appInfo.affordances);
     }
-    // Always include contentRightsDeclaration — sending `null` is the only
-    // way to clear it, which the previous conditional body was blocking.
+    // Categories only — content-rights is a different resource (App, not
+    // AppInfo). The asc backend's `PATCH /app-infos/:id` ignores any other
+    // keys in the body, so we keep it tight.
     await this.sendJSON('PATCH', url, {
       primaryCategoryId: appInfo.primaryCategoryId,
       secondaryCategoryId: appInfo.secondaryCategoryId,
-      contentRightsDeclaration: appInfo.contentRightsDeclaration,
     });
   }
 

@@ -22,4 +22,9 @@ export interface AppRepository {
    *  domain picks the row matching the currently-selected version's state
    *  via `App.appInfoFor(state)`. */
   appInfos(app: App): Promise<AppInfo[]>;
+  /** Update the App resource itself — currently only `contentRightsDeclaration`
+   *  is editable here (AppInfo owns categories, AppInfoLocalization owns
+   *  privacy URLs, AgeRatingDeclaration owns the questionnaire). Maps to
+   *  `PATCH /api/v1/apps/:appId`. */
+  updateContentRights(app: App): Promise<void>;
 }
