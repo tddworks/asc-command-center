@@ -170,6 +170,50 @@ describe('AppInfo', () => {
     expect(() => info.removeLocalization('zz-ZZ')).toThrow(/not found/i);
   });
 
+  // ── Pending removals (staged delete) ──
+
+  it('pendingRemovals starts empty', () => {
+    expect(makeInfo().pendingRemovals).toEqual([]);
+  });
+
+  it('pendingRemovals lists saved locales staged for removal', () => {
+    const info = makeInfo();
+    info.removeLocalization('de-DE');
+    expect(info.pendingRemovals.map((l) => l.locale)).toEqual(['de-DE']);
+  });
+
+  it('pendingRemovals does NOT include locales that were never saved', () => {
+    const info = makeInfo();
+    info.addLocalization('fr-FR');
+    info.removeLocalization('fr-FR');
+    expect(info.pendingRemovals).toEqual([]);
+  });
+
+  it('restoreLocalization pulls a pending removal back into the live list', () => {
+    const info = makeInfo();
+    info.removeLocalization('de-DE');
+    info.restoreLocalization('de-DE');
+
+    expect(info.pendingRemovals).toEqual([]);
+    expect(info.localizationFor('de-DE')).toBeDefined();
+    expect(info.localizationFor('de-DE')!.name).toBe('Bäckerei');
+  });
+
+  it('restoreLocalization is a no-op for locales that are not pending', () => {
+    const info = makeInfo();
+    info.restoreLocalization('zz-ZZ');
+    expect(info.pendingRemovals).toEqual([]);
+    expect(info.hasUnsavedChanges).toBe(false);
+  });
+
+  it('restoring a pending removal returns the AppInfo to a clean state', () => {
+    const info = makeInfo();
+    info.removeLocalization('de-DE');
+    expect(info.hasUnsavedChanges).toBe(true);
+    info.restoreLocalization('de-DE');
+    expect(info.hasUnsavedChanges).toBe(false);
+  });
+
   // ── availableLocalesToAdd ──
 
   it('availableLocalesToAdd excludes the locales currently on the AppInfo', () => {

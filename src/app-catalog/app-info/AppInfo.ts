@@ -221,6 +221,22 @@ export class AppInfo {
     }
   }
 
+  /** Saved locales the user has staged for removal but not yet committed.
+   *  The picker renders these alongside the live localizations with a
+   *  "Removing" treatment so the user can see and undo the pending delete. */
+  get pendingRemovals(): AppInfoLocalization[] {
+    return [...this.removedBuffer.values()];
+  }
+
+  /** Undo a staged removal: pull the locale back out of the buffer and
+   *  return it to the live list. No-op if the locale wasn't pending. */
+  restoreLocalization(locale: string): void {
+    const removed = this.removedBuffer.get(locale);
+    if (!removed) return;
+    this.removedBuffer.delete(locale);
+    this.localizations.push(removed);
+  }
+
   // ── Dirty tracking ──
 
   get hasUnsavedChanges(): boolean {
