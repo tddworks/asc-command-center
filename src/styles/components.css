@@ -843,54 +843,38 @@ textarea.form-input { min-height: 80px; resize: vertical; line-height: 1.5; }
 /* ─── Locale Manager (Language Manager sheet) ─────────────────────── */
 
 .locale-manager-modal {
-  width: min(960px, 100%);
-  height: min(720px, 85vh);
+  width: min(560px, 100%);
+  height: min(680px, 85vh);
   display: flex;
   flex-direction: column;
 }
 
 .locale-manager-titlebar {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 18px 22px 8px;
+  padding: 16px 20px 4px;
 }
 .locale-manager-title {
   margin: 0;
-  font-size: 18px;
+  font-size: 16px;
   font-weight: 700;
   color: var(--text-primary);
-}
-.locale-manager-subtitle {
-  margin: 2px 0 0;
-  font-size: 12px;
-  color: var(--text-muted);
-}
-.locale-manager-titlebar-right {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-}
-.locale-manager-modified {
-  font-size: 11px;
-  font-weight: 600;
-  color: #d97706;
 }
 
 .locale-manager-search {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 6px 22px 14px;
-  padding: 12px 16px;
+  margin: 8px 20px 12px;
+  padding: 10px 14px;
   background: rgba(120, 113, 108, 0.08);
-  border: 1px solid var(--accent);
-  border-radius: 12px;
+  border-radius: 999px;
 }
 .locale-manager-search svg {
-  width: 16px;
-  height: 16px;
+  width: 14px;
+  height: 14px;
   color: var(--text-muted);
   flex-shrink: 0;
 }
@@ -899,7 +883,7 @@ textarea.form-input { min-height: 80px; resize: vertical; line-height: 1.5; }
   border: none;
   outline: none;
   background: transparent;
-  font-size: 14px;
+  font-size: 13px;
   font-family: inherit;
   color: var(--text-primary);
 }
@@ -908,181 +892,131 @@ textarea.form-input { min-height: 80px; resize: vertical; line-height: 1.5; }
 .locale-manager-body {
   flex: 1;
   overflow-y: auto;
-  padding: 0 22px 16px;
+  padding: 0 20px 12px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 18px;
 }
 
-.locale-manager-section {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.locale-manager-section-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 4px 2px;
-}
-.locale-manager-section-title {
+.locale-manager-section { display: flex; flex-direction: column; gap: 6px; }
+.locale-manager-section-header { padding: 4px 4px 2px; }
+.locale-manager-section-header h4 {
   margin: 0;
-  font-size: 14px;
-  font-weight: 700;
-  color: var(--text-primary);
-}
-.locale-manager-section-count {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
   font-size: 11px;
-  font-weight: 500;
-  padding: 4px 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+.locale-manager-count {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 7px;
   border-radius: 999px;
-}
-.locale-manager-section-count.tone-active {
-  background: rgba(59, 130, 246, 0.10);
-  color: #2563eb;
-}
-.locale-manager-section-count.tone-available {
-  background: rgba(59, 130, 246, 0.10);
-  color: #2563eb;
+  background: rgba(120, 113, 108, 0.12);
+  color: var(--text-secondary);
+  font-size: 10px;
+  letter-spacing: 0;
+  text-transform: none;
+  font-weight: 600;
 }
 
-.locale-manager-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 8px;
+.locale-manager-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
 }
 
-.locale-manager-card {
+.locale-manager-row {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 10px 12px;
-  background: rgba(120, 113, 108, 0.06);
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: 10px;
   border: 1px solid transparent;
-  border-radius: 12px;
-  font-family: inherit;
-  text-align: left;
-  cursor: default;
-  color: var(--text-primary);
-  transition: background 0.12s ease, border-color 0.12s ease;
+  transition: background 0.1s ease, border-color 0.1s ease;
 }
-.locale-manager-card.is-available {
-  cursor: pointer;
-  width: 100%;
-  background: rgba(120, 113, 108, 0.04);
-}
-.locale-manager-card.is-available:hover {
-  background: rgba(59, 130, 246, 0.06);
-  border-color: rgba(59, 130, 246, 0.25);
-}
-.locale-manager-card.is-primary {
-  background: rgba(59, 130, 246, 0.08);
-  border-color: rgba(59, 130, 246, 0.30);
-}
-.locale-manager-card.is-new {
+.locale-manager-row.is-active.is-new {
   background: rgba(34, 197, 94, 0.08);
   border-color: rgba(34, 197, 94, 0.30);
 }
+.locale-manager-row.is-active:hover { background: rgba(120, 113, 108, 0.06); }
+.locale-manager-row.is-active.is-new:hover { background: rgba(34, 197, 94, 0.12); }
 
-.locale-manager-card-icon {
-  display: inline-flex;
+.locale-manager-row-button {
+  display: flex;
   align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: rgba(120, 113, 108, 0.15);
-  color: var(--text-secondary);
-  flex-shrink: 0;
+  gap: 10px;
+  width: 100%;
+  padding: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-family: inherit;
+  text-align: left;
+  color: var(--text-primary);
 }
-.locale-manager-card-icon svg { width: 18px; height: 18px; }
-.locale-manager-card.is-primary .locale-manager-card-icon {
-  background: var(--accent);
-  color: #fff;
-}
-.locale-manager-card.is-new .locale-manager-card-icon {
-  background: #22c55e;
-  color: #fff;
-}
+.locale-manager-row.is-available { padding: 4px 6px; }
+.locale-manager-row.is-available:hover { background: rgba(59, 130, 246, 0.08); }
 
-.locale-manager-card-text {
+.locale-manager-row-text {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: 1px;
   min-width: 0;
   flex: 1;
+  padding: 4px 4px;
 }
-.locale-manager-card-row1 {
-  display: flex;
+.locale-manager-row-name {
+  display: inline-flex;
   align-items: center;
   gap: 8px;
-  flex-wrap: wrap;
-}
-.locale-manager-card-name {
-  font-size: 14px;
-  font-weight: 600;
+  font-size: 13px;
+  font-weight: 500;
   color: var(--text-primary);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.locale-manager-card-code {
-  font-size: 11px;
+.locale-manager-row-code {
+  font-size: 10.5px;
   color: var(--text-muted);
   font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
 }
-.locale-manager-card-status {
-  font-size: 10px;
-  font-weight: 500;
-}
-.locale-manager-card-status.tone-ok { color: #16a34a; }
-.locale-manager-card-status.tone-muted { color: #d97706; }
 
 .locale-manager-badge {
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
-  padding: 2px 8px;
+  padding: 1px 7px;
   border-radius: 999px;
+  flex-shrink: 0;
 }
-.locale-manager-badge.tone-primary {
-  background: var(--accent);
-  color: #fff;
-}
-.locale-manager-badge.tone-new {
-  background: #22c55e;
-  color: #fff;
-}
+.locale-manager-badge.tone-primary { background: var(--accent); color: #fff; }
+.locale-manager-badge.tone-new { background: #22c55e; color: #fff; }
 
-.locale-manager-card-action {
+.locale-manager-row-action {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
   border: none;
   cursor: pointer;
   flex-shrink: 0;
   transition: transform 0.1s ease;
 }
-.locale-manager-card-action svg { width: 14px; height: 14px; }
-.locale-manager-card-action.tone-add {
-  background: var(--accent);
-  color: #fff;
-}
-.locale-manager-card-action.tone-remove {
-  background: #ef4444;
-  color: #fff;
-}
-.locale-manager-card-action.tone-remove:hover { transform: scale(1.05); }
+.locale-manager-row-action svg { width: 13px; height: 13px; }
+.locale-manager-row-action.tone-add { background: var(--accent); color: #fff; }
+.locale-manager-row-action.tone-remove { background: #ef4444; color: #fff; }
+.locale-manager-row-action.tone-remove:hover { transform: scale(1.06); }
 
 .locale-manager-empty {
-  padding: 18px;
+  padding: 14px;
   text-align: center;
   color: var(--text-muted);
   font-size: 12px;
@@ -1095,12 +1029,10 @@ textarea.form-input { min-height: 80px; resize: vertical; line-height: 1.5; }
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  padding: 14px 22px;
+  padding: 12px 20px;
   border-top: 1px solid var(--border);
-  background: rgba(251, 146, 60, 0.08);
 }
-.locale-manager-footer-text { font-size: 13px; color: var(--text-secondary); }
-.locale-manager-footer-actions { display: flex; gap: 8px; }
+.locale-manager-footer-text { font-size: 12px; color: var(--text-secondary); }
 
 
 /* ─── Global version picker (in the header bar) ──────────────────── */
