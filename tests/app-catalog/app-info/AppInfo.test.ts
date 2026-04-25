@@ -170,6 +170,40 @@ describe('AppInfo', () => {
     expect(() => info.removeLocalization('zz-ZZ')).toThrow(/not found/i);
   });
 
+  // ── availableLocalesToAdd ──
+
+  it('availableLocalesToAdd excludes the locales currently on the AppInfo', () => {
+    const info = makeInfo();
+    const codes = info.availableLocalesToAdd.map((l) => l.code);
+    expect(codes).not.toContain('en-US');
+    expect(codes).not.toContain('de-DE');
+    expect(codes).toContain('fr-FR');
+    expect(codes).toContain('ja');
+  });
+
+  it('availableLocalesToAdd shrinks after addLocalization', () => {
+    const info = makeInfo();
+    const before = info.availableLocalesToAdd.length;
+    info.addLocalization('fr-FR');
+    expect(info.availableLocalesToAdd).toHaveLength(before - 1);
+    expect(info.availableLocalesToAdd.map((l) => l.code)).not.toContain('fr-FR');
+  });
+
+  it('availableLocalesToAdd grows back after removeLocalization', () => {
+    const info = makeInfo();
+    info.addLocalization('fr-FR');
+    const after = info.availableLocalesToAdd.length;
+    info.removeLocalization('fr-FR');
+    expect(info.availableLocalesToAdd).toHaveLength(after + 1);
+    expect(info.availableLocalesToAdd.map((l) => l.code)).toContain('fr-FR');
+  });
+
+  it('availableLocalesToAdd entries carry the human display name', () => {
+    const info = makeInfo();
+    const ja = info.availableLocalesToAdd.find((l) => l.code === 'ja');
+    expect(ja?.displayName).toBe('Japanese');
+  });
+
   it('hasUnsavedChanges is true when a child localization is dirty', () => {
     const info = makeInfo();
     info.localizationFor('en-US')!.setName('Edited');
