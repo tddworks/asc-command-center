@@ -5,6 +5,7 @@ import { usePluginRegistry } from '../../extensibility/plugin/PluginContext.tsx'
 import { workspace } from '../../workspace/workspaceInstance.ts';
 import { AppIcon } from '../components/AppIcon.tsx';
 import { AppPickerModal } from '../components/AppPickerModal.tsx';
+import { AuthStatus } from '../../developer-tools/auth/components/AuthStatus.tsx';
 
 function SelectedAppCard() {
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -193,13 +194,7 @@ export const Sidebar = observer(function Sidebar() {
       </nav>
 
       <div className="sidebar-footer">
-        <div className="auth-status">
-          <div className="auth-dot"></div>
-          <div className="auth-info">
-            <span>Checking...</span>
-            asc auth check
-          </div>
-        </div>
+        <AuthStatus />
       </div>
     </aside>
   );
