@@ -42,6 +42,15 @@ export class PluginUpdate {
     return `${this.installedVersion} → ${this.latestVersion}`;
   }
 
+  /** True when `latestVersion` is strictly newer than `installedVersion`.
+   *  The asc backend's `listOutdated` emits any version mismatch — so a
+   *  locally-newer plugin would otherwise be flagged as "needs update"
+   *  with the delta reading downhill. The page hides updates where
+   *  `isUpgrade` is false. */
+  get isUpgrade(): boolean {
+    return compareVersions(this.latestVersion, this.installedVersion) > 0;
+  }
+
   /** REST URL the backend exposes for applying this update; falls back
    *  to the canonical `POST /api/v1/plugins/:name/update` when the
    *  affordance isn't shipped. */
@@ -59,4 +68,19 @@ export class PluginUpdate {
       affordances: (json.affordances as Affordances | undefined) ?? {},
     });
   }
+}
+
+/** Loose semver compare: positive when `a` > `b`, negative when `a` < `b`,
+ *  zero when equal. Pads the shorter list with zeros (`1.0` < `1.0.1`),
+ *  treats non-numeric segments as zero (good enough for the asc CLI's
+ *  plugin versions; not meant to handle pre-release tags). */
+function compareVersions(a: string, b: string): number {
+  const pa = a.split('.').map((s) => parseInt(s, 10) || 0);
+  const pb = b.split('.').map((s) => parseInt(s, 10) || 0);
+  const len = Math.max(pa.length, pb.length);
+  for (let i = 0; i < len; i++) {
+    const diff = (pa[i] ?? 0) - (pb[i] ?? 0);
+    if (diff !== 0) return diff;
+  }
+  return 0;
 }

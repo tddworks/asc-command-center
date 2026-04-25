@@ -75,8 +75,12 @@ export class RestInstalledPluginRepository implements InstalledPluginRepository 
     }
   }
 
-  async applyUpdate(update: PluginUpdate): Promise<void> {
-    const url = update.updateUrl ?? `${BASE}/${encodeURIComponent(update.name)}/update`;
+  async applyUpdate(update: PluginUpdate, opts?: { slug?: string }): Promise<void> {
+    // Prefer the affordance the backend ships, then the explicit slug
+    // (which the aggregate resolves from the installed list — the slug
+    // is URL-safe), and finally the human name as a last resort.
+    const segment = opts?.slug ?? update.name;
+    const url = update.updateUrl ?? `${BASE}/${encodeURIComponent(segment)}/update`;
     const resp = await fetch(url, {
       method: 'POST',
       headers: { Accept: 'application/json' },
