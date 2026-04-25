@@ -275,7 +275,7 @@ describe('InstalledPlugins', () => {
 
     await a.applyUpdate(update);
 
-    expect(repo.applyUpdate).toHaveBeenCalledWith(update);
+    expect(repo.applyUpdate).toHaveBeenCalledWith(update, { slug: undefined });
     expect(a.updatesCount).toBe(0);
     expect(a.busy).toBeNull();
   });
