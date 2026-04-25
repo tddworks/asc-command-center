@@ -944,6 +944,18 @@ textarea.form-input { min-height: 80px; resize: vertical; line-height: 1.5; }
 }
 .locale-manager-row.is-active:hover { background: rgba(120, 113, 108, 0.06); }
 .locale-manager-row.is-active.is-new:hover { background: rgba(34, 197, 94, 0.12); }
+.locale-manager-row.is-active.is-removing {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.28);
+}
+.locale-manager-row.is-active.is-removing:hover { background: rgba(239, 68, 68, 0.13); }
+
+.locale-manager-row-strike {
+  text-decoration: line-through;
+  text-decoration-color: rgba(239, 68, 68, 0.55);
+  text-decoration-thickness: 1.5px;
+  color: var(--text-muted);
+}
 
 .locale-manager-row-button {
   display: flex;
@@ -997,6 +1009,7 @@ textarea.form-input { min-height: 80px; resize: vertical; line-height: 1.5; }
 }
 .locale-manager-badge.tone-primary { background: var(--accent); color: #fff; }
 .locale-manager-badge.tone-new { background: #22c55e; color: #fff; }
+.locale-manager-badge.tone-removing { background: #ef4444; color: #fff; }
 
 .locale-manager-row-action {
   display: inline-flex;
