@@ -113,6 +113,47 @@ describe('InstalledPlugins', () => {
     expect(a.installedCount).toBe(1);
   });
 
+  it('uninstall resolves to the installed counterpart when given a marketplace entry with a different slug', async () => {
+    // Backend ships a marketplace entry with kebab-case slug and an
+    // installed entry with PascalCase slug. The page might call
+    // `uninstall(marketEntry)` from the marketplace tab — the aggregate
+    // must rewrite to the installed entity so the DELETE URL matches.
+    const installedHello = new InstalledPlugin({
+      slug: 'HelloPlugin', id: 'HelloPlugin', name: 'Hello Plugin',
+    });
+    const marketHello = new InstalledPlugin({
+      slug: 'hello-plugin', id: 'HelloPlugin', name: 'Hello Plugin',
+    });
+    const installed = vi.fn().mockResolvedValue([installedHello]);
+    const repo = stubRepo({ installed });
+    const a = new InstalledPlugins(repo);
+    await a.refreshAll();
+
+    await a.uninstall(marketHello);
+
+    expect(repo.uninstall).toHaveBeenCalledWith(installedHello);
+  });
+
+  it('uninstall optimistically removes the row before the backend confirms', async () => {
+    const target = new InstalledPlugin({ slug: 'discord-notify', name: 'Discord Notify' });
+    let resolveUninstall!: () => void;
+    const uninstall = vi.fn().mockImplementation(() => new Promise<void>((r) => { resolveUninstall = r; }));
+    const installed = vi.fn().mockResolvedValueOnce([target]).mockResolvedValueOnce([]);
+    const repo = stubRepo({ installed, uninstall });
+    const a = new InstalledPlugins(repo);
+    await a.refreshAll();
+    expect(a.installedCount).toBe(1);
+
+    const promise = a.uninstall(target);
+    // Microtask flush — the optimistic remove should have run by now,
+    // before the repository's promise resolves.
+    await Promise.resolve();
+    expect(a.installedCount).toBe(0);
+
+    resolveUninstall();
+    await promise;
+  });
+
   it('install clears the busy flag even if the repo throws', async () => {
     const repo = stubRepo({ install: vi.fn().mockRejectedValue(new Error('nope')) });
     const a = new InstalledPlugins(repo);

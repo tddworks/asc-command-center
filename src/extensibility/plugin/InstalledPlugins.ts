@@ -1,6 +1,25 @@
 import { makeAutoObservable, runInAction } from 'mobx';
-import type { InstalledPlugin } from './InstalledPlugin.ts';
+import { InstalledPlugin } from './InstalledPlugin.ts';
 import type { InstalledPluginRepository } from './InstalledPluginRepository.ts';
+
+/** Build a plugin clone with `isInstalled: false` — used by the optimistic
+ *  uninstall path so the marketplace card flips to "Install" instantly. */
+function markNotInstalled(p: InstalledPlugin): InstalledPlugin {
+  return new InstalledPlugin({
+    slug: p.slug,
+    id: p.id,
+    name: p.name,
+    apiVersion: p.apiVersion ?? undefined,
+    ui: p.ui,
+    version: p.version,
+    description: p.description,
+    author: p.author,
+    categories: p.categories,
+    repositoryURL: p.repositoryURL,
+    isInstalled: false,
+    affordances: p.affordances,
+  });
+}
 
 /**
  * Root aggregate for the Plugins page. Tracks two parallel lists —
@@ -107,9 +126,30 @@ export class InstalledPlugins {
   }
 
   async uninstall(plugin: InstalledPlugin): Promise<void> {
-    this.busy = plugin.slug || plugin.id;
+    // Marketplace entries can ship a different slug than the installed
+    // counterpart (the asc backend uses kebab-case for marketplace ids
+    // and PascalCase for installed slugs). Resolve to the installed
+    // entity so the DELETE hits the canonical URL — otherwise the
+    // backend silently 204s without removing anything.
+    const target =
+      this.installed.find((p) =>
+        p.slug === plugin.slug ||
+        p.id === plugin.id ||
+        p.name === plugin.name,
+      ) ?? plugin;
+
+    this.busy = target.slug || target.id;
+    // Optimistic remove: the user has clicked Uninstall and confirmed —
+    // hide the row immediately so the page feels responsive, then let
+    // the refresh confirm the backend state. If the DELETE fails the
+    // refresh will restore the entry.
+    const removedSlug = target.slug;
+    runInAction(() => {
+      this.installed = this.installed.filter((p) => p.slug !== removedSlug);
+      this.marketplace = this.marketplace.map((p) => p.slug === removedSlug ? markNotInstalled(p) : p);
+    });
     try {
-      await this.repository.uninstall(plugin);
+      await this.repository.uninstall(target);
       await this.refreshAll();
     } finally {
       runInAction(() => { this.busy = null; });
