@@ -56,6 +56,7 @@ const ObservedSelectedAppCard = observer(SelectedAppCard);
 export const Sidebar = observer(function Sidebar() {
   const registry = usePluginRegistry();
   const pluginItems = registry.getSidebarItems();
+  const pluginErrors = registry.getErrors();
 
   return (
     <aside className="sidebar" id="sidebar">
@@ -176,8 +177,10 @@ export const Sidebar = observer(function Sidebar() {
           </NavLink>
         </div>
 
-        {/* Plugin sidebar items */}
-        {pluginItems.length > 0 && (
+        {/* Plugin sidebar items + activation errors. Always render the
+            section when something exists in either column so the user
+            sees broken plugins instead of an empty sidebar. */}
+        {(pluginItems.length > 0 || pluginErrors.length > 0) && (
           <div className="nav-section">
             <div className="nav-section-title">Plugin Widgets</div>
             {pluginItems.map((item) => (
@@ -188,6 +191,26 @@ export const Sidebar = observer(function Sidebar() {
               >
                 {item.label}
               </NavLink>
+            ))}
+            {pluginErrors.map((e) => (
+              <div
+                key={e.slug}
+                className="nav-item"
+                title={e.message}
+                style={{
+                  color: 'var(--danger)',
+                  fontSize: 11,
+                  cursor: 'help',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 6,
+                }}
+              >
+                <span aria-hidden style={{ flexShrink: 0 }}>⚠</span>
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {e.slug} failed
+                </span>
+              </div>
             ))}
           </div>
         )}
