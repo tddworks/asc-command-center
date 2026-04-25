@@ -279,17 +279,6 @@ const LocalizationsCard = observer(({ appInfo, readOnly }: { appInfo: AppInfo; r
   const [editingLocale, setEditingLocale] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
 
-  const handleSelectLocale = (code: string) => {
-    try {
-      appInfo.addLocalization(code);
-      setEditingLocale(code);
-    } catch (err) {
-      alert((err as Error).message);
-    }
-  };
-
-  const noneLeft = appInfo.availableLocalesToAdd.length === 0;
-
   return (
     <div className="card">
       <div className="toolbar">
@@ -300,10 +289,8 @@ const LocalizationsCard = observer(({ appInfo, readOnly }: { appInfo: AppInfo; r
               type="button"
               className="btn btn-primary btn-sm"
               onClick={() => setPickerOpen(true)}
-              disabled={noneLeft}
-              title={noneLeft ? 'All App Store locales are already added' : undefined}
             >
-              + Add Locale
+              Manage Languages
             </button>
           )}
         </div>
@@ -347,8 +334,7 @@ const LocalizationsCard = observer(({ appInfo, readOnly }: { appInfo: AppInfo; r
 
       <LocalePickerSheet
         open={pickerOpen}
-        available={appInfo.availableLocalesToAdd}
-        onSelect={handleSelectLocale}
+        appInfo={appInfo}
         onClose={() => setPickerOpen(false)}
       />
     </div>
