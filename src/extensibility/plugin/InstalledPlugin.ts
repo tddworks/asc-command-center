@@ -5,39 +5,70 @@ export interface InstalledPluginInit {
   slug: string;
   /** Human-readable name shown in the UI. */
   name: string;
+  /** Marketplace registry id. Defaults to `slug` when absent — for
+   *  installed plugins these are the same; for some marketplace entries
+   *  the id is the npm/registry name and slug is local. */
+  id?: string;
   /** Plugin-API version the bundle was compiled against. Optional —
    *  older asc revisions don't ship it and the host falls back to "any". */
   apiVersion?: string;
   /** Files the plugin ships under its `ui/` and `frames/` directories.
    *  Only `*.bundle.js` files are dynamic-imported by the host; the rest
    *  are static assets the plugin itself loads at runtime. */
-  ui: string[];
+  ui?: string[];
+  /** Display-only metadata returned by `/api/v1/plugins` and
+   *  `/api/v1/plugins/market`. All optional — the manifest endpoint
+   *  (`/api/plugins`) doesn't ship them. */
+  version?: string | null;
+  description?: string | null;
+  author?: string | null;
+  categories?: string[];
+  repositoryURL?: string | null;
+  /** True for entries returned by the installed list, false (or missing)
+   *  for marketplace entries. The aggregate uses this to render the right
+   *  Install / Uninstall button. */
+  isInstalled?: boolean;
 }
 
 /**
- * InstalledPlugin — one entry from `GET /api/plugins`.
+ * Plugin descriptor — one entry from `GET /api/v1/plugins` (installed),
+ * `GET /api/v1/plugins/market` (marketplace), or `GET /api/plugins`
+ * (the runtime manifest used by the bootstrap loader).
  *
- * Represents a plugin *package* installed on the asc CLI host (whether
- * or not it has successfully activated). Distinct from the runtime
- * `PluginRegistration` in `Plugin.ts`, which represents an *activated*
- * contribution after `bootstrapPlugins → activate(api)`.
+ * Distinct from `PluginRegistration` in `Plugin.ts`, which represents
+ * an *activated* contribution after `bootstrapPlugins → activate(api)`.
  *
- * Read-only by design — installation/uninstallation goes through the asc
- * CLI directly, not this REST surface.
+ * The class name is historical: it covers marketplace entries too.
  */
 export class InstalledPlugin {
   readonly slug: string;
+  readonly id: string;
   readonly name: string;
   readonly apiVersion: string | null;
   readonly ui: string[];
+  readonly version: string | null;
+  readonly description: string | null;
+  readonly author: string | null;
+  readonly categories: string[];
+  readonly repositoryURL: string | null;
+  readonly isInstalled: boolean;
 
   constructor(init: InstalledPluginInit) {
     this.slug = init.slug;
+    this.id = init.id ?? init.slug;
     this.name = init.name;
     this.apiVersion = init.apiVersion ?? null;
-    this.ui = [...init.ui];
+    this.ui = init.ui ? [...init.ui] : [];
+    this.version = init.version ?? null;
+    this.description = init.description ?? null;
+    this.author = init.author ?? null;
+    this.categories = init.categories ? [...init.categories] : [];
+    this.repositoryURL = init.repositoryURL ?? null;
+    this.isInstalled = init.isInstalled ?? false;
     makeAutoObservable(this, {
-      slug: false, name: false, apiVersion: false, ui: false,
+      slug: false, id: false, name: false, apiVersion: false, ui: false,
+      version: false, description: false, author: false, categories: false,
+      repositoryURL: false, isInstalled: false,
     });
   }
 
@@ -84,10 +115,17 @@ export class InstalledPlugin {
 
   static fromJSON(json: Record<string, unknown>): InstalledPlugin {
     return new InstalledPlugin({
-      slug: (json.slug as string) ?? '',
-      name: (json.name as string) ?? (json.slug as string) ?? '',
+      slug: (json.slug as string) ?? (json.id as string) ?? '',
+      id: (json.id as string) ?? (json.slug as string) ?? '',
+      name: (json.name as string) ?? (json.slug as string) ?? (json.id as string) ?? '',
       apiVersion: (json.apiVersion as string | undefined) ?? undefined,
       ui: Array.isArray(json.ui) ? (json.ui as string[]) : [],
+      version: (json.version as string | null | undefined) ?? null,
+      description: (json.description as string | null | undefined) ?? null,
+      author: (json.author as string | null | undefined) ?? null,
+      categories: Array.isArray(json.categories) ? (json.categories as string[]) : [],
+      repositoryURL: (json.repositoryURL as string | null | undefined) ?? null,
+      isInstalled: (json.isInstalled as boolean | undefined) ?? false,
     });
   }
 }
