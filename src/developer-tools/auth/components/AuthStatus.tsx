@@ -6,76 +6,79 @@ import { AccountSetupSheet } from './AccountSetupSheet.tsx';
 /**
  * Sidebar footer auth widget. Replaces the static "asc auth check"
  * placeholder. Reads from the `accounts` singleton; renders one of four
- * states (loading / signed-in / not-signed-in / failed) and wires the
- * setup sheet for the unauthenticated path.
+ * states (loading / signed-in / not-signed-in / failed) with a clear
+ * top-line label plus a one-line action row underneath.
  */
 export const AuthStatus = observer(function AuthStatus() {
   const [setupOpen, setSetupOpen] = useState(false);
 
-  const tone = accounts.statusTone;
-  const label = accounts.statusLabel;
+  if (!accounts.loaded || (accounts.isLoading && !accounts.loaded)) {
+    return (
+      <div className="auth-card">
+        <div className="auth-card-row">
+          <span className="auth-dot tone-neutral" aria-hidden />
+          <span className="auth-card-label">Checking…</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (accounts.error) {
+    return (
+      <div className="auth-card is-error">
+        <div className="auth-card-row">
+          <span className="auth-dot tone-danger" aria-hidden />
+          <span className="auth-card-label">Connection failed</span>
+        </div>
+        <button
+          type="button"
+          className="auth-card-action"
+          onClick={() => { void accounts.refresh(); }}
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
+
+  if (accounts.isAuthenticated && accounts.active) {
+    const a = accounts.active;
+    return (
+      <div className="auth-card is-signed-in">
+        <div className="auth-card-row">
+          <span className="auth-dot tone-success" aria-hidden />
+          <span className="auth-card-label">{a.displayName}</span>
+        </div>
+        <div className="auth-card-meta">
+          <code title={a.keyId}>{a.maskedKeyId}</code>
+          <button
+            type="button"
+            className="auth-card-link"
+            onClick={() => { void accounts.logout(); }}
+          >
+            Sign out
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="auth-status">
-      <div className={`auth-dot tone-${tone}`} aria-hidden />
-      <div className="auth-info">
-        <span className="auth-info-primary">{label}</span>
-        <AuthAction
-          accountsLoaded={accounts.loaded}
-          isAuthenticated={accounts.isAuthenticated}
-          isLoading={accounts.isLoading}
-          hasError={accounts.error !== null}
-          activeName={accounts.active?.name}
-          activeKeyId={accounts.active?.maskedKeyId}
-          onSetup={() => setSetupOpen(true)}
-          onRetry={() => { void accounts.refresh(); }}
-          onLogout={() => { void accounts.logout(); }}
-        />
+    <>
+      <div className="auth-card is-cta">
+        <div className="auth-card-row">
+          <span className="auth-dot tone-warning" aria-hidden />
+          <span className="auth-card-label">Not signed in</span>
+        </div>
+        <button
+          type="button"
+          className="auth-card-action auth-card-action-primary"
+          onClick={() => setSetupOpen(true)}
+        >
+          Set up account
+        </button>
       </div>
-
       <AccountSetupSheet open={setupOpen} onClose={() => setSetupOpen(false)} />
-    </div>
+    </>
   );
 });
-
-interface AuthActionProps {
-  accountsLoaded: boolean;
-  isAuthenticated: boolean;
-  isLoading: boolean;
-  hasError: boolean;
-  activeName: string | undefined;
-  activeKeyId: string | undefined;
-  onSetup: () => void;
-  onRetry: () => void;
-  onLogout: () => void;
-}
-
-function AuthAction({
-  accountsLoaded, isAuthenticated, isLoading, hasError, activeKeyId, onSetup, onRetry, onLogout,
-}: AuthActionProps) {
-  if (!accountsLoaded || isLoading) {
-    return <span className="auth-info-secondary">asc auth check</span>;
-  }
-  if (hasError) {
-    return (
-      <button type="button" className="auth-info-link" onClick={onRetry}>
-        Retry
-      </button>
-    );
-  }
-  if (isAuthenticated) {
-    return (
-      <span className="auth-info-secondary">
-        <span className="auth-info-keyid">{activeKeyId}</span>
-        <button type="button" className="auth-info-link" onClick={onLogout}>
-          Sign out
-        </button>
-      </span>
-    );
-  }
-  return (
-    <button type="button" className="auth-info-link auth-info-cta" onClick={onSetup}>
-      Set up
-    </button>
-  );
-}

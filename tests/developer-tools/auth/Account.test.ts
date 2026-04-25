@@ -37,8 +37,28 @@ describe('Account', () => {
     expect(a.issuerId).toBe('I');
   });
 
-  it('fromJSON threads the active flag through opts', () => {
+  it('fromJSON tolerates capital-D keyID/issuerID — what the asc REST list ships', () => {
+    const a = Account.fromJSON({
+      name: 'default',
+      keyID: 'ABC123DEFG',
+      issuerID: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee',
+    });
+    expect(a.keyId).toBe('ABC123DEFG');
+    expect(a.issuerId).toBe('aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee');
+  });
+
+  it('fromJSON reads isActive directly off the row when present', () => {
+    const a = Account.fromJSON({ name: 'p', keyID: 'K', issuerID: 'I', isActive: true });
+    expect(a.isActive).toBe(true);
+  });
+
+  it('fromJSON threads the active flag through opts when the row lacks it', () => {
     const a = Account.fromJSON({ name: 'p', keyId: 'K', issuerId: 'I' }, { isActive: true });
     expect(a.isActive).toBe(true);
+  });
+
+  it('fromJSON: row-level isActive wins over opts', () => {
+    const a = Account.fromJSON({ name: 'p', keyId: 'K', issuerId: 'I', isActive: false }, { isActive: true });
+    expect(a.isActive).toBe(false);
   });
 });

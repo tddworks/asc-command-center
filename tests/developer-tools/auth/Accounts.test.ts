@@ -6,7 +6,6 @@ import type { AccountRepository } from '../../../src/developer-tools/auth/Accoun
 function stubRepo(overrides: Partial<AccountRepository> = {}): AccountRepository {
   return {
     list: vi.fn().mockResolvedValue([]),
-    active: vi.fn().mockResolvedValue(null),
     create: vi.fn(),
     setActive: vi.fn().mockResolvedValue(undefined),
     clearActive: vi.fn().mockResolvedValue(undefined),
@@ -36,28 +35,32 @@ describe('Accounts', () => {
     expect(a.statusTone).toBe('neutral');
   });
 
-  it('statusLabel reads "Not signed in" when refresh resolves with no active account', async () => {
-    const a = new Accounts(stubRepo({ active: vi.fn().mockResolvedValue(null) }));
+  it('statusLabel reads "Not signed in" when refresh resolves with no accounts', async () => {
+    const a = new Accounts(stubRepo({ list: vi.fn().mockResolvedValue([]) }));
     await a.refresh();
     expect(a.statusLabel).toBe('Not signed in');
     expect(a.statusTone).toBe('warning');
   });
 
-  it('statusLabel uses the active account name when authenticated', async () => {
+  it('statusLabel reads "Not signed in" when no listed account is active', async () => {
+    const work = new Account({ name: 'work', keyId: 'K', issuerId: 'I', isActive: false });
+    const a = new Accounts(stubRepo({ list: vi.fn().mockResolvedValue([work]) }));
+    await a.refresh();
+    expect(a.statusLabel).toBe('Not signed in');
+  });
+
+  it('statusLabel uses the active account name when one row carries isActive=true', async () => {
     const personal = new Account({ name: 'personal', keyId: 'K', issuerId: 'I', isActive: true });
-    const a = new Accounts(stubRepo({
-      list: vi.fn().mockResolvedValue([personal]),
-      active: vi.fn().mockResolvedValue(personal),
-    }));
+    const a = new Accounts(stubRepo({ list: vi.fn().mockResolvedValue([personal]) }));
     await a.refresh();
     expect(a.statusLabel).toBe('personal');
     expect(a.statusTone).toBe('success');
     expect(a.isAuthenticated).toBe(true);
   });
 
-  it('statusLabel reads "Connection failed" when the active probe throws', async () => {
+  it('statusLabel reads "Connection failed" when the list probe throws', async () => {
     const a = new Accounts(stubRepo({
-      active: vi.fn().mockRejectedValue(new Error('ECONNREFUSED')),
+      list: vi.fn().mockRejectedValue(new Error('ECONNREFUSED')),
     }));
     await a.refresh();
     expect(a.statusLabel).toBe('Connection failed');
@@ -67,15 +70,13 @@ describe('Accounts', () => {
 
   // ── refresh ──
 
-  it('refresh populates accounts + active and flips loaded', async () => {
-    const personal = new Account({ name: 'personal', keyId: 'K', issuerId: 'I' });
-    const repo = stubRepo({
-      list: vi.fn().mockResolvedValue([personal]),
-      active: vi.fn().mockResolvedValue(personal),
-    });
+  it('refresh derives active from the row marked isActive', async () => {
+    const personal = new Account({ name: 'personal', keyId: 'K', issuerId: 'I', isActive: true });
+    const work = new Account({ name: 'work', keyId: 'K2', issuerId: 'I', isActive: false });
+    const repo = stubRepo({ list: vi.fn().mockResolvedValue([personal, work]) });
     const a = new Accounts(repo);
     await a.refresh();
-    expect(a.accounts).toEqual([personal]);
+    expect(a.accounts).toEqual([personal, work]);
     expect(a.active).toBe(personal);
     expect(a.loaded).toBe(true);
     expect(a.isLoading).toBe(false);
@@ -98,7 +99,6 @@ describe('Accounts', () => {
     const repo = stubRepo({
       create: vi.fn().mockResolvedValue(created),
       list: vi.fn().mockResolvedValue([created]),
-      active: vi.fn().mockResolvedValue(created),
     });
     const a = new Accounts(repo);
 
@@ -111,10 +111,7 @@ describe('Accounts', () => {
   });
 
   it('logout delegates to repository.clearActive and refreshes', async () => {
-    const repo = stubRepo({
-      list: vi.fn().mockResolvedValue([]),
-      active: vi.fn().mockResolvedValue(null),
-    });
+    const repo = stubRepo({ list: vi.fn().mockResolvedValue([]) });
     const a = new Accounts(repo);
     await a.logout();
     expect(repo.clearActive).toHaveBeenCalledTimes(1);
@@ -122,11 +119,8 @@ describe('Accounts', () => {
   });
 
   it('switchTo delegates to repository.setActive with the chosen name', async () => {
-    const work = new Account({ name: 'work', keyId: 'K', issuerId: 'I' });
-    const repo = stubRepo({
-      list: vi.fn().mockResolvedValue([work]),
-      active: vi.fn().mockResolvedValue(work),
-    });
+    const work = new Account({ name: 'work', keyId: 'K', issuerId: 'I', isActive: true });
+    const repo = stubRepo({ list: vi.fn().mockResolvedValue([work]) });
     const a = new Accounts(repo);
     await a.switchTo('work');
     expect(repo.setActive).toHaveBeenCalledWith('work');

@@ -19,13 +19,6 @@ export class MockAccountRepository implements AccountRepository {
     );
   }
 
-  async active(): Promise<Account | null> {
-    if (!this.activeName) return null;
-    const found = this.accounts.get(this.activeName);
-    if (!found) return null;
-    return new Account({ name: found.name, keyId: found.keyId, issuerId: found.issuerId, isActive: true });
-  }
-
   async create(creds: LoginCredentials): Promise<Account> {
     const account = new Account({
       name: creds.name,
