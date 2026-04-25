@@ -128,4 +128,38 @@ describe('InstalledPlugin', () => {
     expect(p.repositoryURL).toBeNull();
     expect(p.isInstalled).toBe(false);
   });
+
+  // ── Affordances ──
+
+  it('installUrl reads the install affordance when present', () => {
+    const p = new InstalledPlugin({
+      slug: 'd', name: 'D',
+      affordances: { install: '/api/v1/plugins' },
+    });
+    expect(p.installUrl).toBe('/api/v1/plugins');
+    expect(p.uninstallUrl).toBeNull();
+  });
+
+  it('uninstallUrl reads the uninstall affordance when present', () => {
+    const p = new InstalledPlugin({
+      slug: 'd', name: 'D',
+      affordances: { uninstall: '/api/v1/plugins/d' },
+    });
+    expect(p.uninstallUrl).toBe('/api/v1/plugins/d');
+    expect(p.installUrl).toBeNull();
+  });
+
+  it('installUrl/uninstallUrl are null when no affordances are present', () => {
+    const p = new InstalledPlugin({ slug: 'd', name: 'D' });
+    expect(p.installUrl).toBeNull();
+    expect(p.uninstallUrl).toBeNull();
+  });
+
+  it('fromJSON reads affordances when the row carries them', () => {
+    const p = InstalledPlugin.fromJSON({
+      slug: 'd', name: 'D',
+      affordances: { uninstall: '/api/v1/plugins/d' },
+    });
+    expect(p.uninstallUrl).toBe('/api/v1/plugins/d');
+  });
 });
