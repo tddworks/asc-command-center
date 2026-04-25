@@ -840,6 +840,108 @@ textarea.form-input { min-height: 80px; resize: vertical; line-height: 1.5; }
   font-size: 13px;
 }
 
+/* ─── CLI setup sheet (asc backend not running) ──────────────────── */
+
+.cli-setup-modal {
+  width: min(560px, 100%);
+  height: auto;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+}
+.cli-setup-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 6px 22px 18px;
+  overflow-y: auto;
+}
+.cli-setup-step {
+  display: flex;
+  gap: 12px;
+  padding: 12px 14px;
+  background: rgba(120, 113, 108, 0.05);
+  border-radius: 10px;
+}
+.cli-setup-step-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+.cli-setup-step-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+}
+.cli-setup-step-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.cli-setup-step-hint {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.cli-setup-cmd {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+  padding: 6px 8px 6px 12px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.cli-setup-cmd code {
+  flex: 1;
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 12px;
+  color: var(--text-primary);
+  overflow-x: auto;
+  white-space: nowrap;
+}
+.cli-setup-cmd-copy {
+  background: rgba(120, 113, 108, 0.12);
+  border: none;
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: inherit;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+.cli-setup-cmd-copy:hover {
+  background: rgba(120, 113, 108, 0.22);
+  color: var(--text-primary);
+}
+.cli-setup-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 22px;
+  border-top: 1px solid var(--border);
+}
+.cli-setup-link {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-decoration: none;
+}
+.cli-setup-link:hover { color: var(--accent); text-decoration: underline; }
+
+
 /* ─── Auth setup sheet ────────────────────────────────────────────── */
 
 .auth-setup-modal {
