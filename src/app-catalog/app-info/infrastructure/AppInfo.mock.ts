@@ -29,7 +29,6 @@ export class MockAppInfoRepository implements AppInfoRepository {
     if (!snap) return;
     snap.primaryCategoryId = appInfo.primaryCategoryId;
     snap.secondaryCategoryId = appInfo.secondaryCategoryId;
-    snap.contentRightsDeclaration = appInfo.contentRightsDeclaration;
   }
 
   async saveLocalization(loc: AppInfoLocalization): Promise<void> {
@@ -110,7 +109,6 @@ interface Snapshot {
   id: string;
   primaryCategoryId: string | null;
   secondaryCategoryId: string | null;
-  contentRightsDeclaration: string | null;
   primaryLocale: string;
   localizations: LocalizationSnapshot[];
 }
@@ -121,7 +119,6 @@ function hydrate(appId: string, s: Snapshot, repo: MockAppInfoRepository): AppIn
     appId,
     primaryCategoryId: s.primaryCategoryId,
     secondaryCategoryId: s.secondaryCategoryId,
-    contentRightsDeclaration: s.contentRightsDeclaration,
     primaryLocale: s.primaryLocale,
     localizations: s.localizations.map((l) => new AppInfoLocalization({
       id: l.id,
