@@ -24,11 +24,14 @@ export const LocalePickerSheet = observer(function LocalePickerSheet({
   open, appInfo, onClose,
 }: Props) {
   const [query, setQuery] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!open) return;
     setQuery('');
+    setSaveError(null);
     requestAnimationFrame(() => inputRef.current?.focus());
 
     const onKey = (e: KeyboardEvent) => {
@@ -39,6 +42,23 @@ export const LocalePickerSheet = observer(function LocalePickerSheet({
   }, [open, onClose]);
 
   if (!open) return null;
+
+  const handleSave = async () => {
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await appInfo.save();
+    } catch (err) {
+      setSaveError((err as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDiscard = () => {
+    appInfo.discard();
+    setSaveError(null);
+  };
 
   const needle = query.trim().toLowerCase();
   const matchesActive = (locale: string) =>
@@ -208,13 +228,42 @@ export const LocalePickerSheet = observer(function LocalePickerSheet({
           </section>
         </div>
 
-        <div className="locale-manager-footer">
+        <div className={`locale-manager-footer ${appInfo.hasUnsavedChanges ? 'is-pending' : ''}`}>
           <span className="locale-manager-footer-text">
-            {appInfo.hasUnsavedChanges
-              ? <>You have <strong>unsaved changes</strong> — close this sheet and use Save changes to commit.</>
-              : <>Add or remove languages — changes save with the rest of the page.</>}
+            {saveError ? (
+              <span className="save-bar-error">Save failed: {saveError}</span>
+            ) : appInfo.hasUnsavedChanges ? (
+              <><span className="locale-manager-footer-dot" aria-hidden>●</span> <strong>Pending Changes</strong></>
+            ) : (
+              <span style={{ color: 'var(--text-muted)' }}>Add or remove languages, then Save.</span>
+            )}
           </span>
-          <button type="button" className="btn btn-primary btn-sm" onClick={onClose}>Done</button>
+          <div className="locale-manager-footer-actions">
+            {appInfo.hasUnsavedChanges ? (
+              <>
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={handleDiscard}
+                  disabled={saving}
+                >
+                  Discard
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={handleSave}
+                  disabled={saving}
+                >
+                  {saving ? 'Saving…' : 'Save'}
+                </button>
+              </>
+            ) : (
+              <button type="button" className="btn btn-secondary btn-sm" onClick={onClose}>
+                Done
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

@@ -144,10 +144,25 @@ describe('AppInfo', () => {
     expect(info.hasUnsavedChanges).toBe(true);
   });
 
-  it('addLocalization defaults name to empty string', () => {
+  it('addLocalization inherits name and subtitle from the primary localization', () => {
+    // Mirrors the iOS Mac app: a non-empty `name` is required by Apple's
+    // create endpoint, so new locales default to the primary's content.
     const info = makeInfo();
     const added = info.addLocalization('fr-FR');
-    expect(added.name).toBe('');
+    expect(added.name).toBe('Bakery App');     // primary en-US name
+    expect(added.subtitle).toBe('Fresh bread'); // primary en-US subtitle
+  });
+
+  it('addLocalization inherits privacy URLs from the primary localization', () => {
+    const info = makeInfo();
+    const added = info.addLocalization('fr-FR');
+    expect(added.privacyPolicyUrl).toBe('https://example.com/privacy');
+  });
+
+  it('addLocalization with explicit init overrides the primary fallback', () => {
+    const info = makeInfo();
+    const added = info.addLocalization('fr-FR', { name: 'Boulangerie', subtitle: null });
+    expect(added.name).toBe('Boulangerie');
     expect(added.subtitle).toBeNull();
   });
 

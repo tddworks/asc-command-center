@@ -198,11 +198,18 @@ export class AppInfo {
     if (this.localizationFor(locale)) {
       throw new Error(`Locale ${locale} already exists on AppInfo ${this.id}`);
     }
+    // Mirror the iOS Mac app (`AppLanguages.createLocalizationContentFromPrimary`):
+    // inherit name, subtitle, and privacy URLs from the primary localization.
+    // Apple's AppInfoLocalizationCreateRequest requires a non-empty `name`;
+    // sending `""` makes the asc backend bubble up a 500 from App Store Connect.
+    const primary = this.localizationFor(this.primaryLocale);
     const loc = new AppInfoLocalization({
       id: '',
       locale,
-      name: init.name ?? '',
-      subtitle: init.subtitle ?? null,
+      name: init.name ?? primary?.name ?? '',
+      subtitle: init.subtitle !== undefined ? init.subtitle : (primary?.subtitle ?? null),
+      privacyPolicyUrl: primary?.privacyPolicyUrl ?? null,
+      privacyChoicesUrl: primary?.privacyChoicesUrl ?? null,
     });
     this.localizations.push(loc);
     return loc;
