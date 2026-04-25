@@ -1,4 +1,5 @@
 import { InstalledPlugin } from '../InstalledPlugin.ts';
+import { PluginUpdate } from '../PluginUpdate.ts';
 import type { InstalledPluginRepository } from '../InstalledPluginRepository.ts';
 import { type DataMode } from '../../../shared/api-client.tsx';
 import { MockInstalledPluginRepository } from './InstalledPlugin.mock.ts';
@@ -33,6 +34,22 @@ export class RestInstalledPluginRepository implements InstalledPluginRepository 
     return this.fetchList(url, { defaultIsInstalled: false });
   }
 
+  async updates(): Promise<PluginUpdate[]> {
+    const url = `${BASE}/updates`;
+    const resp = await fetch(url, {
+      headers: { Accept: 'application/json' },
+      cache: 'no-store',
+    });
+    if (!resp.ok) throw new Error(`GET ${url} failed: ${resp.status}`);
+    const json = await resp.json();
+    const rows: Record<string, unknown>[] = Array.isArray(json?.data)
+      ? json.data
+      : Array.isArray(json?.updates)
+        ? json.updates
+        : [];
+    return rows.map((row) => PluginUpdate.fromJSON(flattenLinks(row)));
+  }
+
   async install(plugin: InstalledPlugin): Promise<void> {
     // Prefer the affordance URL the marketplace row ships; the body shape
     // is stable regardless of which URL we hit.
@@ -55,6 +72,18 @@ export class RestInstalledPluginRepository implements InstalledPluginRepository 
     if (!resp.ok && resp.status !== 404) {
       const text = await resp.text().catch(() => '');
       throw new Error(`DELETE ${url} failed: ${resp.status} ${text || resp.statusText}`);
+    }
+  }
+
+  async applyUpdate(update: PluginUpdate): Promise<void> {
+    const url = update.updateUrl ?? `${BASE}/${encodeURIComponent(update.name)}/update`;
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { Accept: 'application/json' },
+    });
+    if (!resp.ok) {
+      const text = await resp.text().catch(() => '');
+      throw new Error(`POST ${url} failed: ${resp.status} ${text || resp.statusText}`);
     }
   }
 

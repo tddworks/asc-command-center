@@ -1,14 +1,17 @@
 import { describe, it, expect, vi } from 'vitest';
 import { InstalledPlugin } from '../../../src/extensibility/plugin/InstalledPlugin.ts';
 import { InstalledPlugins } from '../../../src/extensibility/plugin/InstalledPlugins.ts';
+import { PluginUpdate } from '../../../src/extensibility/plugin/PluginUpdate.ts';
 import type { InstalledPluginRepository } from '../../../src/extensibility/plugin/InstalledPluginRepository.ts';
 
 function stubRepo(overrides: Partial<InstalledPluginRepository> = {}): InstalledPluginRepository {
   return {
     installed: vi.fn().mockResolvedValue([]),
     market: vi.fn().mockResolvedValue([]),
+    updates: vi.fn().mockResolvedValue([]),
     install: vi.fn().mockResolvedValue(undefined),
     uninstall: vi.fn().mockResolvedValue(undefined),
+    applyUpdate: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
@@ -196,6 +199,94 @@ describe('InstalledPlugins', () => {
     await a.refreshAll();
 
     expect(market).toHaveBeenCalledWith('notify');
+  });
+
+  // ── Updates ──
+
+  it('refreshAll loads outdated entries in parallel with the other lists', async () => {
+    const update = new PluginUpdate({
+      name: 'ASC Pro',
+      installedVersion: '0.9.0',
+      latestVersion: '1.0.0',
+    });
+    const repo = stubRepo({ updates: vi.fn().mockResolvedValue([update]) });
+    const a = new InstalledPlugins(repo);
+
+    await a.refreshAll();
+
+    expect(a.updatesCount).toBe(1);
+    expect(a.hasUpdates).toBe(true);
+    expect(a.updates[0]).toBe(update);
+  });
+
+  it('refreshAll tolerates an updates failure without poisoning the installed list', async () => {
+    const repo = stubRepo({
+      installed: vi.fn().mockResolvedValue([new InstalledPlugin({ slug: 'ASCPro', name: 'ASC Pro' })]),
+      updates: vi.fn().mockRejectedValue(new Error('offline')),
+    });
+    const a = new InstalledPlugins(repo);
+
+    await a.refreshAll();
+
+    expect(a.installedCount).toBe(1);
+    expect(a.updates).toEqual([]);
+    expect(a.error).toBeNull();
+  });
+
+  it('updateFor matches by name, slug, or id', async () => {
+    const update = new PluginUpdate({
+      name: 'ASC Pro',
+      installedVersion: '0.9.0',
+      latestVersion: '1.0.0',
+    });
+    const ascPro = new InstalledPlugin({ slug: 'ASCPro', id: 'ASCPro', name: 'ASC Pro' });
+    const repo = stubRepo({
+      installed: vi.fn().mockResolvedValue([ascPro]),
+      updates: vi.fn().mockResolvedValue([update]),
+    });
+    const a = new InstalledPlugins(repo);
+    await a.refreshAll();
+
+    expect(a.updateFor(ascPro)).toBe(update);
+  });
+
+  it('updateFor returns undefined when the installed plugin is up-to-date', async () => {
+    const ascPro = new InstalledPlugin({ slug: 'ASCPro', id: 'ASCPro', name: 'ASC Pro' });
+    const repo = stubRepo({ installed: vi.fn().mockResolvedValue([ascPro]) });
+    const a = new InstalledPlugins(repo);
+    await a.refreshAll();
+
+    expect(a.updateFor(ascPro)).toBeUndefined();
+  });
+
+  it('applyUpdate delegates to repository.applyUpdate and refreshes', async () => {
+    const update = new PluginUpdate({
+      name: 'ASC Pro',
+      installedVersion: '0.9.0',
+      latestVersion: '1.0.0',
+    });
+    const updates = vi.fn()
+      .mockResolvedValueOnce([update])  // initial
+      .mockResolvedValueOnce([]);       // after applying
+    const repo = stubRepo({ updates });
+    const a = new InstalledPlugins(repo);
+    await a.refreshAll();
+    expect(a.updatesCount).toBe(1);
+
+    await a.applyUpdate(update);
+
+    expect(repo.applyUpdate).toHaveBeenCalledWith(update);
+    expect(a.updatesCount).toBe(0);
+    expect(a.busy).toBeNull();
+  });
+
+  it('applyUpdate clears busy even when the repo throws', async () => {
+    const update = new PluginUpdate({ name: 'X', installedVersion: '1.0', latestVersion: '2.0' });
+    const repo = stubRepo({ applyUpdate: vi.fn().mockRejectedValue(new Error('boom')) });
+    const a = new InstalledPlugins(repo);
+
+    await expect(a.applyUpdate(update)).rejects.toThrow('boom');
+    expect(a.busy).toBeNull();
   });
 
   it('installedBySlug finds a loaded installed plugin', async () => {

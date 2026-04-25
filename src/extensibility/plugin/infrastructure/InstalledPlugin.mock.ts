@@ -1,4 +1,5 @@
 import { InstalledPlugin } from '../InstalledPlugin.ts';
+import { PluginUpdate } from '../PluginUpdate.ts';
 import type { InstalledPluginRepository } from '../InstalledPluginRepository.ts';
 
 /**
@@ -17,6 +18,16 @@ const ASC_REGISTRY_URL = 'https://github.com/tddworks/asc-registry';
 
 export class MockInstalledPluginRepository implements InstalledPluginRepository {
   private installedSlugs = new Set<string>(['ASCPro']);
+
+  /** What's installed locally (kept separate from the marketplace's
+   *  always-latest version so the mock can simulate "update available"). */
+  private installedVersions = new Map<string, string>([
+    ['ASCPro', '0.9.0'],          // marketplace ships 1.0.0 → outdated
+    ['ScreenshotStudio', '1.5.0'],
+    ['discord-notify', '1.2.0'],
+    ['slack-alerts', '2.1.0'],
+    ['analytics-pro', '1.5.0'],
+  ]);
 
   private allPlugins: InstalledPlugin[] = [
     new InstalledPlugin({
@@ -69,6 +80,34 @@ export class MockInstalledPluginRepository implements InstalledPluginRepository 
       .map((p) => this.withInstalled(p, true));
   }
 
+  async updates(): Promise<PluginUpdate[]> {
+    // An update is available when the installed version differs from
+    // the marketplace catalogue's version for that plugin.
+    return this.allPlugins
+      .filter((p) => this.installedSlugs.has(p.slug))
+      .map((p) => {
+        const installedVersion = this.installedVersions.get(p.slug) ?? p.version ?? '0.0.0';
+        const latest = p.version ?? '0.0.0';
+        return { plugin: p, installedVersion, latest };
+      })
+      .filter(({ installedVersion, latest }) => installedVersion !== latest)
+      .map(({ plugin, installedVersion, latest }) =>
+        new PluginUpdate({
+          name: plugin.name,
+          installedVersion,
+          latestVersion: latest,
+          affordances: { update: `/api/v1/plugins/${plugin.slug}/update` },
+        }),
+      );
+  }
+
+  async applyUpdate(update: PluginUpdate): Promise<void> {
+    const found = this.allPlugins.find((p) => p.name === update.name || p.slug === update.name);
+    if (!found) throw new Error(`Plugin '${update.name}' not found`);
+    // Bump the installed version up to the marketplace version.
+    this.installedVersions.set(found.slug, update.latestVersion);
+  }
+
   async market(query?: string): Promise<InstalledPlugin[]> {
     const all = this.allPlugins.map((p) =>
       this.withInstalled(p, this.installedSlugs.has(p.slug)),
@@ -105,11 +144,16 @@ export class MockInstalledPluginRepository implements InstalledPluginRepository 
     const affordances: Record<string, string> = isInstalled
       ? { uninstall: `/api/v1/plugins/${p.slug}` }
       : { install: '/api/v1/plugins' };
+    // Installed rows report the *installed* version (which may lag behind
+    // the marketplace's). Marketplace rows always report the latest.
+    const version = isInstalled
+      ? (this.installedVersions.get(p.slug) ?? p.version ?? null)
+      : p.version;
     return new InstalledPlugin({
       id: p.id,
       slug: p.slug,
       name: p.name,
-      version: p.version,
+      version,
       author: p.author,
       description: p.description,
       categories: p.categories,

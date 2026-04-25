@@ -1,5 +1,6 @@
 import { makeAutoObservable, runInAction } from 'mobx';
 import { InstalledPlugin } from './InstalledPlugin.ts';
+import type { PluginUpdate } from './PluginUpdate.ts';
 import type { InstalledPluginRepository } from './InstalledPluginRepository.ts';
 
 /** Build a plugin clone with `isInstalled: false` — used by the optimistic
@@ -36,6 +37,10 @@ export class InstalledPlugins {
 
   installed: InstalledPlugin[] = [];
   marketplace: InstalledPlugin[] = [];
+  /** Outdated installed plugins paired with their marketplace version.
+   *  Loaded by `refreshAll`; the page joins on `name` to show the per-card
+   *  Update CTA. */
+  updates: PluginUpdate[] = [];
   marketQuery = '';
 
   isLoading = false;
@@ -56,6 +61,16 @@ export class InstalledPlugins {
 
   get installedCount(): number { return this.installed.length; }
   get marketplaceCount(): number { return this.marketplace.length; }
+  get updatesCount(): number { return this.updates.length; }
+  get hasUpdates(): boolean { return this.updates.length > 0; }
+
+  /** Lookup an outdated entry by plugin name. The page calls this on
+   *  every Installed card to decide whether to render the Update badge. */
+  updateFor(plugin: InstalledPlugin): PluginUpdate | undefined {
+    return this.updates.find((u) =>
+      u.name === plugin.name || u.name === plugin.slug || u.name === plugin.id,
+    );
+  }
 
   // ── Mutators ──
 
@@ -63,6 +78,7 @@ export class InstalledPlugins {
     this.repository = repo;
     this.installed = [];
     this.marketplace = [];
+    this.updates = [];
     this.marketQuery = '';
     this.error = null;
     this.loaded = false;
@@ -78,18 +94,24 @@ export class InstalledPlugins {
     this.isLoading = true;
     this.error = null;
     try {
-      const [installed, marketplace] = await Promise.all([
+      // Fetch installed + marketplace + updates in parallel. Marketplace
+      // and updates are best-effort: an offline registry shouldn't break
+      // the installed list. Errors there log and degrade to empty arrays.
+      const [installed, marketplace, updates] = await Promise.all([
         this.repository.installed(),
         this.repository.market(this.marketQuery || undefined).catch((err) => {
-          // Marketplace can fail (offline registry, older asc) without
-          // breaking the installed list. Log and continue with empty.
           console.warn('[plugins] marketplace fetch failed:', err);
+          return [];
+        }),
+        this.repository.updates().catch((err) => {
+          console.warn('[plugins] updates fetch failed:', err);
           return [];
         }),
       ]);
       runInAction(() => {
         this.installed = installed;
         this.marketplace = marketplace;
+        this.updates = updates;
         this.loaded = true;
       });
     } catch (err) {
@@ -150,6 +172,19 @@ export class InstalledPlugins {
     });
     try {
       await this.repository.uninstall(target);
+      await this.refreshAll();
+    } finally {
+      runInAction(() => { this.busy = null; });
+    }
+  }
+
+  /** Apply a marketplace update — POSTs to the update endpoint, then
+   *  refreshes both lists so the version bump and isInstalled state are
+   *  reflected in one render. */
+  async applyUpdate(update: PluginUpdate): Promise<void> {
+    this.busy = update.name;
+    try {
+      await this.repository.applyUpdate(update);
       await this.refreshAll();
     } finally {
       runInAction(() => { this.busy = null; });
