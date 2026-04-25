@@ -76,6 +76,40 @@ export function resolveApiUrl(url: string): string {
   return base ? `${base}${url}` : url;
 }
 
+/**
+ * Resolve a WebSocket URL targeting `/api/...` against the local CLI.
+ * Plugin code that does `new WebSocket('wss://' + location.host + '/api/sim/ws')`
+ * would otherwise hit the public origin (which has no WebSocket server)
+ * — we rewrite to the asc CLI's `wss://localhost:8421` (or `ws://`
+ * when running over plain HTTP).
+ *
+ * Accepts both relative paths (`/api/...`) and already-absolute URLs.
+ * Non-`/api/` URLs and third-party endpoints pass through.
+ */
+export function resolveWsUrl(url: string): string {
+  if (typeof window === 'undefined') return url;
+  let parsed: URL;
+  try {
+    parsed = new URL(url, window.location.href);
+  } catch {
+    return url;
+  }
+  if (!parsed.pathname.startsWith('/api/')) return url;
+
+  const base = getApiBaseUrl();
+  if (!base) return url;
+
+  let baseUrl: URL;
+  try {
+    baseUrl = new URL(base);
+  } catch {
+    return url;
+  }
+  parsed.protocol = baseUrl.protocol === 'https:' ? 'wss:' : 'ws:';
+  parsed.host = baseUrl.host;
+  return parsed.toString();
+}
+
 let fetchInterceptorInstalled = false;
 function installFetchInterceptor() {
   if (fetchInterceptorInstalled) return;
