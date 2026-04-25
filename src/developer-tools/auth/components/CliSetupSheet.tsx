@@ -67,9 +67,9 @@ export function CliSetupSheet({ open, onClose }: Props) {
     setTrying(true);
     try {
       // Persist the (possibly edited) URL before we re-probe so the rest
-      // of the app picks it up.
+      // of the app picks it up. Empty input clears the override.
       const trimmed = baseUrl.trim().replace(/\/+$/, '');
-      setApiBaseUrlOverride(trimmed && trimmed !== getDefaultBase() ? trimmed : null);
+      setApiBaseUrlOverride(trimmed || null);
 
       const ok = await recheck();
       if (ok) {
@@ -132,19 +132,49 @@ export function CliSetupSheet({ open, onClose }: Props) {
           <Step
             n={2}
             title="Start the web server"
-            hint="Binds to localhost:8420 by default. Leave it running while you use this UI."
+            hint="Binds to localhost:8420 (HTTP) and localhost:8421 (HTTPS). Leave it running while you use this UI."
             command="asc web-server"
             onCopy={copy}
             copied={copiedCmd === 'asc web-server'}
           />
-          <Step
-            n={3}
-            title="Come back here"
-            hint="Once asc is running, click Try again. We'll re-probe /api/v1 and pick up your stored accounts."
-            command={null}
-            onCopy={copy}
-            copied={false}
-          />
+          {isHttpsPage && (
+            <Step
+              n={3}
+              title="Trust the local certificate"
+              hint={
+                <>
+                  Browsers block <code>http://localhost</code> from HTTPS pages, so this UI talks to the HTTPS endpoint.{' '}
+                  <a href="https://localhost:8421/api/v1" target="_blank" rel="noreferrer">
+                    Open https://localhost:8421/api/v1
+                  </a>{' '}
+                  in this browser once and accept the self-signed certificate.
+                </>
+              }
+              command={null}
+              onCopy={copy}
+              copied={false}
+            />
+          )}
+
+          <div className="cli-setup-step">
+            <div className="cli-setup-step-number" aria-hidden>{isHttpsPage ? 4 : 3}</div>
+            <div className="cli-setup-step-body">
+              <div className="cli-setup-step-title">API endpoint</div>
+              <div className="cli-setup-step-hint">
+                Auto-resolved to <code>{resolvedBase || window.location.origin}</code>. Override below if you've moved asc to another port or host.
+              </div>
+              <input
+                className="form-input"
+                style={{ marginTop: 6 }}
+                value={baseUrl}
+                placeholder={isHttpsPage ? 'https://localhost:8421' : 'http://localhost:8420'}
+                onChange={(e) => setBaseUrl(e.target.value)}
+                disabled={trying}
+                autoComplete="off"
+                spellCheck={false}
+              />
+            </div>
+          </div>
         </div>
 
         <div className="cli-setup-footer">
@@ -180,7 +210,7 @@ function Step({
 }: {
   n: number;
   title: string;
-  hint: string;
+  hint: React.ReactNode;
   command: string | null;
   onCopy: (cmd: string) => void;
   copied: boolean;
