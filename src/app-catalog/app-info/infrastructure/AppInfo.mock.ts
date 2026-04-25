@@ -139,7 +139,6 @@ function seedFor(appId: string): Snapshot {
       id: 'info-app-1',
       primaryCategoryId: 'WEATHER',
       secondaryCategoryId: null,
-      contentRightsDeclaration: null,
       primaryLocale: 'en-US',
       localizations: [
         {
@@ -162,7 +161,6 @@ function seedFor(appId: string): Snapshot {
       id: 'info-app-2',
       primaryCategoryId: 'HEALTH_AND_FITNESS',
       secondaryCategoryId: 'SPORTS',
-      contentRightsDeclaration: null,
       primaryLocale: 'en-US',
       localizations: [
         {
@@ -178,7 +176,6 @@ function seedFor(appId: string): Snapshot {
     id: `info-${appId}`,
     primaryCategoryId: null,
     secondaryCategoryId: null,
-    contentRightsDeclaration: null,
     primaryLocale: 'en-US',
     localizations: [
       {
