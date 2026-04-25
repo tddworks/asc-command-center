@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import type { AppInfo } from '../AppInfo.ts';
 import { localeDisplayName } from '../AppStoreLocaleRegistry.ts';
+import { useToast } from '../../../shared/components/Toast.tsx';
 
 interface Props {
   open: boolean;
@@ -25,13 +26,12 @@ export const LocalePickerSheet = observer(function LocalePickerSheet({
 }: Props) {
   const [query, setQuery] = useState('');
   const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const showToast = useToast();
 
   useEffect(() => {
     if (!open) return;
     setQuery('');
-    setSaveError(null);
     requestAnimationFrame(() => inputRef.current?.focus());
 
     const onKey = (e: KeyboardEvent) => {
@@ -43,13 +43,17 @@ export const LocalePickerSheet = observer(function LocalePickerSheet({
 
   if (!open) return null;
 
+  // Snapshot the staged counts BEFORE save — after save they're flushed,
+  // and the toast text would otherwise read "Saved 0 …".
   const handleSave = async () => {
+    const adds = appInfo.localizations.filter((l) => l.id === '').length;
+    const removes = appInfo.pendingRemovals.length;
     setSaving(true);
-    setSaveError(null);
     try {
       await appInfo.save();
+      showToast(savedToast(adds, removes), 'success');
     } catch (err) {
-      setSaveError((err as Error).message);
+      showToast(`Save failed: ${(err as Error).message}`, 'error');
     } finally {
       setSaving(false);
     }
@@ -57,7 +61,7 @@ export const LocalePickerSheet = observer(function LocalePickerSheet({
 
   const handleDiscard = () => {
     appInfo.discard();
-    setSaveError(null);
+    showToast('Discarded changes', 'info');
   };
 
   const needle = query.trim().toLowerCase();
