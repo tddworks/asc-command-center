@@ -13,16 +13,14 @@ export interface LoginCredentials {
 /**
  * Port for the auth-account collection on the asc CLI host.
  *
- * The backend exposes a small CRUD surface — list, active, create, switch,
- * clear — and that's exactly the shape repositories need to implement. The
- * domain aggregate (`Accounts`) orchestrates these; UI never speaks HTTP.
+ * The list response carries each row's `isActive` flag, so the aggregate
+ * derives the active account from the list itself rather than making a
+ * second `/active` round-trip — one call, one source of truth.
  */
 export interface AccountRepository {
-  /** List all stored accounts. */
+  /** List all stored accounts. Each carries `isActive` so the aggregate
+   *  knows which one (if any) is currently active without a second call. */
   list(): Promise<Account[]>;
-
-  /** Resolve the currently-active account, or null if no account is configured. */
-  active(): Promise<Account | null>;
 
   /** Create + activate an account from raw credentials. Returns the created entity. */
   create(creds: LoginCredentials): Promise<Account>;

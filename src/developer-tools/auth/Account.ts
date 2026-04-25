@@ -50,12 +50,25 @@ export class Account {
 
   // ── Factory ──
 
+  /** Permissive on input — the asc backend ships `keyID`/`issuerID` with a
+   *  capital D, older fixtures used `keyId`, and snake_case has appeared in
+   *  one revision. Accept all three. `isActive` is read straight off the
+   *  row when present (the list endpoint includes it) and falls back to an
+   *  explicit `opts` override for endpoints that don't. */
   static fromJSON(json: Record<string, unknown>, opts: { isActive?: boolean } = {}): Account {
     return new Account({
       name: (json.name as string) ?? '',
-      keyId: (json.keyId as string) ?? (json.key_id as string) ?? '',
-      issuerId: (json.issuerId as string) ?? (json.issuer_id as string) ?? '',
-      isActive: opts.isActive,
+      keyId:
+        (json.keyId as string) ??
+        (json.keyID as string) ??
+        (json.key_id as string) ??
+        '',
+      issuerId:
+        (json.issuerId as string) ??
+        (json.issuerID as string) ??
+        (json.issuer_id as string) ??
+        '',
+      isActive: (json.isActive as boolean | undefined) ?? opts.isActive ?? false,
     });
   }
 }

@@ -29,21 +29,9 @@ export class RestAccountRepository implements AccountRepository {
     if (!resp.ok) throw new Error(`GET ${BASE} failed: ${resp.status}`);
     const json = await resp.json();
     const rows = unwrapList(json);
-    const activeName = await this.activeName().catch(() => null);
-    return rows.map((row) =>
-      Account.fromJSON(row, { isActive: activeName !== null && row.name === activeName }),
-    );
-  }
-
-  async active(): Promise<Account | null> {
-    const resp = await fetch(`${BASE}/active`, { headers: { Accept: 'application/json' } });
-    // 404 is the "no active account" steady state — the AuthStatus widget
-    // should treat this as unauthenticated, not as an error.
-    if (resp.status === 404) return null;
-    if (!resp.ok) throw new Error(`GET ${BASE}/active failed: ${resp.status}`);
-    const json = await resp.json();
-    const account = pickAccount(unwrap(json));
-    return account ? Account.fromJSON(account, { isActive: true }) : null;
+    // Each row carries `isActive`, `keyID`, `issuerID` — `Account.fromJSON`
+    // accepts all the casing variants the backend has shipped.
+    return rows.map((row) => Account.fromJSON(row));
   }
 
   async create(creds: LoginCredentials): Promise<Account> {
@@ -57,9 +45,10 @@ export class RestAccountRepository implements AccountRepository {
       throw new Error(`POST ${BASE} failed: ${resp.status} ${text}`);
     }
     const json = await resp.json().catch(() => ({}));
-    // The POST returns `AuthStatus`, which embeds the active account.
-    // Fall back to the credentials we sent so the caller gets a usable
-    // entity even if the backend's response shape changes.
+    // POST returns `AuthStatus`, which may put the account at the root,
+    // under `account`, or under `active`. Fall back to the credentials we
+    // sent if the response shape isn't recognisable — the next refresh()
+    // will fetch the authoritative state anyway.
     const account = pickAccount(unwrap(json)) ?? {
       name: creds.name,
       keyId: creds.keyId,
@@ -87,13 +76,6 @@ export class RestAccountRepository implements AccountRepository {
       const text = await resp.text().catch(() => '');
       throw new Error(`DELETE ${BASE}/active failed: ${resp.status} ${text}`);
     }
-  }
-
-  // ── internals ──
-
-  private async activeName(): Promise<string | null> {
-    const active = await this.active();
-    return active?.name ?? null;
   }
 }
 

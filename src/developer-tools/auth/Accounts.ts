@@ -78,19 +78,16 @@ export class Accounts {
     void this.refresh();
   }
 
-  /** Reload accounts + active in parallel. Used on first mount, after
-   *  login/logout, and from the Retry button. */
+  /** Reload the accounts list. The response carries `isActive` per row, so
+   *  one call gives us the full picture — no separate `/active` probe. */
   async refresh(): Promise<void> {
     this.isLoading = true;
     this.error = null;
     try {
-      const [list, active] = await Promise.all([
-        this.repository.list(),
-        this.repository.active(),
-      ]);
+      const list = await this.repository.list();
       runInAction(() => {
         this.accounts = list;
-        this.active = active;
+        this.active = list.find((a) => a.isActive) ?? null;
         this.loaded = true;
       });
     } catch (err) {
