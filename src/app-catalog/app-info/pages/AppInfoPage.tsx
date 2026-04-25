@@ -11,6 +11,7 @@ import { PluginSlot } from '../../../extensibility/plugin/PluginSlot.tsx';
 import type { BatchTargets } from '../../../extensibility/plugin/slots.ts';
 import { LocalePickerSheet } from '../components/LocalePickerSheet.tsx';
 import { localeDisplayName } from '../AppStoreLocaleRegistry.ts';
+import { useToast } from '../../../shared/components/Toast.tsx';
 
 // Build cross-locale batch targets for a single field. Called by the
 // primary-locale slot so the plugin can fan out one enhancement across
@@ -278,6 +279,7 @@ const AppMetadataCard = observer(({ appInfo, readOnly }: { appInfo: AppInfo; rea
 const LocalizationsCard = observer(({ appInfo, readOnly }: { appInfo: AppInfo; readOnly: boolean }) => {
   const [editingLocale, setEditingLocale] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  const showToast = useToast();
 
   return (
     <div className="card">
@@ -320,12 +322,14 @@ const LocalizationsCard = observer(({ appInfo, readOnly }: { appInfo: AppInfo; r
                 onDelete={
                   !readOnly && loc.locale !== appInfo.primaryLocale
                     ? async () => {
-                        if (!confirm(`Remove ${loc.locale}?`)) return;
+                        const label = localeDisplayName(loc.locale) || loc.locale;
+                        if (!confirm(`Remove ${label}?`)) return;
                         if (editingLocale === loc.locale) setEditingLocale(null);
                         try {
                           await appInfo.deleteLocalization(loc.locale);
+                          showToast(`Removed ${label}`, 'success');
                         } catch (err) {
-                          alert(`Failed to remove ${loc.locale}: ${(err as Error).message}`);
+                          showToast(`Failed to remove ${label}: ${(err as Error).message}`, 'error');
                         }
                       }
                     : undefined

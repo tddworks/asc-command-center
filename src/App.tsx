@@ -14,6 +14,7 @@ import {
 import { workspace } from './workspace/workspaceInstance.ts';
 import { repositoryFor } from './app-catalog/app/infrastructure/App.api.ts';
 import { ThemeProvider, useTheme } from './shared/components/ThemeProvider.tsx';
+import { ToastProvider } from './shared/components/Toast.tsx';
 import { Sidebar } from './shared/layout/Sidebar.tsx';
 import { Header } from './shared/layout/Header.tsx';
 import { CommandLogModal } from './shared/components/CommandLogModal.tsx';
@@ -137,14 +138,16 @@ const AppShell = observer(function AppShell() {
 export function App() {
   return (
     <ThemeProvider>
-      <DataModeProviderComponent>
-        <WorkspaceModeBridge />
-        <PluginBootstrap api={window.ascPluginAPI}>
-          <CommandLogProvider>
-            <AppShell />
-          </CommandLogProvider>
-        </PluginBootstrap>
-      </DataModeProviderComponent>
+      <ToastProvider>
+        <DataModeProviderComponent>
+          <WorkspaceModeBridge />
+          <PluginBootstrap api={window.ascPluginAPI}>
+            <CommandLogProvider>
+              <AppShell />
+            </CommandLogProvider>
+          </PluginBootstrap>
+        </DataModeProviderComponent>
+      </ToastProvider>
     </ThemeProvider>
   );
 }
