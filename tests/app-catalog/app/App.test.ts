@@ -12,6 +12,7 @@ function stubRepo(overrides: Partial<AppRepository> = {}): AppRepository {
     versions: vi.fn(),
     createVersion: vi.fn(),
     appInfos: vi.fn().mockResolvedValue([]),
+    updateContentRights: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
@@ -286,6 +287,57 @@ describe('App', () => {
     expect(app.isFirstVersion(v)).toBe(false);
   });
 
+  // ── Content Rights (lives on App, not AppInfo) ──
+
+  it('contentRightsDeclaration defaults to null and is not dirty', () => {
+    const app = new App(appInit());
+    expect(app.contentRightsDeclaration).toBeNull();
+    expect(app.contentRightsDirty).toBe(false);
+  });
+
+  it('setContentRightsDeclaration flips dirty', () => {
+    const app = new App(appInit());
+    app.setContentRightsDeclaration('DOES_NOT_USE_THIRD_PARTY_CONTENT');
+    expect(app.contentRightsDeclaration).toBe('DOES_NOT_USE_THIRD_PARTY_CONTENT');
+    expect(app.contentRightsDirty).toBe(true);
+  });
+
+  it('setting contentRightsDeclaration back to its snapshot clears dirty', () => {
+    const app = new App(appInit({ contentRightsDeclaration: 'USES_THIRD_PARTY_CONTENT' }));
+    app.setContentRightsDeclaration('DOES_NOT_USE_THIRD_PARTY_CONTENT');
+    expect(app.contentRightsDirty).toBe(true);
+    app.setContentRightsDeclaration('USES_THIRD_PARTY_CONTENT');
+    expect(app.contentRightsDirty).toBe(false);
+  });
+
+  it('discardContentRights restores the saved value', () => {
+    const app = new App(appInit({ contentRightsDeclaration: 'USES_THIRD_PARTY_CONTENT' }));
+    app.setContentRightsDeclaration(null);
+    app.discardContentRights();
+    expect(app.contentRightsDeclaration).toBe('USES_THIRD_PARTY_CONTENT');
+    expect(app.contentRightsDirty).toBe(false);
+  });
+
+  it('saveContentRights delegates to repository.updateContentRights and marks clean', async () => {
+    const repo = stubRepo();
+    const app = new App(appInit(), repo);
+    app.setContentRightsDeclaration('DOES_NOT_USE_THIRD_PARTY_CONTENT');
+
+    await app.saveContentRights();
+
+    expect(repo.updateContentRights).toHaveBeenCalledWith(app);
+    expect(app.contentRightsDirty).toBe(false);
+  });
+
+  it('saveContentRights short-circuits when nothing is dirty', async () => {
+    const repo = stubRepo();
+    const app = new App(appInit({ contentRightsDeclaration: 'DOES_NOT_USE_THIRD_PARTY_CONTENT' }), repo);
+
+    await app.saveContentRights();
+
+    expect(repo.updateContentRights).not.toHaveBeenCalled();
+  });
+
   it('createVersion delegates to the repository with the init payload', async () => {
     const created = new Version('v-new', 'a-1', '3.0', VersionState.PrepareForSubmission, Platform.iOS, {});
     const repo = stubRepo({ createVersion: vi.fn().mockResolvedValue(created) });
@@ -452,7 +504,7 @@ describe('App', () => {
 
     expect(app.affordances).toEqual({});
     expect(app.canViewVersions).toBe(false);
-    expect(app.contentRightsDeclaration).toBeUndefined();
+    expect(app.contentRightsDeclaration).toBeNull();
   });
 
   it('fromJSON accepts a repository so the hydrated App can navigate', async () => {
