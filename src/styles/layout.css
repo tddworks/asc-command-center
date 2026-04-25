@@ -67,48 +67,34 @@
   border-top: 1px solid var(--border);
 }
 .auth-dot {
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
   background: var(--text-muted);
   flex-shrink: 0;
   transition: background 0.15s ease;
 }
-.auth-dot.tone-success { background: #22c55e; box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.18); }
-.auth-dot.tone-warning { background: #f59e0b; box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.18); }
-.auth-dot.tone-danger  { background: #ef4444; box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.18); }
+.auth-dot.tone-success { background: #22c55e; }
+.auth-dot.tone-warning { background: #f59e0b; }
+.auth-dot.tone-danger  { background: #ef4444; }
 .auth-dot.tone-neutral { background: var(--text-muted); }
 
-.auth-card {
+/* Sidebar-quiet auth widget. No card chrome — matches the muted nav
+   typography. The whole row is the same visual weight as a nav-section. */
+.sidebar-auth {
   display: flex;
   flex-direction: column;
-  gap: 8px;
-  padding: 10px 12px;
-  border-radius: 10px;
-  background: rgba(120, 113, 108, 0.06);
-  border: 1px solid transparent;
+  gap: 4px;
+  padding: 0;
 }
-.auth-card.is-signed-in {
-  background: rgba(34, 197, 94, 0.08);
-  border-color: rgba(34, 197, 94, 0.20);
-}
-.auth-card.is-cta {
-  background: rgba(245, 158, 11, 0.08);
-  border-color: rgba(245, 158, 11, 0.22);
-}
-.auth-card.is-error {
-  background: rgba(239, 68, 68, 0.08);
-  border-color: rgba(239, 68, 68, 0.22);
-}
-
-.auth-card-row {
+.sidebar-auth-row {
   display: flex;
   align-items: center;
   gap: 8px;
   min-width: 0;
 }
-.auth-card-label {
-  font-size: 12px;
+.sidebar-auth-name {
+  font-size: 12.5px;
   font-weight: 600;
   color: var(--text-primary);
   overflow: hidden;
@@ -116,63 +102,34 @@
   white-space: nowrap;
   flex: 1;
 }
-
-.auth-card-meta {
+.sidebar-auth-meta {
   display: flex;
   align-items: center;
-  justify-content: space-between;
   gap: 8px;
-  padding-left: 16px;
-}
-.auth-card-meta code {
-  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  padding-left: 15px;
   font-size: 10.5px;
   color: var(--text-muted);
-  background: rgba(120, 113, 108, 0.10);
-  padding: 1px 6px;
-  border-radius: 4px;
 }
-
-.auth-card-link {
+.sidebar-auth-meta code {
+  font-family: var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace);
+  font-size: 10px;
+  color: var(--text-muted);
+}
+.sidebar-auth-link {
   background: none;
   border: none;
   padding: 0;
   font-family: inherit;
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--text-secondary);
-  cursor: pointer;
-}
-.auth-card-link:hover { color: var(--text-primary); text-decoration: underline; }
-
-.auth-card-action {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  padding: 6px 10px;
-  border-radius: 6px;
-  border: 1px solid var(--border);
-  background: var(--bg-card);
-  color: var(--text-primary);
   font-size: 11.5px;
-  font-weight: 600;
-  font-family: inherit;
+  font-weight: 500;
+  color: var(--accent);
   cursor: pointer;
-  transition: background 0.12s ease, border-color 0.12s ease;
+  margin-left: 15px;
+  text-align: left;
+  align-self: flex-start;
 }
-.auth-card-action:hover {
-  background: rgba(120, 113, 108, 0.10);
-}
-.auth-card-action-primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: #fff;
-}
-.auth-card-action-primary:hover {
-  filter: brightness(1.05);
-  background: var(--accent);
-}
+.sidebar-auth-link:hover { text-decoration: underline; }
+.sidebar-auth-meta .sidebar-auth-link { margin-left: auto; }
 
 /* ========== MAIN ========== */
 .main { margin-left: var(--sidebar-w); flex: 1; display: flex; flex-direction: column; min-height: 100vh; min-width: 0; overflow: hidden; }
