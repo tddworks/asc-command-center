@@ -1027,6 +1027,15 @@ textarea.form-input { min-height: 80px; resize: vertical; line-height: 1.5; }
 .locale-manager-row-action.tone-add { background: var(--accent); color: #fff; }
 .locale-manager-row-action.tone-remove { background: #ef4444; color: #fff; }
 .locale-manager-row-action.tone-remove:hover { transform: scale(1.06); }
+.locale-manager-row-action.tone-undo {
+  background: rgba(120, 113, 108, 0.18);
+  color: var(--text-secondary);
+}
+.locale-manager-row-action.tone-undo:hover {
+  background: rgba(120, 113, 108, 0.30);
+  color: var(--text-primary);
+  transform: scale(1.06);
+}
 
 .locale-manager-empty {
   padding: 14px;
