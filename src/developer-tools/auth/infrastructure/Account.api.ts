@@ -1,5 +1,5 @@
 import { Account } from '../Account.ts';
-import type { AccountRepository, LoginCredentials } from '../AccountRepository.ts';
+import type { AccountRepository, AccountUpdateFields, LoginCredentials } from '../AccountRepository.ts';
 import type { DataMode } from '../../../shared/api-client.tsx';
 import { MockAccountRepository } from './Account.mock.ts';
 
@@ -55,6 +55,36 @@ export class RestAccountRepository implements AccountRepository {
       issuerId: creds.issuerId,
     };
     return Account.fromJSON(account, { isActive: true });
+  }
+
+  async update(name: string, fields: AccountUpdateFields): Promise<Account> {
+    const url = `${BASE}/${encodeURIComponent(name)}`;
+    const resp = await fetch(url, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ vendorNumber: fields.vendorNumber }),
+    });
+    if (!resp.ok) {
+      const text = await resp.text().catch(() => '');
+      throw new Error(`PATCH ${url} failed: ${resp.status} ${text}`);
+    }
+    const json = await resp.json().catch(() => ({}));
+    const row = pickAccount(unwrap(json));
+    if (row) return Account.fromJSON(row);
+    // Fall back to a synthetic record from the inputs if the response shape
+    // changes — `Accounts.refresh()` will fetch the authoritative state.
+    return new Account({ name, keyId: '', issuerId: '', vendorNumber: fields.vendorNumber });
+  }
+
+  async remove(name: string): Promise<void> {
+    const url = `${BASE}/${encodeURIComponent(name)}`;
+    const resp = await fetch(url, { method: 'DELETE' });
+    // 204 success; 404 means the record was already gone, which is also fine
+    // (idempotent delete).
+    if (!resp.ok && resp.status !== 404) {
+      const text = await resp.text().catch(() => '');
+      throw new Error(`DELETE ${url} failed: ${resp.status} ${text}`);
+    }
   }
 
   async setActive(name: string): Promise<void> {
