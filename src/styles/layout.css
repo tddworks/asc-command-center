@@ -93,6 +93,25 @@
   gap: 8px;
   min-width: 0;
 }
+.sidebar-auth-row-button {
+  background: none;
+  border: none;
+  padding: 2px 4px;
+  margin: -2px -4px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: inherit;
+  width: calc(100% + 8px);
+  text-align: left;
+  transition: background 0.12s ease;
+}
+.sidebar-auth-row-button:hover { background: rgba(120, 113, 108, 0.10); }
+.sidebar-auth-chevron {
+  width: 12px;
+  height: 12px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
 .sidebar-auth-name {
   font-size: 12.5px;
   font-weight: 600;

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { accounts } from '../accountsInstance.ts';
 import { AccountSetupSheet } from './AccountSetupSheet.tsx';
+import { AccountsManagerSheet } from './AccountsManagerSheet.tsx';
 import { CliSetupSheet } from './CliSetupSheet.tsx';
 import { useDataMode } from '../../../shared/api-client.tsx';
 
@@ -25,6 +26,7 @@ export const AuthStatus = observer(function AuthStatus() {
   const mode = useDataMode();
   const [accountSetupOpen, setAccountSetupOpen] = useState(false);
   const [cliSetupOpen, setCliSetupOpen] = useState(false);
+  const [managerOpen, setManagerOpen] = useState(false);
 
   // Backend not reachable — install/start guide is the right answer here,
   // not the account setup form.
@@ -81,22 +83,42 @@ export const AuthStatus = observer(function AuthStatus() {
   if (accounts.isAuthenticated && accounts.active) {
     const a = accounts.active;
     return (
-      <div className="sidebar-auth">
-        <div className="sidebar-auth-row">
-          <span className="auth-dot tone-success" aria-hidden />
-          <span className="sidebar-auth-name">{a.displayName}</span>
-        </div>
-        <div className="sidebar-auth-meta">
-          <code title={a.keyId}>{a.maskedKeyId}</code>
+      <>
+        <div className="sidebar-auth">
           <button
             type="button"
-            className="sidebar-auth-link"
-            onClick={() => { void accounts.logout(); }}
+            className="sidebar-auth-row sidebar-auth-row-button"
+            onClick={() => setManagerOpen(true)}
+            title="Manage accounts"
           >
-            Sign out
+            <span className="auth-dot tone-success" aria-hidden />
+            <span className="sidebar-auth-name">{a.displayName}</span>
+            <svg
+              className="sidebar-auth-chevron"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+            >
+              <polyline points="5 6 8 9 11 6"/>
+            </svg>
           </button>
+          <div className="sidebar-auth-meta">
+            <code title={a.keyId}>{a.maskedKeyId}</code>
+            <button
+              type="button"
+              className="sidebar-auth-link"
+              onClick={() => { void accounts.logout(); }}
+            >
+              Sign out
+            </button>
+          </div>
         </div>
-      </div>
+        <AccountsManagerSheet open={managerOpen} onClose={() => setManagerOpen(false)} />
+      </>
     );
   }
 
