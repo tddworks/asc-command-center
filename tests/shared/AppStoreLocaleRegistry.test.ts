@@ -3,7 +3,7 @@ import {
   APP_STORE_LOCALES,
   localeForCode,
   localeDisplayName,
-} from '../../../src/app-catalog/app-info/AppStoreLocaleRegistry.ts';
+} from '../../src/shared/AppStoreLocaleRegistry.ts';
 
 describe('AppStoreLocaleRegistry', () => {
 

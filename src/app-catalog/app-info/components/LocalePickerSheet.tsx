@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import type { AppInfo } from '../AppInfo.ts';
-import { localeDisplayName } from '../AppStoreLocaleRegistry.ts';
+import { localeDisplayName } from '../../../shared/AppStoreLocaleRegistry.ts';
 import { useToast } from '../../../shared/components/Toast.tsx';
 
 interface Props {
