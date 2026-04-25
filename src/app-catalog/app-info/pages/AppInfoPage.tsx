@@ -319,10 +319,14 @@ const LocalizationsCard = observer(({ appInfo, readOnly }: { appInfo: AppInfo; r
                 onDone={() => setEditingLocale(null)}
                 onDelete={
                   !readOnly && loc.locale !== appInfo.primaryLocale
-                    ? () => {
+                    ? async () => {
                         if (!confirm(`Remove ${loc.locale}?`)) return;
-                        appInfo.removeLocalization(loc.locale);
                         if (editingLocale === loc.locale) setEditingLocale(null);
+                        try {
+                          await appInfo.deleteLocalization(loc.locale);
+                        } catch (err) {
+                          alert(`Failed to remove ${loc.locale}: ${(err as Error).message}`);
+                        }
                       }
                     : undefined
                 }

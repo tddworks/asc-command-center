@@ -229,6 +229,51 @@ describe('AppInfo', () => {
     expect(info.hasUnsavedChanges).toBe(false);
   });
 
+  // ── deleteLocalization (immediate / optimistic) ──
+
+  it('deleteLocalization fires the backend delete immediately and removes the row', async () => {
+    const repo = stubRepo();
+    const info = makeInfo();
+    info.setRepository(repo);
+
+    await info.deleteLocalization('de-DE');
+
+    expect(info.localizationFor('de-DE')).toBeUndefined();
+    expect(info.pendingRemovals).toEqual([]);
+    expect(repo.deleteLocalization).toHaveBeenCalledTimes(1);
+    expect(info.hasUnsavedChanges).toBe(false);
+  });
+
+  it('deleteLocalization on a never-saved row just splices, skipping the backend', async () => {
+    const repo = stubRepo();
+    const info = makeInfo();
+    info.setRepository(repo);
+    info.addLocalization('fr-FR');
+
+    await info.deleteLocalization('fr-FR');
+
+    expect(info.localizationFor('fr-FR')).toBeUndefined();
+    expect(repo.deleteLocalization).not.toHaveBeenCalled();
+  });
+
+  it('deleteLocalization restores the row on backend failure', async () => {
+    const failure = new Error('boom');
+    const repo = stubRepo({ deleteLocalization: vi.fn().mockRejectedValue(failure) });
+    const info = makeInfo();
+    info.setRepository(repo);
+
+    await expect(info.deleteLocalization('de-DE')).rejects.toBe(failure);
+
+    expect(info.localizationFor('de-DE')).toBeDefined();
+    expect(info.localizationFor('de-DE')!.name).toBe('Bäckerei');
+  });
+
+  it('deleteLocalization throws when the locale is not present', async () => {
+    const info = makeInfo();
+    info.setRepository(stubRepo());
+    await expect(info.deleteLocalization('zz-ZZ')).rejects.toThrow(/not found/i);
+  });
+
   // ── availableLocalesToAdd ──
 
   it('availableLocalesToAdd excludes the locales currently on the AppInfo', () => {
