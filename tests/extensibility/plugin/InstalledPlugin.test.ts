@@ -92,4 +92,40 @@ describe('InstalledPlugin', () => {
     const p = InstalledPlugin.fromJSON({ slug: 's', name: 'n' });
     expect(p.ui).toEqual([]);
   });
+
+  it('fromJSON reads marketplace metadata when present', () => {
+    const p = InstalledPlugin.fromJSON({
+      id: 'discord-notify',
+      slug: 'discord-notify',
+      name: 'Discord Notify',
+      version: '1.2.0',
+      author: 'community',
+      description: 'Send build notifications to Discord channels.',
+      categories: ['Notifications'],
+      repositoryURL: 'https://example.com/discord-notify',
+      isInstalled: false,
+    });
+    expect(p.id).toBe('discord-notify');
+    expect(p.version).toBe('1.2.0');
+    expect(p.author).toBe('community');
+    expect(p.description).toBe('Send build notifications to Discord channels.');
+    expect(p.categories).toEqual(['Notifications']);
+    expect(p.repositoryURL).toBe('https://example.com/discord-notify');
+    expect(p.isInstalled).toBe(false);
+  });
+
+  it('fromJSON: id falls back to slug when missing', () => {
+    const p = InstalledPlugin.fromJSON({ slug: 'ASCPro', name: 'ASC Pro' });
+    expect(p.id).toBe('ASCPro');
+  });
+
+  it('fromJSON: marketplace fields default to null/empty', () => {
+    const p = InstalledPlugin.fromJSON({ slug: 's', name: 'n' });
+    expect(p.version).toBeNull();
+    expect(p.author).toBeNull();
+    expect(p.description).toBeNull();
+    expect(p.categories).toEqual([]);
+    expect(p.repositoryURL).toBeNull();
+    expect(p.isInstalled).toBe(false);
+  });
 });

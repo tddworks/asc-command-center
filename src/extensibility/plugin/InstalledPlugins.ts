@@ -3,17 +3,28 @@ import type { InstalledPlugin } from './InstalledPlugin.ts';
 import type { InstalledPluginRepository } from './InstalledPluginRepository.ts';
 
 /**
- * Root aggregate for the plugin manifest. Mirrors the shape of `Apps`,
- * `Accounts`, etc. — load on demand, expose isLoading / error / loaded
- * for the page to render the right state.
+ * Root aggregate for the Plugins page. Tracks two parallel lists —
+ * Installed and Marketplace — plus a single-source-of-truth busy slug
+ * the UI uses to spinner the right Install/Uninstall button.
+ *
+ * Mutators always end with a `refreshAll()` so both stat counts and
+ * both grids reflect the post-mutation state, mirroring the legacy
+ * `plugins.js → refreshAll()` behavior.
  */
 export class InstalledPlugins {
   repository: InstalledPluginRepository;
 
-  plugins: InstalledPlugin[] = [];
+  installed: InstalledPlugin[] = [];
+  marketplace: InstalledPlugin[] = [];
+
   isLoading = false;
   error: Error | null = null;
   loaded = false;
+
+  /** When set, that plugin's row should render its Install/Uninstall
+   *  button in the spinner state. Single field rather than per-row to
+   *  match the legacy "one mutation at a time" UX. */
+  busy: string | null = null;
 
   constructor(repository: InstalledPluginRepository) {
     this.repository = repository;
@@ -22,26 +33,39 @@ export class InstalledPlugins {
 
   // ── Display helpers ──
 
-  get count(): number { return this.plugins.length; }
-  get hasPlugins(): boolean { return this.plugins.length > 0; }
+  get installedCount(): number { return this.installed.length; }
+  get marketplaceCount(): number { return this.marketplace.length; }
 
   // ── Mutators ──
 
   switchRepository(repo: InstalledPluginRepository): void {
     this.repository = repo;
-    this.plugins = [];
+    this.installed = [];
+    this.marketplace = [];
     this.error = null;
     this.loaded = false;
-    void this.refresh();
+    void this.refreshAll();
   }
 
-  async refresh(): Promise<void> {
+  /** Load both lists in parallel. Called on mount and after every
+   *  install/uninstall so the marketplace shows the new isInstalled
+   *  state and the installed list reflects the just-added plugin. */
+  async refreshAll(): Promise<void> {
     this.isLoading = true;
     this.error = null;
     try {
-      const list = await this.repository.list();
+      const [installed, marketplace] = await Promise.all([
+        this.repository.installed(),
+        this.repository.market().catch((err) => {
+          // Marketplace can fail (offline registry, older asc) without
+          // breaking the installed list. Log and continue with empty.
+          console.warn('[plugins] marketplace fetch failed:', err);
+          return [];
+        }),
+      ]);
       runInAction(() => {
-        this.plugins = list;
+        this.installed = installed;
+        this.marketplace = marketplace;
         this.loaded = true;
       });
     } catch (err) {
@@ -54,7 +78,29 @@ export class InstalledPlugins {
     }
   }
 
-  bySlug(slug: string): InstalledPlugin | undefined {
-    return this.plugins.find((p) => p.slug === slug);
+  async install(id: string): Promise<void> {
+    this.busy = id;
+    try {
+      await this.repository.install(id);
+      await this.refreshAll();
+    } finally {
+      runInAction(() => { this.busy = null; });
+    }
+  }
+
+  async uninstall(slug: string): Promise<void> {
+    this.busy = slug;
+    try {
+      await this.repository.uninstall(slug);
+      await this.refreshAll();
+    } finally {
+      runInAction(() => { this.busy = null; });
+    }
+  }
+
+  // ── Lookups ──
+
+  installedBySlug(slug: string): InstalledPlugin | undefined {
+    return this.installed.find((p) => p.slug === slug);
   }
 }

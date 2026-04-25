@@ -15,6 +15,8 @@ import { workspace } from './workspace/workspaceInstance.ts';
 import { repositoryFor } from './app-catalog/app/infrastructure/App.api.ts';
 import { accounts } from './developer-tools/auth/accountsInstance.ts';
 import { repositoryFor as authRepositoryFor } from './developer-tools/auth/infrastructure/Account.api.ts';
+import { installedPlugins } from './extensibility/plugin/installedPluginsInstance.ts';
+import { repositoryFor as installedPluginRepositoryFor } from './extensibility/plugin/infrastructure/InstalledPlugin.api.ts';
 import { ThemeProvider, useTheme } from './shared/components/ThemeProvider.tsx';
 import { ToastProvider } from './shared/components/Toast.tsx';
 import { Sidebar } from './shared/layout/Sidebar.tsx';
@@ -56,6 +58,9 @@ function WorkspaceModeBridge() {
     });
     authRepositoryFor(mode).then((repo) => {
       if (!cancelled) accounts.switchRepository(repo);
+    });
+    installedPluginRepositoryFor(mode).then((repo) => {
+      if (!cancelled) installedPlugins.switchRepository(repo);
     });
     return () => { cancelled = true; };
   }, [mode]);

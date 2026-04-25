@@ -1,80 +1,291 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { observer } from 'mobx-react-lite';
+import { installedPlugins } from '../installedPluginsInstance.ts';
+import type { InstalledPlugin } from '../InstalledPlugin.ts';
+import { useToast } from '../../../shared/components/Toast.tsx';
 
-interface PluginInfo {
-  name: string;
-  version: string;
-  author: string;
-  description: string;
-  categories: string[];
-  installed: boolean;
-}
+const PLUGIN_COLORS = ['#7C3AED', '#2563EB', '#059669', '#D97706', '#DC2626', '#0891B2', '#4F46E5', '#EA580C'];
 
-const mockPlugins: PluginInfo[] = [
-  { name: 'discord-notify', version: '1.0.0', author: 'Community', description: 'Send build notifications to Discord channels', categories: ['Notifications'], installed: true },
-  { name: 'slack-alerts', version: '2.1.0', author: 'Community', description: 'Slack integration for review and build alerts', categories: ['Notifications'], installed: true },
-  { name: 'screenshot-ai', version: '0.9.0', author: 'ASC Team', description: 'AI-powered screenshot generation and localization', categories: ['Screenshots', 'AI'], installed: false },
-  { name: 'analytics-pro', version: '1.5.0', author: 'Community', description: 'Advanced analytics dashboards and reports', categories: ['Analytics'], installed: false },
-  { name: 'auto-reply', version: '1.0.0', author: 'Community', description: 'Auto-reply to negative reviews using templates', categories: ['Reviews', 'AI'], installed: false },
-];
+type Tab = 'installed' | 'market';
 
-const appColors = ['#2563EB', '#7C3AED', '#059669', '#D97706', '#DC2626', '#0891B2', '#4F46E5', '#EA580C'];
+const PluginsPage = observer(function PluginsPage() {
+  const [tab, setTab] = useState<Tab>('installed');
+  const [query, setQuery] = useState('');
 
-export default function PluginsPage() {
-  const [tab, setTab] = useState<'installed' | 'market'>('installed');
+  useEffect(() => {
+    if (installedPlugins.loaded) return;
+    void installedPlugins.refreshAll();
+  }, []);
 
-  const installed = mockPlugins.filter((p) => p.installed);
-  const market = mockPlugins.filter((p) => !p.installed);
-  const displayed = tab === 'installed' ? installed : market;
+  const list = tab === 'installed' ? installedPlugins.installed : installedPlugins.marketplace;
+
+  const filtered = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    if (!needle) return list;
+    return list.filter((p) => {
+      const haystack = `${p.name} ${p.slug} ${p.id} ${p.description ?? ''} ${p.author ?? ''} ${p.categories.join(' ')}`;
+      return haystack.toLowerCase().includes(needle);
+    });
+  }, [list, query]);
 
   return (
     <div>
-      <div className="dashboard-stats" style={{ marginBottom: 16 }}>
-        <div className="stat-card">
-          <div className="stat-value">{installed.length}</div>
-          <div className="stat-label">Installed</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-value">{market.length}</div>
-          <div className="stat-label">Available</div>
-        </div>
-      </div>
+      <PluginStats />
 
       <div className="card">
         <div className="toolbar">
           <div className="toolbar-left">
-            <h3>Plugins</h3>
             <div className="filter-group">
-              <button className={`filter-btn ${tab === 'installed' ? 'active' : ''}`} onClick={() => setTab('installed')}>Installed</button>
-              <button className={`filter-btn ${tab === 'market' ? 'active' : ''}`} onClick={() => setTab('market')}>Marketplace</button>
+              <button
+                type="button"
+                className={`filter-btn ${tab === 'installed' ? 'active' : ''}`}
+                onClick={() => { setTab('installed'); setQuery(''); }}
+              >
+                Installed
+              </button>
+              <button
+                type="button"
+                className={`filter-btn ${tab === 'market' ? 'active' : ''}`}
+                onClick={() => { setTab('market'); setQuery(''); }}
+              >
+                Marketplace
+              </button>
             </div>
           </div>
-        </div>
-        <div className="card-body" style={{ padding: 0 }}>
-          <div className="grid-3" style={{ padding: 16 }}>
-            {displayed.map((p, i) => (
-              <div key={p.name} className="app-card">
-                <div className="app-card-top">
-                  <div className="app-icon" style={{ background: appColors[i % appColors.length] }}>
-                    {p.name.charAt(0).toUpperCase()}
-                  </div>
-                  <div className="app-card-info">
-                    <div className="app-card-name">{p.name}</div>
-                    <div className="app-card-bundle">v{p.version} &middot; {p.author}</div>
-                  </div>
-                </div>
-                <p style={{ fontSize: 13, color: 'var(--text-secondary)', margin: '8px 0' }}>{p.description}</p>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <div>{p.categories.map((c) => <span key={c} className="platform-badge" style={{ marginRight: 4 }}>{c}</span>)}</div>
-                  {p.installed
-                    ? <button className="btn btn-secondary btn-sm" style={{ color: 'var(--danger)' }}>Uninstall</button>
-                    : <button className="btn btn-primary btn-sm">Install</button>
-                  }
-                </div>
-              </div>
-            ))}
+          <div className="toolbar-right">
+            <input
+              type="text"
+              className="form-input"
+              placeholder="Search plugins…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              style={{ width: 220, height: 32, fontSize: 12 }}
+            />
           </div>
+        </div>
+
+        <PluginsContent
+          tab={tab}
+          plugins={filtered}
+          onSwitchTab={setTab}
+        />
+      </div>
+    </div>
+  );
+});
+
+const PluginStats = observer(function PluginStats() {
+  return (
+    <div style={{ display: 'flex', gap: 12, marginBottom: 20 }}>
+      <StatCard
+        value={installedPlugins.installedCount}
+        label="Installed"
+        color="var(--accent)"
+        icon={
+          <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" width="20" height="20">
+            <path d="M12 2v6m0 0l3-3m-3 3l-3-3"/>
+            <rect x="4" y="8" width="16" height="14" rx="2"/>
+            <path d="M9 15h6"/>
+          </svg>
+        }
+      />
+      <StatCard
+        value={installedPlugins.marketplaceCount}
+        label="Available"
+        color="#059669"
+        icon={
+          <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" width="20" height="20">
+            <circle cx="11" cy="11" r="8"/>
+            <line x1="21" y1="21" x2="16.65" y2="16.65"/>
+          </svg>
+        }
+      />
+    </div>
+  );
+});
+
+function StatCard({ value, label, color, icon }: { value: number; label: string; color: string; icon: React.ReactNode }) {
+  return (
+    <div className="stat-card" style={{ flex: 1 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <div style={{
+          width: 40, height: 40, borderRadius: 10, background: color,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          {icon}
+        </div>
+        <div>
+          <div style={{ fontSize: 24, fontWeight: 700, lineHeight: 1 }}>{value}</div>
+          <div style={{ fontSize: 11, color: 'var(--text-muted)' }}>{label}</div>
         </div>
       </div>
     </div>
   );
 }
+
+const PluginsContent = observer(function PluginsContent({
+  tab, plugins, onSwitchTab,
+}: {
+  tab: Tab;
+  plugins: InstalledPlugin[];
+  onSwitchTab: (t: Tab) => void;
+}) {
+  const { isLoading, loaded, error } = installedPlugins;
+
+  if (!loaded && isLoading) {
+    return (
+      <div className="empty-state" style={{ padding: 40 }}>
+        <div className="spinner" style={{ margin: '24px auto' }} />
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="empty-state" style={{ padding: 32 }}>
+        <h3>Couldn't load plugins</h3>
+        <p>{error.message}</p>
+      </div>
+    );
+  }
+
+  if (plugins.length === 0) {
+    if (tab === 'installed') {
+      return (
+        <div className="empty-state" style={{ padding: 40 }}>
+          <svg viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="1.5"
+               width="48" height="48" style={{ marginBottom: 12 }}>
+            <path d="M12 2v6m0 0l3-3m-3 3l-3-3"/>
+            <rect x="4" y="8" width="16" height="14" rx="2"/>
+            <path d="M9 15h6"/>
+          </svg>
+          <p style={{ color: 'var(--text-muted)', margin: '0 0 12px' }}>No plugins installed</p>
+          <button type="button" className="btn btn-sm btn-primary" onClick={() => onSwitchTab('market')}>
+            Browse Marketplace
+          </button>
+        </div>
+      );
+    }
+    return (
+      <div className="empty-state" style={{ padding: 40 }}>
+        <p style={{ color: 'var(--text-muted)' }}>No plugins available in the marketplace</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="grid-3" style={{ padding: 16 }}>
+      {plugins.map((p, i) => (
+        <PluginCard key={p.slug || p.id} plugin={p} accentColor={PLUGIN_COLORS[i % PLUGIN_COLORS.length]} />
+      ))}
+    </div>
+  );
+});
+
+const PluginCard = observer(function PluginCard({
+  plugin, accentColor,
+}: {
+  plugin: InstalledPlugin;
+  accentColor: string;
+}) {
+  const showToast = useToast();
+  const busy = installedPlugins.busy === plugin.slug || installedPlugins.busy === plugin.id;
+
+  const handleInstall = async () => {
+    try {
+      await installedPlugins.install(plugin.id);
+      showToast(`${plugin.name} installed`, 'success');
+    } catch (err) {
+      showToast(`Install failed: ${(err as Error).message}`, 'error');
+    }
+  };
+
+  const handleUninstall = async () => {
+    if (!confirm(`Uninstall ${plugin.name}?`)) return;
+    try {
+      await installedPlugins.uninstall(plugin.slug);
+      showToast(`${plugin.name} uninstalled`, 'success');
+    } catch (err) {
+      showToast(`Uninstall failed: ${(err as Error).message}`, 'error');
+    }
+  };
+
+  const initial = plugin.iconLetter;
+  const subtitle = [plugin.version ? `v${plugin.version}` : '', plugin.author].filter(Boolean).join(' · ');
+
+  return (
+    <div className="app-card" style={{ cursor: 'default', display: 'flex', flexDirection: 'column' }}>
+      <div className="app-card-top" style={{ marginBottom: 8 }}>
+        <div className="app-icon" style={{
+          background: accentColor, width: 44, height: 44, fontSize: 18, borderRadius: 10,
+        }}>
+          {initial}
+        </div>
+        <div className="app-card-info" style={{ flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
+            <div className="app-card-name">{plugin.name}</div>
+            {plugin.isInstalled ? (
+              <button
+                type="button"
+                className="btn btn-sm btn-secondary"
+                onClick={handleUninstall}
+                disabled={busy}
+                style={{ fontSize: 10, color: 'var(--danger)', borderColor: 'var(--danger)' }}
+              >
+                {busy ? 'Removing…' : 'Uninstall'}
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="btn btn-sm btn-primary"
+                onClick={handleInstall}
+                disabled={busy}
+              >
+                {busy ? 'Installing…' : 'Install'}
+              </button>
+            )}
+          </div>
+          {subtitle && <div className="app-card-bundle">{subtitle}</div>}
+        </div>
+      </div>
+
+      <div style={{
+        fontSize: 12, color: 'var(--text-secondary)', lineHeight: 1.5,
+        marginBottom: 'auto', flex: 1,
+      }}>
+        {plugin.description ?? <span style={{ color: 'var(--text-muted)' }}>No description.</span>}
+      </div>
+
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        marginTop: 12, paddingTop: 10, borderTop: '1px solid var(--border)',
+      }}>
+        <div style={{ display: 'flex', gap: 4, flexWrap: 'wrap' }}>
+          {plugin.categories.map((c) => (
+            <span key={c} className="platform-badge">{c}</span>
+          ))}
+        </div>
+        {plugin.repositoryURL && (
+          <a
+            href={plugin.repositoryURL}
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              color: 'var(--text-muted)', fontSize: 11, textDecoration: 'none',
+              display: 'inline-flex', alignItems: 'center', gap: 3,
+            }}
+          >
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="12" height="12">
+              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+              <polyline points="15 3 21 3 21 9"/>
+              <line x1="10" y1="14" x2="21" y2="3"/>
+            </svg>
+            Repository
+          </a>
+        )}
+      </div>
+    </div>
+  );
+});
+
+export default PluginsPage;
