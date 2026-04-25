@@ -4,7 +4,8 @@ import { workspace } from '../../../workspace/workspaceInstance.ts';
 import { ReleaseType, type Version } from '../Version.ts';
 import { RadioCard } from '../../../shared/components/RadioCard.tsx';
 import { PluginSlot } from '../../../extensibility/plugin/PluginSlot.tsx';
-import type { TextEditKind } from '../../../extensibility/plugin/slots.ts';
+import type { TextEditKind, BatchTargets } from '../../../extensibility/plugin/slots.ts';
+import type { VersionLocalization } from '../VersionLocalization.ts';
 
 function VersionPage() {
   const currentApp = workspace.currentApp;
@@ -63,6 +64,8 @@ function VersionPage() {
     );
   }
 
+  const isFirstVersion = currentApp.isFirstVersion(version);
+
   return (
     <div className="app-info-wrap">
       <VersionReleaseCard version={version} />
@@ -71,6 +74,7 @@ function VersionPage() {
         selectedLocale={selectedLocale}
         onLocaleChange={setSelectedLocale}
         primaryLocale={currentApp.primaryLocale}
+        isFirstVersion={isFirstVersion}
         locsLoading={locsLoading}
         locsError={locsError}
       />
@@ -78,6 +82,49 @@ function VersionPage() {
       <VersionSaveBar version={version} />
     </div>
   );
+}
+
+// ─── Batch translate fanout ────────────────────────────────────────
+//
+// When the user is editing the primary locale, the `text.edit` plugin slot
+// gets a `batch` payload listing every sibling locale's matching field plus
+// a setter — the AI plugin can then translate once and write into all
+// locales in one click. Sibling locales (non-primary) omit `batch` so the
+// button only appears on the primary card, mirroring the AppInfo flow.
+type StoryField = 'description' | 'whatsNew' | 'keywords' | 'promotionalText';
+
+function readField(loc: VersionLocalization, field: StoryField): string {
+  switch (field) {
+    case 'description': return loc.description;
+    case 'whatsNew': return loc.whatsNew;
+    case 'keywords': return loc.keywords;
+    case 'promotionalText': return loc.promotionalText;
+  }
+}
+
+function writeField(loc: VersionLocalization, field: StoryField, v: string): void {
+  switch (field) {
+    case 'description': loc.setDescription(v); return;
+    case 'whatsNew': loc.setWhatsNew(v); return;
+    case 'keywords': loc.setKeywords(v); return;
+    case 'promotionalText': loc.setPromotionalText(v); return;
+  }
+}
+
+function batchFor(
+  version: Version,
+  primaryLocale: string,
+  field: StoryField,
+  sourceText: string,
+): BatchTargets {
+  const targets = version.localizations
+    .filter((l) => l.locale !== primaryLocale)
+    .map((l) => ({
+      locale: l.locale,
+      current: readField(l, field),
+      setText: (v: string) => writeField(l, field, v),
+    }));
+  return { sourceLocale: primaryLocale, sourceText, targets };
 }
 
 // ─── Version & Release ─────────────────────────────────────────────
@@ -202,16 +249,20 @@ const LanguageSwitcher = observer(({
 // ─── Story & Description ───────────────────────────────────────────
 
 const StoryDescriptionCard = observer(({
-  version, selectedLocale, onLocaleChange, primaryLocale, locsLoading, locsError,
+  version, selectedLocale, onLocaleChange, primaryLocale, isFirstVersion, locsLoading, locsError,
 }: {
   version: Version;
   selectedLocale: string;
   onLocaleChange: (locale: string) => void;
   primaryLocale: string;
+  isFirstVersion: boolean;
   locsLoading: boolean;
   locsError: Error | null;
 }) => {
   const loc = version.localizationFor(selectedLocale);
+  const isPrimary = selectedLocale === primaryLocale;
+  const maybeBatch = (field: StoryField, text: string): BatchTargets | undefined =>
+    isPrimary ? batchFor(version, primaryLocale, field, text) : undefined;
 
   return (
     <div className="card">
