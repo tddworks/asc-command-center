@@ -64,7 +64,13 @@ export class RestInstalledPluginRepository implements InstalledPluginRepository 
     url: string,
     opts: { defaultIsInstalled: boolean },
   ): Promise<InstalledPlugin[]> {
-    const resp = await fetch(url, { headers: { Accept: 'application/json' } });
+    // `no-store` keeps the browser from serving a stale 200 after an
+    // install/uninstall — we want the *current* server state, not an
+    // intermediate cached one.
+    const resp = await fetch(url, {
+      headers: { Accept: 'application/json' },
+      cache: 'no-store',
+    });
     if (!resp.ok) throw new Error(`GET ${url} failed: ${resp.status}`);
     const json = await resp.json();
     // Tolerate both `{ data: [...] }` (REST list) and `{ plugins: [...] }`
