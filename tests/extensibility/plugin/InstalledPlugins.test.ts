@@ -74,11 +74,12 @@ describe('InstalledPlugins', () => {
     expect(a.loaded).toBe(true);
   });
 
-  it('install delegates to repository.install and refreshes', async () => {
+  it('install delegates to repository.install with the plugin entity and refreshes', async () => {
+    const target = new InstalledPlugin({ slug: 'discord-notify', name: 'Discord Notify' });
     const before = [new InstalledPlugin({ slug: 'ASCPro', name: 'ASC Pro' })];
     const after = [
       new InstalledPlugin({ slug: 'ASCPro', name: 'ASC Pro' }),
-      new InstalledPlugin({ slug: 'discord-notify', name: 'Discord Notify' }),
+      target,
     ];
     const installed = vi.fn()
       .mockResolvedValueOnce(before)
@@ -87,19 +88,18 @@ describe('InstalledPlugins', () => {
     const a = new InstalledPlugins(repo);
     await a.refreshAll();
 
-    await a.install('discord-notify');
+    await a.install(target);
 
-    expect(repo.install).toHaveBeenCalledWith('discord-notify');
+    expect(repo.install).toHaveBeenCalledWith(target);
     expect(a.installedCount).toBe(2);
     expect(a.busy).toBeNull();
   });
 
-  it('uninstall delegates to repository.uninstall and refreshes', async () => {
-    const before = [
-      new InstalledPlugin({ slug: 'ASCPro', name: 'ASC Pro' }),
-      new InstalledPlugin({ slug: 'discord-notify', name: 'Discord Notify' }),
-    ];
-    const after = [new InstalledPlugin({ slug: 'ASCPro', name: 'ASC Pro' })];
+  it('uninstall delegates to repository.uninstall with the plugin entity and refreshes', async () => {
+    const ascPro = new InstalledPlugin({ slug: 'ASCPro', name: 'ASC Pro' });
+    const discord = new InstalledPlugin({ slug: 'discord-notify', name: 'Discord Notify' });
+    const before = [ascPro, discord];
+    const after = [ascPro];
     const installed = vi.fn()
       .mockResolvedValueOnce(before)
       .mockResolvedValueOnce(after);
@@ -107,18 +107,54 @@ describe('InstalledPlugins', () => {
     const a = new InstalledPlugins(repo);
     await a.refreshAll();
 
-    await a.uninstall('discord-notify');
+    await a.uninstall(discord);
 
-    expect(repo.uninstall).toHaveBeenCalledWith('discord-notify');
+    expect(repo.uninstall).toHaveBeenCalledWith(discord);
     expect(a.installedCount).toBe(1);
   });
 
   it('install clears the busy flag even if the repo throws', async () => {
     const repo = stubRepo({ install: vi.fn().mockRejectedValue(new Error('nope')) });
     const a = new InstalledPlugins(repo);
+    const p = new InstalledPlugin({ slug: 'x', name: 'X' });
 
-    await expect(a.install('x')).rejects.toThrow('nope');
+    await expect(a.install(p)).rejects.toThrow('nope');
     expect(a.busy).toBeNull();
+  });
+
+  it('searchMarket forwards the query to the repository and stores the result', async () => {
+    const matches = [new InstalledPlugin({ slug: 'discord-notify', name: 'Discord Notify' })];
+    const market = vi.fn().mockResolvedValue(matches);
+    const repo = stubRepo({ market });
+    const a = new InstalledPlugins(repo);
+
+    await a.searchMarket('discord');
+
+    expect(market).toHaveBeenCalledWith('discord');
+    expect(a.marketQuery).toBe('discord');
+    expect(a.marketplace).toEqual(matches);
+  });
+
+  it('searchMarket with an empty string passes undefined so the backend returns the unfiltered list', async () => {
+    const market = vi.fn().mockResolvedValue([]);
+    const repo = stubRepo({ market });
+    const a = new InstalledPlugins(repo);
+
+    await a.searchMarket('');
+
+    expect(market).toHaveBeenCalledWith(undefined);
+    expect(a.marketQuery).toBe('');
+  });
+
+  it('refreshAll preserves the active marketQuery so the user filter survives a refresh', async () => {
+    const market = vi.fn().mockResolvedValue([]);
+    const repo = stubRepo({ market });
+    const a = new InstalledPlugins(repo);
+    a.marketQuery = 'notify';
+
+    await a.refreshAll();
+
+    expect(market).toHaveBeenCalledWith('notify');
   });
 
   it('installedBySlug finds a loaded installed plugin', async () => {
