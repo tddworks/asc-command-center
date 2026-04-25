@@ -17,16 +17,29 @@ const PluginsPage = observer(function PluginsPage() {
     void installedPlugins.refreshAll();
   }, []);
 
+  // Marketplace search is server-side: debounce the input and call
+  // `searchMarket` so the backend's `?q=…` endpoint owns the matching.
+  // Installed search stays client-side because the list is already in
+  // memory and the user expects instant feedback.
+  useEffect(() => {
+    if (tab !== 'market') return;
+    const handle = setTimeout(() => {
+      void installedPlugins.searchMarket(query);
+    }, 200);
+    return () => clearTimeout(handle);
+  }, [tab, query]);
+
   const list = tab === 'installed' ? installedPlugins.installed : installedPlugins.marketplace;
 
   const filtered = useMemo(() => {
+    if (tab === 'market') return list; // server already filtered
     const needle = query.trim().toLowerCase();
     if (!needle) return list;
     return list.filter((p) => {
       const haystack = `${p.name} ${p.slug} ${p.id} ${p.description ?? ''} ${p.author ?? ''} ${p.categories.join(' ')}`;
       return haystack.toLowerCase().includes(needle);
     });
-  }, [list, query]);
+  }, [list, query, tab]);
 
   return (
     <div>
@@ -193,7 +206,7 @@ const PluginCard = observer(function PluginCard({
 
   const handleInstall = async () => {
     try {
-      await installedPlugins.install(plugin.id);
+      await installedPlugins.install(plugin);
       showToast(`${plugin.name} installed`, 'success');
     } catch (err) {
       showToast(`Install failed: ${(err as Error).message}`, 'error');
@@ -203,7 +216,7 @@ const PluginCard = observer(function PluginCard({
   const handleUninstall = async () => {
     if (!confirm(`Uninstall ${plugin.name}?`)) return;
     try {
-      await installedPlugins.uninstall(plugin.slug);
+      await installedPlugins.uninstall(plugin);
       showToast(`${plugin.name} uninstalled`, 'success');
     } catch (err) {
       showToast(`Uninstall failed: ${(err as Error).message}`, 'error');
