@@ -258,6 +258,34 @@ describe('App', () => {
     expect(app.canManageVersions).toBe(false);
   });
 
+  // ── isFirstVersion ──
+
+  it('isFirstVersion is true when the app has only this one version', async () => {
+    const v1 = new Version('v-1', 'a-1', '1.0', VersionState.PrepareForSubmission, Platform.iOS, {});
+    const repo = stubRepo({ versions: vi.fn().mockResolvedValue([v1]) });
+    const app = new App(appInit({ affordances: { getVersions: '/api/v1/apps/a-1/versions' } }), repo);
+    await app.loadVersions();
+
+    expect(app.isFirstVersion(v1)).toBe(true);
+  });
+
+  it('isFirstVersion is false when a sibling version exists', async () => {
+    const v1 = new Version('v-1', 'a-1', '1.0', VersionState.ReadyForSale, Platform.iOS, {});
+    const v2 = new Version('v-2', 'a-1', '2.0', VersionState.PrepareForSubmission, Platform.iOS, {});
+    const repo = stubRepo({ versions: vi.fn().mockResolvedValue([v1, v2]) });
+    const app = new App(appInit({ affordances: { getVersions: '/api/v1/apps/a-1/versions' } }), repo);
+    await app.loadVersions();
+
+    expect(app.isFirstVersion(v1)).toBe(false);
+    expect(app.isFirstVersion(v2)).toBe(false);
+  });
+
+  it('isFirstVersion is false when versions have not been loaded yet', () => {
+    const v = new Version('v-1', 'a-1', '1.0', VersionState.PrepareForSubmission, Platform.iOS, {});
+    const app = new App(appInit());
+    expect(app.isFirstVersion(v)).toBe(false);
+  });
+
   it('createVersion delegates to the repository with the init payload', async () => {
     const created = new Version('v-new', 'a-1', '3.0', VersionState.PrepareForSubmission, Platform.iOS, {});
     const repo = stubRepo({ createVersion: vi.fn().mockResolvedValue(created) });
