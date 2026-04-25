@@ -47,12 +47,17 @@ export const LocalePickerSheet = observer(function LocalePickerSheet({
 
   // Sort: primary first, then alphabetical. Inline sort is cheap and keeps
   // the active list in sync with MobX mutations without `useMemo`.
-  const activeSorted = [...appInfo.localizations].sort((a, b) => {
+  const activeLive = [...appInfo.localizations].sort((a, b) => {
     if (a.locale === appInfo.primaryLocale) return -1;
     if (b.locale === appInfo.primaryLocale) return 1;
     return localeDisplayName(a.locale).localeCompare(localeDisplayName(b.locale));
   });
-  const filteredActive = activeSorted.filter((l) => matchesActive(l.locale));
+  const pendingRemovals = [...appInfo.pendingRemovals].sort((a, b) =>
+    localeDisplayName(a.locale).localeCompare(localeDisplayName(b.locale)),
+  );
+  const filteredLive = activeLive.filter((l) => matchesActive(l.locale));
+  const filteredPending = pendingRemovals.filter((l) => matchesActive(l.locale));
+  const activeCount = appInfo.localizations.length + appInfo.pendingRemovals.length;
   const filteredAvailable = needle
     ? appInfo.availableLocalesToAdd.filter((l) =>
         `${l.displayName} ${l.code}`.toLowerCase().includes(needle),
@@ -99,13 +104,13 @@ export const LocalePickerSheet = observer(function LocalePickerSheet({
         <div className="locale-manager-body">
           <section className="locale-manager-section">
             <header className="locale-manager-section-header">
-              <h4>Active <span className="locale-manager-count">{appInfo.localizations.length}</span></h4>
+              <h4>Active <span className="locale-manager-count">{activeCount}</span></h4>
             </header>
-            {filteredActive.length === 0 ? (
+            {filteredLive.length === 0 && filteredPending.length === 0 ? (
               <div className="locale-manager-empty">{needle ? 'No active languages match.' : 'No active languages.'}</div>
             ) : (
               <ul className="locale-manager-list">
-                {filteredActive.map((loc) => {
+                {filteredLive.map((loc) => {
                   const isPrimary = loc.locale === appInfo.primaryLocale;
                   const isNew = loc.id === '';
                   return (
@@ -137,6 +142,34 @@ export const LocalePickerSheet = observer(function LocalePickerSheet({
                     </li>
                   );
                 })}
+                {filteredPending.map((loc) => (
+                  <li
+                    key={`pending-${loc.locale}`}
+                    className="locale-manager-row is-active is-removing"
+                  >
+                    <span className="locale-manager-row-text">
+                      <span className="locale-manager-row-name">
+                        <span className="locale-manager-row-strike">
+                          {localeDisplayName(loc.locale) || loc.locale}
+                        </span>
+                        <span className="locale-manager-badge tone-removing">Removing</span>
+                      </span>
+                      <span className="locale-manager-row-code locale-manager-row-strike">{loc.locale}</span>
+                    </span>
+                    <button
+                      type="button"
+                      className="locale-manager-row-action tone-undo"
+                      onClick={() => appInfo.restoreLocalization(loc.locale)}
+                      aria-label={`Undo removing ${localeDisplayName(loc.locale) || loc.locale}`}
+                      title="Undo remove"
+                    >
+                      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M5 10a5 5 0 1 1 1.5 3.5"/>
+                        <path d="M3 6v4h4"/>
+                      </svg>
+                    </button>
+                  </li>
+                ))}
               </ul>
             )}
           </section>
