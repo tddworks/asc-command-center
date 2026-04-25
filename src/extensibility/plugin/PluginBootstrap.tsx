@@ -1,6 +1,7 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import type { PluginAPI } from './PluginAPI.ts';
 import type { PluginHandle, PluginModule } from './Plugin.ts';
+import { resolveApiUrl } from '../../shared/api-client.tsx';
 
 interface ManifestResponse {
   plugins: Array<{
@@ -32,7 +33,11 @@ export interface BootstrapOptions {
  */
 export async function bootstrapPlugins({
   api,
-  resolveModule = (url) => import(/* @vite-ignore */ url),
+  // Dynamic `import()` doesn't go through the fetch interceptor, so we
+  // route the URL through `resolveApiUrl` here. In dev / localhost-served
+  // builds this is a no-op; in the public-origin build (cc.asccli.app) it
+  // rewrites `/api/plugins/...` to `https://localhost:8421/api/plugins/...`.
+  resolveModule = (url) => import(/* @vite-ignore */ resolveApiUrl(url)),
   manifestUrl = '/api/plugins',
 }: BootstrapOptions): Promise<PluginHandle[]> {
   const handles: PluginHandle[] = [];

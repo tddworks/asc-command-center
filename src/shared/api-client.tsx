@@ -61,10 +61,16 @@ export function setApiBaseUrlOverride(url: string | null): void {
   }
 }
 
-/** Rewrite a request URL when it starts with `/api/`. Anything else
- *  (absolute URLs, third-party endpoints, plugin assets) passes through
- *  unchanged. */
-function rewriteApiUrl(url: string): string {
+/**
+ * Rewrite a relative `/api/...` URL to the resolved API base. Anything
+ * else (absolute URLs, third-party endpoints, plugin pages served outside
+ * `/api/`) passes through untouched.
+ *
+ * Exported so that callers using a non-fetch transport — most notably
+ * the plugin loader's dynamic `import()` — can route through the same
+ * base resolution. The fetch interceptor handles `fetch()` automatically.
+ */
+export function resolveApiUrl(url: string): string {
   if (!url.startsWith('/api/')) return url;
   const base = getApiBaseUrl();
   return base ? `${base}${url}` : url;
@@ -78,10 +84,10 @@ function installFetchInterceptor() {
   const originalFetch = globalThis.fetch.bind(globalThis);
   globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
     if (typeof input === 'string') {
-      return originalFetch(rewriteApiUrl(input), init);
+      return originalFetch(resolveApiUrl(input), init);
     }
     if (input instanceof Request) {
-      const rewritten = rewriteApiUrl(input.url);
+      const rewritten = resolveApiUrl(input.url);
       if (rewritten !== input.url) {
         return originalFetch(new Request(rewritten, input), init);
       }
