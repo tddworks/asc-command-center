@@ -1,6 +1,7 @@
 import { makeAutoObservable, runInAction } from 'mobx';
 import { AppInfoLocalization } from './AppInfoLocalization.ts';
 import type { AppInfoRepository } from './AppInfoRepository.ts';
+import { APP_STORE_LOCALES, type AppStoreLocale } from './AppStoreLocaleRegistry.ts';
 import type { Affordances } from '../../shared/types.ts';
 import type { AgeRatingDeclaration } from '../age-rating/AgeRatingDeclaration.ts';
 
@@ -181,6 +182,13 @@ export class AppInfo {
 
   localizationFor(locale: string): AppInfoLocalization | undefined {
     return this.localizations.find((l) => l.locale === locale);
+  }
+
+  /** App Store locales not yet attached to this AppInfo. The picker lists
+   *  these so the user chooses from a known set instead of typing a code. */
+  get availableLocalesToAdd(): AppStoreLocale[] {
+    const taken = new Set(this.localizations.map((l) => l.locale));
+    return APP_STORE_LOCALES.filter((l) => !taken.has(l.code));
   }
 
   addLocalization(
