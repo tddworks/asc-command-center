@@ -2,22 +2,59 @@ import { useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { accounts } from '../accountsInstance.ts';
 import { AccountSetupSheet } from './AccountSetupSheet.tsx';
+import { CliSetupSheet } from './CliSetupSheet.tsx';
+import { useDataMode } from '../../../shared/api-client.tsx';
 
 /**
- * Sidebar footer auth widget. Replaces the static "asc auth check"
- * placeholder. Reads from the `accounts` singleton; renders one of four
- * states (loading / signed-in / not-signed-in / failed) with a clear
- * top-line label plus a one-line action row underneath.
+ * Sidebar footer auth widget. Mirrors the rest of the sidebar's quiet
+ * typography — small caps section header on top, single line state
+ * underneath, no loud cards. Three exclusive cases:
+ *
+ *   1. asc backend not reachable (`mode === 'mock'`) → "asc CLI not running"
+ *      with a "Set up" link that opens `CliSetupSheet` (install + start
+ *      guide). This is what a first-time visitor sees.
+ *   2. Backend reachable but no active account → "Not signed in" with a
+ *      "Set up account" link that opens `AccountSetupSheet` (paste API key).
+ *   3. Active account → name + masked key id + "Sign out".
+ *
+ * The two setup paths are different problems with different fixes —
+ * conflating them was the root cause of the original "Not signed in"
+ * message confusing users who didn't have asc installed at all.
  */
 export const AuthStatus = observer(function AuthStatus() {
-  const [setupOpen, setSetupOpen] = useState(false);
+  const mode = useDataMode();
+  const [accountSetupOpen, setAccountSetupOpen] = useState(false);
+  const [cliSetupOpen, setCliSetupOpen] = useState(false);
 
-  if (!accounts.loaded || (accounts.isLoading && !accounts.loaded)) {
+  // Backend not reachable — install/start guide is the right answer here,
+  // not the account setup form.
+  if (mode === 'mock') {
     return (
-      <div className="auth-card">
-        <div className="auth-card-row">
+      <>
+        <div className="sidebar-auth">
+          <div className="sidebar-auth-row">
+            <span className="auth-dot tone-warning" aria-hidden />
+            <span className="sidebar-auth-name">asc CLI not running</span>
+          </div>
+          <button
+            type="button"
+            className="sidebar-auth-link"
+            onClick={() => setCliSetupOpen(true)}
+          >
+            Set up
+          </button>
+        </div>
+        <CliSetupSheet open={cliSetupOpen} onClose={() => setCliSetupOpen(false)} />
+      </>
+    );
+  }
+
+  if (!accounts.loaded) {
+    return (
+      <div className="sidebar-auth">
+        <div className="sidebar-auth-row">
           <span className="auth-dot tone-neutral" aria-hidden />
-          <span className="auth-card-label">Checking…</span>
+          <span className="sidebar-auth-name">Checking…</span>
         </div>
       </div>
     );
@@ -25,14 +62,14 @@ export const AuthStatus = observer(function AuthStatus() {
 
   if (accounts.error) {
     return (
-      <div className="auth-card is-error">
-        <div className="auth-card-row">
+      <div className="sidebar-auth">
+        <div className="sidebar-auth-row">
           <span className="auth-dot tone-danger" aria-hidden />
-          <span className="auth-card-label">Connection failed</span>
+          <span className="sidebar-auth-name">Connection failed</span>
         </div>
         <button
           type="button"
-          className="auth-card-action"
+          className="sidebar-auth-link"
           onClick={() => { void accounts.refresh(); }}
         >
           Retry
@@ -44,16 +81,16 @@ export const AuthStatus = observer(function AuthStatus() {
   if (accounts.isAuthenticated && accounts.active) {
     const a = accounts.active;
     return (
-      <div className="auth-card is-signed-in">
-        <div className="auth-card-row">
+      <div className="sidebar-auth">
+        <div className="sidebar-auth-row">
           <span className="auth-dot tone-success" aria-hidden />
-          <span className="auth-card-label">{a.displayName}</span>
+          <span className="sidebar-auth-name">{a.displayName}</span>
         </div>
-        <div className="auth-card-meta">
+        <div className="sidebar-auth-meta">
           <code title={a.keyId}>{a.maskedKeyId}</code>
           <button
             type="button"
-            className="auth-card-link"
+            className="sidebar-auth-link"
             onClick={() => { void accounts.logout(); }}
           >
             Sign out
@@ -63,22 +100,23 @@ export const AuthStatus = observer(function AuthStatus() {
     );
   }
 
+  // Backend reachable, no account stored.
   return (
     <>
-      <div className="auth-card is-cta">
-        <div className="auth-card-row">
+      <div className="sidebar-auth">
+        <div className="sidebar-auth-row">
           <span className="auth-dot tone-warning" aria-hidden />
-          <span className="auth-card-label">Not signed in</span>
+          <span className="sidebar-auth-name">Not signed in</span>
         </div>
         <button
           type="button"
-          className="auth-card-action auth-card-action-primary"
-          onClick={() => setSetupOpen(true)}
+          className="sidebar-auth-link"
+          onClick={() => setAccountSetupOpen(true)}
         >
           Set up account
         </button>
       </div>
-      <AccountSetupSheet open={setupOpen} onClose={() => setSetupOpen(false)} />
+      <AccountSetupSheet open={accountSetupOpen} onClose={() => setAccountSetupOpen(false)} />
     </>
   );
 });
