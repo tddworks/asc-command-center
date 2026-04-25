@@ -1,0 +1,131 @@
+import { Account } from '../Account.ts';
+import type { AccountRepository, LoginCredentials } from '../AccountRepository.ts';
+import type { DataMode } from '../../../shared/api-client.tsx';
+import { MockAccountRepository } from './Account.mock.ts';
+
+/**
+ * REST adapter for the asc CLI's `/api/v1/auth/accounts` endpoints.
+ *
+ * Endpoints (per the asc backend's `AuthController`):
+ *   POST   /api/v1/auth/accounts          → login (returns AuthStatus)
+ *   GET    /api/v1/auth/accounts          → list   (returns ConnectAccount[])
+ *   GET    /api/v1/auth/accounts/active   → active (returns AuthStatus | 404)
+ *   PATCH  /api/v1/auth/accounts/active   → switch ({ name })
+ *   DELETE /api/v1/auth/accounts/active   → logout
+ *
+ * Responses follow the project-wide `{"data": …}` Presentable wrapper. We
+ * unwrap once at the adapter boundary; the rest of the slice sees domain
+ * objects only.
+ *
+ * Security note: login bodies carry the .p8 PEM. Run `asc web-server`
+ * bound to loopback only when this controller is enabled — anything else
+ * leaks credentials.
+ */
+const BASE = '/api/v1/auth/accounts';
+
+export class RestAccountRepository implements AccountRepository {
+  async list(): Promise<Account[]> {
+    const resp = await fetch(BASE, { headers: { Accept: 'application/json' } });
+    if (!resp.ok) throw new Error(`GET ${BASE} failed: ${resp.status}`);
+    const json = await resp.json();
+    const rows = unwrapList(json);
+    const activeName = await this.activeName().catch(() => null);
+    return rows.map((row) =>
+      Account.fromJSON(row, { isActive: activeName !== null && row.name === activeName }),
+    );
+  }
+
+  async active(): Promise<Account | null> {
+    const resp = await fetch(`${BASE}/active`, { headers: { Accept: 'application/json' } });
+    // 404 is the "no active account" steady state — the AuthStatus widget
+    // should treat this as unauthenticated, not as an error.
+    if (resp.status === 404) return null;
+    if (!resp.ok) throw new Error(`GET ${BASE}/active failed: ${resp.status}`);
+    const json = await resp.json();
+    const account = pickAccount(unwrap(json));
+    return account ? Account.fromJSON(account, { isActive: true }) : null;
+  }
+
+  async create(creds: LoginCredentials): Promise<Account> {
+    const resp = await fetch(BASE, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(creds),
+    });
+    if (!resp.ok) {
+      const text = await resp.text().catch(() => '');
+      throw new Error(`POST ${BASE} failed: ${resp.status} ${text}`);
+    }
+    const json = await resp.json().catch(() => ({}));
+    // The POST returns `AuthStatus`, which embeds the active account.
+    // Fall back to the credentials we sent so the caller gets a usable
+    // entity even if the backend's response shape changes.
+    const account = pickAccount(unwrap(json)) ?? {
+      name: creds.name,
+      keyId: creds.keyId,
+      issuerId: creds.issuerId,
+    };
+    return Account.fromJSON(account, { isActive: true });
+  }
+
+  async setActive(name: string): Promise<void> {
+    const resp = await fetch(`${BASE}/active`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name }),
+    });
+    if (!resp.ok) {
+      const text = await resp.text().catch(() => '');
+      throw new Error(`PATCH ${BASE}/active failed: ${resp.status} ${text}`);
+    }
+  }
+
+  async clearActive(): Promise<void> {
+    const resp = await fetch(`${BASE}/active`, { method: 'DELETE' });
+    // 204 is success; 404 means already cleared, which is also success.
+    if (!resp.ok && resp.status !== 404) {
+      const text = await resp.text().catch(() => '');
+      throw new Error(`DELETE ${BASE}/active failed: ${resp.status} ${text}`);
+    }
+  }
+
+  // ── internals ──
+
+  private async activeName(): Promise<string | null> {
+    const active = await this.active();
+    return active?.name ?? null;
+  }
+}
+
+/** Unwrap `{"data": X}` → `X`, leaving anything else alone. */
+function unwrap(json: unknown): unknown {
+  if (json && typeof json === 'object' && 'data' in json) {
+    return (json as { data: unknown }).data;
+  }
+  return json;
+}
+
+function unwrapList(json: unknown): Record<string, unknown>[] {
+  const inner = unwrap(json);
+  if (Array.isArray(inner)) return inner as Record<string, unknown>[];
+  return [];
+}
+
+/** AuthStatus payloads vary in shape across asc revisions: sometimes the
+ *  account is at the root, sometimes nested under `account` / `active`.
+ *  Probe each location and return the first one that looks right. */
+function pickAccount(payload: unknown): Record<string, unknown> | null {
+  if (!payload || typeof payload !== 'object') return null;
+  const obj = payload as Record<string, unknown>;
+  if (typeof obj.name === 'string' && (typeof obj.keyId === 'string' || typeof obj.key_id === 'string')) {
+    return obj;
+  }
+  if (obj.account && typeof obj.account === 'object') return obj.account as Record<string, unknown>;
+  if (obj.active && typeof obj.active === 'object') return obj.active as Record<string, unknown>;
+  return null;
+}
+
+export async function repositoryFor(mode: DataMode): Promise<AccountRepository> {
+  if (mode === 'mock') return new MockAccountRepository();
+  return new RestAccountRepository();
+}

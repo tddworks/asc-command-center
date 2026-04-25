@@ -14,7 +14,7 @@ import type { AccountRepository, LoginCredentials } from './AccountRepository.ts
  * state (have we loaded? did the load fail? is there an active account?).
  */
 export class Accounts {
-  readonly repository: AccountRepository;
+  repository: AccountRepository;
 
   accounts: Account[] = [];
   active: Account | null = null;
@@ -65,6 +65,18 @@ export class Accounts {
   }
 
   // ── Mutators ──
+
+  /** Swap the underlying repository. Called when the app's DataMode flips
+   *  from `mock` → `rest` (or vice versa) so the singleton rebinds without
+   *  losing identity. Resets transient state and re-probes. */
+  switchRepository(repo: AccountRepository): void {
+    this.repository = repo;
+    this.accounts = [];
+    this.active = null;
+    this.error = null;
+    this.loaded = false;
+    void this.refresh();
+  }
 
   /** Reload accounts + active in parallel. Used on first mount, after
    *  login/logout, and from the Retry button. */
