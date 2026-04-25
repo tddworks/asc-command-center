@@ -1,5 +1,5 @@
 import { Account } from '../Account.ts';
-import type { AccountRepository, LoginCredentials } from '../AccountRepository.ts';
+import type { AccountRepository, AccountUpdateFields, LoginCredentials } from '../AccountRepository.ts';
 
 /**
  * In-memory MockAccountRepository — simulates the asc CLI's auth store.
@@ -24,11 +24,31 @@ export class MockAccountRepository implements AccountRepository {
       name: creds.name,
       keyId: creds.keyId,
       issuerId: creds.issuerId,
+      vendorNumber: creds.vendorNumber ?? null,
       isActive: true,
     });
     this.accounts.set(creds.name, account);
     this.activeName = creds.name;
     return account;
+  }
+
+  async update(name: string, fields: AccountUpdateFields): Promise<Account> {
+    const existing = this.accounts.get(name);
+    if (!existing) throw new Error(`Account '${name}' not found`);
+    const updated = new Account({
+      name: existing.name,
+      keyId: existing.keyId,
+      issuerId: existing.issuerId,
+      vendorNumber: fields.vendorNumber,
+      isActive: existing.isActive,
+    });
+    this.accounts.set(name, updated);
+    return updated;
+  }
+
+  async remove(name: string): Promise<void> {
+    this.accounts.delete(name);
+    if (this.activeName === name) this.activeName = null;
   }
 
   async setActive(name: string): Promise<void> {
