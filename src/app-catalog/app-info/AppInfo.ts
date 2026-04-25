@@ -235,6 +235,44 @@ export class AppInfo {
     return [...this.removedBuffer.values()];
   }
 
+  /**
+   * Delete a localization right now — fires the backend DELETE immediately
+   * and drops the row from the live list on success. Optimistic: the row
+   * disappears from the UI before the network round-trip; on failure we
+   * restore it at its original index so the user sees their state come back.
+   *
+   * Use this when the user wants a "delete & be done" gesture (the page
+   * table's Delete button). For staged removals that batch with Save, use
+   * `removeLocalization` instead.
+   */
+  async deleteLocalization(locale: string): Promise<void> {
+    const idx = this.localizations.findIndex((l) => l.locale === locale);
+    if (idx < 0) {
+      throw new Error(`Locale ${locale} not found on AppInfo ${this.id}`);
+    }
+    const loc = this.localizations[idx];
+
+    // Locally-added (never-saved) row → just splice it out, no backend call.
+    if (loc.id === '') {
+      runInAction(() => { this.localizations.splice(idx, 1); });
+      return;
+    }
+
+    if (!this.repository) {
+      throw new Error(`AppInfo ${this.id} has no repository attached`);
+    }
+
+    // Optimistic remove — immediate UI feedback. Restore on failure.
+    runInAction(() => { this.localizations.splice(idx, 1); });
+    try {
+      await loc.delete();
+      runInAction(() => { this.snapshot.localeIds.delete(locale); });
+    } catch (err) {
+      runInAction(() => { this.localizations.splice(idx, 0, loc); });
+      throw err;
+    }
+  }
+
   /** Undo a staged removal: pull the locale back out of the buffer and
    *  return it to the live list. No-op if the locale wasn't pending. */
   restoreLocalization(locale: string): void {
