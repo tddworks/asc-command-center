@@ -24,6 +24,12 @@ import type { SlotName } from './slots.ts';
  */
 export class PluginRegistry {
   private plugins: Map<string, PluginRegistration> = new Map();
+  /** Per-plugin activation failures keyed by slug. Set when bootstrap
+   *  fails to dynamic-import or activate the bundle; cleared on the next
+   *  successful activation of the same slug. The Sidebar reads this so
+   *  the user sees *why* their plugin's widgets are missing instead of
+   *  having to dig through the console. */
+  private errors: Map<string, string> = new Map();
   /** Observable tick — MobX doesn't track Map mutations automatically, so
    *  we bump this on every change and touch it in every read. Consumers
    *  subscribe transparently via `observer()`. */
@@ -40,6 +46,20 @@ export class PluginRegistry {
 
   unregister(id: string): void {
     if (this.plugins.delete(id)) this.revision++;
+  }
+
+  recordError(slug: string, message: string): void {
+    this.errors.set(slug, message);
+    this.revision++;
+  }
+
+  clearError(slug: string): void {
+    if (this.errors.delete(slug)) this.revision++;
+  }
+
+  getErrors(): Array<{ slug: string; message: string }> {
+    void this.revision; // observe
+    return [...this.errors.entries()].map(([slug, message]) => ({ slug, message }));
   }
 
   getPages(): PluginPage[] {

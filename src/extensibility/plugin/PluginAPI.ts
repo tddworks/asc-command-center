@@ -29,9 +29,13 @@ import type { ASCWorkspace } from '../../workspace/ASCWorkspace.ts';
 
 import type { PluginRegistration } from './Plugin.ts';
 
-/** Host plugin-API semver. Bump the major when a breaking change removes
- *  or renames a field in this file. Bump the minor on additive changes. */
-export const PLUGIN_API_VERSION = '1.0.0';
+/** Host plugin-API semver. Tracks what the asc plugin ecosystem actually
+ *  ships (currently `0.17.x` — what ASC Pro and friends declare in their
+ *  manifest `apiVersion`). Pre-1.0 semver: bump the **minor** segment for
+ *  breaking changes (drop or rename a field below); bump the **patch**
+ *  segment for additive changes. After we cut a stable 1.0 the policy
+ *  flips to standard semver (major = breaking, minor = additive). */
+export const PLUGIN_API_VERSION = '0.17.2';
 
 // ── Top-level ────────────────────────────────────────────────────────
 

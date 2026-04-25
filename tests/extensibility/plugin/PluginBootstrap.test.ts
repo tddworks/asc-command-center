@@ -90,13 +90,46 @@ describe('bootstrapPlugins', () => {
     expect(goodActivate).toHaveBeenCalled();
   });
 
-  it('skips plugins with an incompatible apiVersion major', async () => {
+  it('skips plugins with an incompatible apiVersion major when strict', async () => {
     vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse({
       plugins: [{ name: 'future', slug: 'future', ui: ['ui/z.bundle.js'], apiVersion: '2.0.0' }],
     }));
     const resolveModule = vi.fn();
 
+    // jsdom reports hostname=localhost so the default is permissive;
+    // explicitly opt in to strict for this assertion.
+    await bootstrapPlugins({ api: fakeApi(), resolveModule, strictApiVersion: true });
+
+    expect(resolveModule).not.toHaveBeenCalled();
+  });
+
+  it('localhost dev loads plugins even when apiVersion mismatches', async () => {
+    // The asc CLI ecosystem is still pre-1.0 so plugins ship 0.17.x while
+    // the host's PLUGIN_API_VERSION lags or leads. Strict gating on
+    // localhost gets in the way of plugin development — we let it through.
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse({
+      plugins: [{ name: 'mismatched', slug: 'mismatched', ui: ['ui/m.bundle.js'], apiVersion: '0.17.2' }],
+    }));
+    const activate = vi.fn();
+    const resolveModule = vi.fn().mockResolvedValue({ activate });
+
+    // strictApiVersion undefined → auto-detect → localhost → permissive.
     await bootstrapPlugins({ api: fakeApi(), resolveModule });
+
+    expect(resolveModule).toHaveBeenCalled();
+    expect(activate).toHaveBeenCalled();
+  });
+
+  it('pre-1.0 versions compare on minor (semver convention), not major', async () => {
+    // 0.17.x and 0.18.x are NOT compatible — the minor segment is the
+    // breaking-change boundary in pre-1.0 semver. Strict mode must reject
+    // even though both have major=0.
+    vi.spyOn(globalThis, 'fetch').mockResolvedValue(jsonResponse({
+      plugins: [{ name: 'older', slug: 'older', ui: ['ui/o.bundle.js'], apiVersion: '0.18.0' }],
+    }));
+    const resolveModule = vi.fn();
+
+    await bootstrapPlugins({ api: fakeApi(), resolveModule, strictApiVersion: true });
 
     expect(resolveModule).not.toHaveBeenCalled();
   });
