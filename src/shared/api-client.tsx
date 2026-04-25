@@ -207,8 +207,38 @@ function patchUrlProperty(proto: object, prop: 'src' | 'href'): void {
   });
 }
 
+// ─── WebSocket interceptor ────────────────────────────────────────────
+//
+// Plugins (notably ASC Pro's simulator stream) open WebSocket connections
+// to `/api/sim/ws` on the asc CLI. The browser resolves these against
+// `location.host`, so on the public-domain build they hit `cc.asccli.app`
+// — which has no WebSocket endpoint. Wrap the constructor so any
+// `/api/...` URL is routed to the user's local CLI on `wss://localhost:8421`
+// (or `ws://localhost:8420` over plain HTTP).
+//
+// Class-extension is the cleanest path: it preserves the prototype chain,
+// inherits the static `CONNECTING`/`OPEN`/`CLOSING`/`CLOSED` constants,
+// and `instanceof WebSocket` keeps working for plugins that check.
+
+let webSocketInterceptorInstalled = false;
+function installWebSocketInterceptor() {
+  if (webSocketInterceptorInstalled) return;
+  if (typeof globalThis.WebSocket !== 'function') return;
+  webSocketInterceptorInstalled = true;
+
+  const OriginalWebSocket = globalThis.WebSocket;
+  class WrappedWebSocket extends OriginalWebSocket {
+    constructor(url: string | URL, protocols?: string | string[]) {
+      const raw = typeof url === 'string' ? url : url.toString();
+      super(resolveWsUrl(raw), protocols);
+    }
+  }
+  globalThis.WebSocket = WrappedWebSocket as unknown as typeof WebSocket;
+}
+
 installFetchInterceptor();
 installAssetUrlInterceptor();
+installWebSocketInterceptor();
 
 // --- Data-mode context ---
 
