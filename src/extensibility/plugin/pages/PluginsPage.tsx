@@ -103,6 +103,17 @@ const PluginStats = observer(function PluginStats() {
         }
       />
       <StatCard
+        value={installedPlugins.updatesCount}
+        label="Updates"
+        color={installedPlugins.hasUpdates ? '#D97706' : '#6B7280'}
+        icon={
+          <svg viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" width="20" height="20">
+            <path d="M21 12a9 9 0 1 1-3-6.7L21 8"/>
+            <polyline points="21 3 21 8 16 8"/>
+          </svg>
+        }
+      />
+      <StatCard
         value={installedPlugins.marketplaceCount}
         label="Available"
         color="#059669"
@@ -202,7 +213,13 @@ const PluginCard = observer(function PluginCard({
   accentColor: string;
 }) {
   const showToast = useToast();
-  const busy = installedPlugins.busy === plugin.slug || installedPlugins.busy === plugin.id;
+  // Busy can match the plugin's slug/id (install/uninstall) OR the
+  // PluginUpdate's name (apply-update). Cover all three.
+  const update = plugin.isInstalled ? installedPlugins.updateFor(plugin) : undefined;
+  const busy =
+    installedPlugins.busy === plugin.slug ||
+    installedPlugins.busy === plugin.id ||
+    (update !== undefined && installedPlugins.busy === update.name);
 
   const handleInstall = async () => {
     try {
@@ -223,6 +240,16 @@ const PluginCard = observer(function PluginCard({
     }
   };
 
+  const handleUpdate = async () => {
+    if (!update) return;
+    try {
+      await installedPlugins.applyUpdate(update);
+      showToast(`${plugin.name} updated to v${update.latestVersion}`, 'success');
+    } catch (err) {
+      showToast(`Update failed: ${(err as Error).message}`, 'error');
+    }
+  };
+
   const initial = plugin.iconLetter;
   const subtitle = [plugin.version ? `v${plugin.version}` : '', plugin.author].filter(Boolean).join(' · ');
 
@@ -237,28 +264,47 @@ const PluginCard = observer(function PluginCard({
         <div className="app-card-info" style={{ flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 8 }}>
             <div className="app-card-name">{plugin.name}</div>
-            {plugin.isInstalled ? (
-              <button
-                type="button"
-                className="btn btn-sm btn-secondary"
-                onClick={handleUninstall}
-                disabled={busy}
-                style={{ fontSize: 10, color: 'var(--danger)', borderColor: 'var(--danger)' }}
-              >
-                {busy ? 'Removing…' : 'Uninstall'}
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="btn btn-sm btn-primary"
-                onClick={handleInstall}
-                disabled={busy}
-              >
-                {busy ? 'Installing…' : 'Install'}
-              </button>
-            )}
+            <div style={{ display: 'flex', gap: 4 }}>
+              {update && (
+                <button
+                  type="button"
+                  className="btn btn-sm btn-primary"
+                  onClick={handleUpdate}
+                  disabled={busy}
+                  title={`Update to v${update.latestVersion}`}
+                  style={{ background: '#D97706', borderColor: '#D97706' }}
+                >
+                  {busy ? 'Updating…' : 'Update'}
+                </button>
+              )}
+              {plugin.isInstalled ? (
+                <button
+                  type="button"
+                  className="btn btn-sm btn-secondary"
+                  onClick={handleUninstall}
+                  disabled={busy}
+                  style={{ fontSize: 10, color: 'var(--danger)', borderColor: 'var(--danger)' }}
+                >
+                  {busy ? 'Removing…' : 'Uninstall'}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  className="btn btn-sm btn-primary"
+                  onClick={handleInstall}
+                  disabled={busy}
+                >
+                  {busy ? 'Installing…' : 'Install'}
+                </button>
+              )}
+            </div>
           </div>
           {subtitle && <div className="app-card-bundle">{subtitle}</div>}
+          {update && (
+            <div style={{ fontSize: 11, color: '#D97706', marginTop: 2, fontWeight: 600 }}>
+              ↑ Update available · {update.versionDelta}
+            </div>
+          )}
         </div>
       </div>
 
