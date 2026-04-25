@@ -1,32 +1,36 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { AppStoreLocale } from '../AppStoreLocaleRegistry.ts';
+import { observer } from 'mobx-react-lite';
+import type { AppInfo } from '../AppInfo.ts';
+import { localeDisplayName } from '../AppStoreLocaleRegistry.ts';
 
 interface Props {
   open: boolean;
-  available: readonly AppStoreLocale[];
-  onAdd: (codes: string[]) => void;
+  appInfo: AppInfo;
   onClose: () => void;
 }
 
 /**
- * Modal sheet for picking App Store locales to add. Multi-select: rows
- * toggle in/out of a local staging set, and nothing is committed to the
- * domain until the user confirms via the footer's "Add N language(s)"
- * button. Cancel (or Escape / backdrop) discards the staging set.
+ * Language Manager sheet — mirrors the macOS reference design. Shows both
+ * the locales currently attached to the AppInfo (Active) and the App Store
+ * locales available to add (Add Language) in one modal. Adds and removes
+ * mutate the AppInfo aggregate directly; the page-level StickySaveBar
+ * commits or discards the resulting dirty state.
  *
- * Reuses `.app-picker-*` (backdrop, modal shell, search bar, close button).
- * Selection state lives entirely inside this component — the AppInfo
- * aggregate only learns about the picks on confirm.
+ * Wrapped in `observer()` so rows move between sections in real time as
+ * the user adds/removes — without round-tripping local staging state.
  */
-export function LocalePickerSheet({ open, available, onAdd, onClose }: Props) {
+export const LocalePickerSheet = observer(function LocalePickerSheet({
+  open, appInfo, onClose,
+}: Props) {
   const [query, setQuery] = useState('');
-  const [staged, setStaged] = useState<Set<string>>(() => new Set());
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
     if (!open) return;
     setQuery('');
-    setStaged(new Set());
+    setSaveError(null);
     requestAnimationFrame(() => inputRef.current?.focus());
 
     const onKey = (e: KeyboardEvent) => {
@@ -36,133 +40,228 @@ export function LocalePickerSheet({ open, available, onAdd, onClose }: Props) {
     return () => document.removeEventListener('keydown', onKey);
   }, [open, onClose]);
 
-  const filtered = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    if (!needle) return available;
-    return available.filter((l) =>
+  // Sort active locales: primary first, then alphabetical by display name —
+  // matches the Mac mockup where en-US sits at the top of the list.
+  const activeRows = useMemo(() => {
+    const list = [...appInfo.localizations];
+    list.sort((a, b) => {
+      if (a.locale === appInfo.primaryLocale) return -1;
+      if (b.locale === appInfo.primaryLocale) return 1;
+      return localeDisplayName(a.locale).localeCompare(localeDisplayName(b.locale));
+    });
+    return list;
+  }, [appInfo.localizations, appInfo.primaryLocale]);
+
+  const needle = query.trim().toLowerCase();
+
+  const filteredActive = useMemo(() => {
+    if (!needle) return activeRows;
+    return activeRows.filter((l) =>
+      `${localeDisplayName(l.locale)} ${l.locale}`.toLowerCase().includes(needle),
+    );
+  }, [activeRows, needle]);
+
+  const filteredAvailable = useMemo(() => {
+    if (!needle) return appInfo.availableLocalesToAdd;
+    return appInfo.availableLocalesToAdd.filter((l) =>
       `${l.displayName} ${l.code}`.toLowerCase().includes(needle),
     );
-  }, [available, query]);
+  }, [appInfo.availableLocalesToAdd, needle]);
 
   if (!open) return null;
 
-  const toggle = (code: string) => {
-    setStaged((prev) => {
-      const next = new Set(prev);
-      if (next.has(code)) next.delete(code);
-      else next.add(code);
-      return next;
-    });
+  const handleAdd = (code: string) => {
+    try {
+      appInfo.addLocalization(code);
+    } catch (err) {
+      setSaveError((err as Error).message);
+    }
   };
 
-  const handleConfirm = () => {
-    if (staged.size === 0) return;
-    // Preserve the order of `available` so consumers see a stable sequence
-    // rather than insertion order from clicks.
-    const codes = available.filter((l) => staged.has(l.code)).map((l) => l.code);
-    onAdd(codes);
-    onClose();
+  const handleRemove = (locale: string) => {
+    try {
+      appInfo.removeLocalization(locale);
+    } catch (err) {
+      setSaveError((err as Error).message);
+    }
   };
 
-  const count = staged.size;
+  const handleSave = async () => {
+    setSaving(true);
+    setSaveError(null);
+    try {
+      await appInfo.save();
+    } catch (err) {
+      setSaveError((err as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDiscard = () => {
+    appInfo.discard();
+    setSaveError(null);
+  };
+
+  const dirty = appInfo.hasUnsavedChanges;
 
   return (
     <div className="app-picker-backdrop" onClick={onClose}>
       <div
-        className="app-picker-modal locale-picker-modal"
+        className="app-picker-modal locale-manager-modal"
         role="dialog"
         aria-modal="true"
-        aria-label="Add languages"
+        aria-label="Language manager"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="app-picker-header">
-          <div className="app-picker-search">
-            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <circle cx="9" cy="9" r="6"/>
-              <path d="M14 14l4 4"/>
-            </svg>
-            <input
-              ref={inputRef}
-              type="text"
-              placeholder="Search languages…"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
+        <div className="locale-manager-titlebar">
+          <div>
+            <h3 className="locale-manager-title">Language Manager</h3>
+            <p className="locale-manager-subtitle">Manage your App Store locales</p>
           </div>
-          <button
-            type="button"
-            className="app-picker-close"
-            onClick={onClose}
-            aria-label="Close"
+          <div className="locale-manager-titlebar-right">
+            {dirty && <span className="locale-manager-modified">● Modified</span>}
+            <button
+              type="button"
+              className="app-picker-close"
+              onClick={onClose}
+              aria-label="Close"
+            >
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <path d="M5 5l10 10M15 5L5 15"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <div className="locale-manager-search">
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+            <circle cx="9" cy="9" r="6"/>
+            <path d="M14 14l4 4"/>
+          </svg>
+          <input
+            ref={inputRef}
+            type="text"
+            placeholder="Search languages…"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </div>
+
+        <div className="locale-manager-body">
+          <Section
+            title="Active Languages"
+            countLabel={`${activeRows.length} ${activeRows.length === 1 ? 'language' : 'languages'}`}
+            countTone="active"
           >
-            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-              <path d="M5 5l10 10M15 5L5 15"/>
-            </svg>
-          </button>
-        </div>
-
-        <div className="app-picker-body">
-          {available.length === 0 ? (
-            <div className="app-picker-empty">All App Store locales are already added.</div>
-          ) : filtered.length === 0 ? (
-            <div className="app-picker-empty">No languages match &ldquo;{query}&rdquo;.</div>
-          ) : (
-            <ul className="locale-picker-list">
-              {filtered.map((l) => {
-                const isSelected = staged.has(l.code);
-                return (
-                  <li key={l.code}>
-                    <button
-                      type="button"
-                      className={`locale-picker-row ${isSelected ? 'is-selected' : ''}`}
-                      aria-pressed={isSelected}
-                      onClick={() => toggle(l.code)}
+            {filteredActive.length === 0 ? (
+              <EmptyHint>{needle ? 'No active languages match.' : 'No active languages.'}</EmptyHint>
+            ) : (
+              <div className="locale-manager-grid">
+                {filteredActive.map((loc) => {
+                  const isPrimary = loc.locale === appInfo.primaryLocale;
+                  const isNew = loc.id === '';
+                  return (
+                    <div
+                      key={loc.locale}
+                      className={`locale-manager-card is-active ${isPrimary ? 'is-primary' : ''} ${isNew ? 'is-new' : ''}`}
                     >
-                      <span className="locale-picker-row-text">
-                        <span className="locale-picker-row-name">{l.displayName}</span>
-                        <span className="locale-picker-row-code">{l.code}</span>
+                      <span className="locale-manager-card-icon" aria-hidden>
+                        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="10" cy="10" r="7"/>
+                          <path d="M3 10h14M10 3a14 14 0 0 1 0 14M10 3a14 14 0 0 0 0 14"/>
+                        </svg>
                       </span>
-                      <span
-                        className={`locale-picker-row-icon ${isSelected ? 'is-checked' : ''}`}
-                        aria-hidden
-                      >
-                        {isSelected ? (
+                      <span className="locale-manager-card-text">
+                        <span className="locale-manager-card-row1">
+                          <span className="locale-manager-card-name">
+                            {localeDisplayName(loc.locale) || loc.locale}
+                          </span>
+                          {isPrimary && <span className="locale-manager-badge tone-primary">Primary</span>}
+                          {isNew && !isPrimary && <span className="locale-manager-badge tone-new">New</span>}
+                        </span>
+                        <span className="locale-manager-card-code">{loc.locale}</span>
+                        <span className="locale-manager-card-status tone-ok">● Active</span>
+                      </span>
+                      {!isPrimary && (
+                        <button
+                          type="button"
+                          className="locale-manager-card-action tone-remove"
+                          onClick={() => handleRemove(loc.locale)}
+                          aria-label={`Remove ${localeDisplayName(loc.locale) || loc.locale}`}
+                        >
                           <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M4 10l4 4 8-8"/>
+                            <path d="M5 10h10"/>
                           </svg>
-                        ) : (
-                          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M10 4v12M4 10h12"/>
-                          </svg>
-                        )}
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </Section>
+
+          <Section
+            title="Add Language"
+            countLabel={`${appInfo.availableLocalesToAdd.length} ${appInfo.availableLocalesToAdd.length === 1 ? 'language' : 'languages'}`}
+            countTone="available"
+          >
+            {appInfo.availableLocalesToAdd.length === 0 ? (
+              <EmptyHint>All App Store locales are already added.</EmptyHint>
+            ) : filteredAvailable.length === 0 ? (
+              <EmptyHint>No languages match &ldquo;{query}&rdquo;.</EmptyHint>
+            ) : (
+              <div className="locale-manager-grid">
+                {filteredAvailable.map((l) => (
+                  <button
+                    key={l.code}
+                    type="button"
+                    className="locale-manager-card is-available"
+                    onClick={() => handleAdd(l.code)}
+                  >
+                    <span className="locale-manager-card-action tone-add" aria-hidden>
+                      <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M10 5v10M5 10h10"/>
+                      </svg>
+                    </span>
+                    <span className="locale-manager-card-text">
+                      <span className="locale-manager-card-row1">
+                        <span className="locale-manager-card-name">{l.displayName}</span>
                       </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+                      <span className="locale-manager-card-code">{l.code}</span>
+                      <span className="locale-manager-card-status tone-muted">● Available</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </Section>
         </div>
 
-        {count > 0 && (
-          <div className="locale-picker-footer">
-            <span className="locale-picker-footer-count">
-              {count} selected
+        {(dirty || saveError) && (
+          <div className="locale-manager-footer">
+            <span className="locale-manager-footer-text">
+              {saveError
+                ? <span className="save-bar-error">Save failed: {saveError}</span>
+                : <><strong>Pending Changes</strong> · localizations</>}
             </span>
-            <div className="locale-picker-footer-actions">
+            <div className="locale-manager-footer-actions">
               <button
                 type="button"
                 className="btn btn-secondary btn-sm"
-                onClick={() => setStaged(new Set())}
+                onClick={handleDiscard}
+                disabled={saving || !dirty}
               >
-                Clear
+                Discard
               </button>
               <button
                 type="button"
                 className="btn btn-primary btn-sm"
-                onClick={handleConfirm}
+                onClick={handleSave}
+                disabled={saving || !dirty}
               >
-                Add {count} {count === 1 ? 'language' : 'languages'}
+                {saving ? 'Saving…' : 'Save'}
               </button>
             </div>
           </div>
@@ -170,4 +269,27 @@ export function LocalePickerSheet({ open, available, onAdd, onClose }: Props) {
       </div>
     </div>
   );
+});
+
+function Section({
+  title, countLabel, countTone, children,
+}: {
+  title: string;
+  countLabel: string;
+  countTone: 'active' | 'available';
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="locale-manager-section">
+      <header className="locale-manager-section-header">
+        <h4 className="locale-manager-section-title">{title}</h4>
+        <span className={`locale-manager-section-count tone-${countTone}`}>{countLabel}</span>
+      </header>
+      {children}
+    </section>
+  );
+}
+
+function EmptyHint({ children }: { children: React.ReactNode }) {
+  return <div className="locale-manager-empty">{children}</div>;
 }
