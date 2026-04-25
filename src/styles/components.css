@@ -840,6 +840,90 @@ textarea.form-input { min-height: 80px; resize: vertical; line-height: 1.5; }
   font-size: 13px;
 }
 
+/* ─── Auth setup sheet ────────────────────────────────────────────── */
+
+.auth-setup-modal {
+  width: min(560px, 100%);
+  height: auto;
+  max-height: 88vh;
+  display: flex;
+  flex-direction: column;
+}
+.auth-setup-titlebar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 22px 6px;
+}
+.auth-setup-title {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+.auth-setup-subtitle {
+  margin: 2px 0 0;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.auth-setup-body {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 6px 22px 16px;
+  overflow-y: auto;
+}
+.auth-setup-steps {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 12.5px;
+  color: var(--text-secondary);
+  background: rgba(120, 113, 108, 0.06);
+  padding: 12px 14px 12px 30px;
+  border-radius: 10px;
+}
+.auth-setup-steps li { margin: 4px 0; }
+.auth-setup-steps a { color: var(--accent); }
+.auth-setup-steps code {
+  background: rgba(120, 113, 108, 0.18);
+  padding: 1px 4px;
+  border-radius: 4px;
+  font-size: 11px;
+}
+.auth-setup-fields { display: flex; flex-direction: column; gap: 10px; }
+.auth-setup-key-picker {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.auth-setup-key-status {
+  font-size: 12px;
+  color: var(--text-secondary);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.auth-setup-key-ok { color: #22c55e; font-weight: 700; }
+.auth-setup-error {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(239, 68, 68, 0.10);
+  border: 1px solid rgba(239, 68, 68, 0.30);
+  color: var(--danger-text, #b91c1c);
+  font-size: 12px;
+}
+.auth-setup-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  padding-top: 6px;
+  border-top: 1px solid var(--border);
+  margin-top: 4px;
+  padding-top: 14px;
+}
+
+
 /* ─── Locale Manager (Language Manager sheet) ─────────────────────── */
 
 .locale-manager-modal {
