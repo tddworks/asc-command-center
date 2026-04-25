@@ -69,17 +69,29 @@ export class MockInstalledPluginRepository implements InstalledPluginRepository 
       .map((p) => this.withInstalled(p, true));
   }
 
-  async market(): Promise<InstalledPlugin[]> {
-    return this.allPlugins.map((p) => this.withInstalled(p, this.installedSlugs.has(p.slug)));
+  async market(query?: string): Promise<InstalledPlugin[]> {
+    const all = this.allPlugins.map((p) =>
+      this.withInstalled(p, this.installedSlugs.has(p.slug)),
+    );
+    const needle = query?.trim().toLowerCase();
+    if (!needle) return all;
+    return all.filter((p) => {
+      const haystack = [
+        p.name, p.slug, p.id, p.description, p.author, ...p.categories,
+      ].filter(Boolean).join(' ').toLowerCase();
+      return haystack.includes(needle);
+    });
   }
 
-  async install(id: string): Promise<void> {
+  async install(plugin: InstalledPlugin): Promise<void> {
+    const id = plugin.id || plugin.slug;
     const found = this.allPlugins.find((p) => p.id === id || p.slug === id);
     if (!found) throw new Error(`Plugin '${id}' not found in marketplace`);
     this.installedSlugs.add(found.slug);
   }
 
-  async uninstall(slug: string): Promise<void> {
+  async uninstall(plugin: InstalledPlugin): Promise<void> {
+    const slug = plugin.slug || plugin.id;
     if (!this.installedSlugs.has(slug)) {
       throw new Error(`Plugin '${slug}' is not installed`);
     }
@@ -87,6 +99,12 @@ export class MockInstalledPluginRepository implements InstalledPluginRepository 
   }
 
   private withInstalled(p: InstalledPlugin, isInstalled: boolean): InstalledPlugin {
+    // Mirror the REST shape: installed rows ship an `uninstall` affordance,
+    // marketplace rows ship `install`. Lets the page-level UI exercise the
+    // "follow affordance" REST path in mock mode without a real backend.
+    const affordances: Record<string, string> = isInstalled
+      ? { uninstall: `/api/v1/plugins/${p.slug}` }
+      : { install: '/api/v1/plugins' };
     return new InstalledPlugin({
       id: p.id,
       slug: p.slug,
@@ -99,6 +117,7 @@ export class MockInstalledPluginRepository implements InstalledPluginRepository 
       ui: p.ui,
       repositoryURL: p.repositoryURL,
       isInstalled,
+      affordances,
     });
   }
 }

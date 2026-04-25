@@ -1,4 +1,5 @@
 import { makeAutoObservable } from 'mobx';
+import type { Affordances } from '../../shared/types.ts';
 
 export interface InstalledPluginInit {
   /** Stable identifier, used in URLs (`/api/plugins/:slug/...`). */
@@ -28,6 +29,11 @@ export interface InstalledPluginInit {
    *  for marketplace entries. The aggregate uses this to render the right
    *  Install / Uninstall button. */
   isInstalled?: boolean;
+  /** HATEOAS affordances on this plugin row — typically `install` (on
+   *  marketplace entries) or `uninstall` (on installed entries). The REST
+   *  adapter follows these when present and falls back to the canonical
+   *  `/api/v1/plugins[/<slug>]` URLs otherwise. */
+  affordances?: Affordances;
 }
 
 /**
@@ -52,6 +58,7 @@ export class InstalledPlugin {
   readonly categories: string[];
   readonly repositoryURL: string | null;
   readonly isInstalled: boolean;
+  readonly affordances: Affordances;
 
   constructor(init: InstalledPluginInit) {
     this.slug = init.slug;
@@ -65,10 +72,11 @@ export class InstalledPlugin {
     this.categories = init.categories ? [...init.categories] : [];
     this.repositoryURL = init.repositoryURL ?? null;
     this.isInstalled = init.isInstalled ?? false;
+    this.affordances = init.affordances ?? {};
     makeAutoObservable(this, {
       slug: false, id: false, name: false, apiVersion: false, ui: false,
       version: false, description: false, author: false, categories: false,
-      repositoryURL: false, isInstalled: false,
+      repositoryURL: false, isInstalled: false, affordances: false,
     });
   }
 
@@ -111,6 +119,18 @@ export class InstalledPlugin {
     return pluginMajor === hostMajor;
   }
 
+  /** URL the backend exposes for installing this plugin. Marketplace rows
+   *  ship it; installed rows usually don't. */
+  get installUrl(): string | null {
+    return this.affordances.install ?? null;
+  }
+
+  /** URL the backend exposes for uninstalling this plugin. Installed rows
+   *  ship it; marketplace rows don't. */
+  get uninstallUrl(): string | null {
+    return this.affordances.uninstall ?? null;
+  }
+
   // ── Factory ──
 
   static fromJSON(json: Record<string, unknown>): InstalledPlugin {
@@ -126,6 +146,9 @@ export class InstalledPlugin {
       categories: Array.isArray(json.categories) ? (json.categories as string[]) : [],
       repositoryURL: (json.repositoryURL as string | null | undefined) ?? null,
       isInstalled: (json.isInstalled as boolean | undefined) ?? false,
+      // `apiClient.get` flattens `_links → affordances` upstream, so the
+      // row we receive here already has the flat shape.
+      affordances: (json.affordances as Affordances | undefined) ?? {},
     });
   }
 }

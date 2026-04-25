@@ -5,10 +5,11 @@ import type { InstalledPluginRepository } from './InstalledPluginRepository.ts';
 /**
  * Root aggregate for the Plugins page. Tracks two parallel lists —
  * Installed and Marketplace — plus a single-source-of-truth busy slug
- * the UI uses to spinner the right Install/Uninstall button.
+ * the UI uses to spinner the right Install/Uninstall button, and the
+ * current marketplace search query so re-renders don't lose it.
  *
- * Mutators always end with a `refreshAll()` so both stat counts and
- * both grids reflect the post-mutation state, mirroring the legacy
+ * Mutators always end with a refresh so both stat counts and both grids
+ * reflect the post-mutation state, mirroring the legacy
  * `plugins.js → refreshAll()` behavior.
  */
 export class InstalledPlugins {
@@ -16,6 +17,7 @@ export class InstalledPlugins {
 
   installed: InstalledPlugin[] = [];
   marketplace: InstalledPlugin[] = [];
+  marketQuery = '';
 
   isLoading = false;
   error: Error | null = null;
@@ -42,6 +44,7 @@ export class InstalledPlugins {
     this.repository = repo;
     this.installed = [];
     this.marketplace = [];
+    this.marketQuery = '';
     this.error = null;
     this.loaded = false;
     void this.refreshAll();
@@ -49,14 +52,16 @@ export class InstalledPlugins {
 
   /** Load both lists in parallel. Called on mount and after every
    *  install/uninstall so the marketplace shows the new isInstalled
-   *  state and the installed list reflects the just-added plugin. */
+   *  state and the installed list reflects the just-added plugin.
+   *  Reuses the current `marketQuery` so a refresh doesn't drop the
+   *  user's filter. */
   async refreshAll(): Promise<void> {
     this.isLoading = true;
     this.error = null;
     try {
       const [installed, marketplace] = await Promise.all([
         this.repository.installed(),
-        this.repository.market().catch((err) => {
+        this.repository.market(this.marketQuery || undefined).catch((err) => {
           // Marketplace can fail (offline registry, older asc) without
           // breaking the installed list. Log and continue with empty.
           console.warn('[plugins] marketplace fetch failed:', err);
@@ -78,20 +83,33 @@ export class InstalledPlugins {
     }
   }
 
-  async install(id: string): Promise<void> {
-    this.busy = id;
+  /** Update the marketplace search query and re-fetch. The page debounces
+   *  user input and calls this; the aggregate just owns the query state. */
+  async searchMarket(query: string): Promise<void> {
+    this.marketQuery = query;
     try {
-      await this.repository.install(id);
+      const market = await this.repository.market(query || undefined);
+      runInAction(() => { this.marketplace = market; });
+    } catch (err) {
+      console.warn('[plugins] marketplace search failed:', err);
+      runInAction(() => { this.marketplace = []; });
+    }
+  }
+
+  async install(plugin: InstalledPlugin): Promise<void> {
+    this.busy = plugin.slug || plugin.id;
+    try {
+      await this.repository.install(plugin);
       await this.refreshAll();
     } finally {
       runInAction(() => { this.busy = null; });
     }
   }
 
-  async uninstall(slug: string): Promise<void> {
-    this.busy = slug;
+  async uninstall(plugin: InstalledPlugin): Promise<void> {
+    this.busy = plugin.slug || plugin.id;
     try {
-      await this.repository.uninstall(slug);
+      await this.repository.uninstall(plugin);
       await this.refreshAll();
     } finally {
       runInAction(() => { this.busy = null; });
