@@ -2,6 +2,96 @@ import { createContext, useContext, useState, useCallback, useEffect, type React
 
 export type DataMode = 'mock' | 'rest';
 
+// ─── API base URL resolution ────────────────────────────────────────
+//
+// The UI is published as a static SPA at https://cc.asccli.app, but it
+// talks to the asc CLI's web-server running on the *user's own machine*.
+// Three deployment shapes:
+//
+//   1. `npm run dev`            → http://localhost:5173, Vite proxies /api/*
+//                                 to http://localhost:8420.
+//   2. `asc web-server` direct  → http://localhost:8420, same-origin.
+//   3. https://cc.asccli.app    → must hit the user's local CLI. HTTPS
+//                                 pages cannot fetch http://localhost
+//                                 (mixed-content), so we rewrite to
+//                                 https://localhost:8421 (asc's HTTPS
+//                                 endpoint, self-signed cert that the
+//                                 user trusts via the setup sheet).
+//
+// A single `fetch` interceptor is the chokepoint — every adapter, every
+// affordance follow-up, and the DataMode probe all flow through it,
+// without each call site having to know about the base URL.
+
+/** localStorage key for an explicit user override (custom port, alt host). */
+const API_BASE_OVERRIDE_KEY = 'asc.apiBaseUrl';
+
+/** Default HTTPS endpoint exposed by `asc web-server` — only used when
+ *  the page itself is served over HTTPS from a non-localhost origin. */
+const DEFAULT_HTTPS_LOCAL = 'https://localhost:8421';
+
+export function getApiBaseUrl(): string {
+  if (typeof window === 'undefined') return '';
+
+  // 1. User override wins. Stored without a trailing slash; we strip
+  //    defensively so `${base}/api/v1` always produces a valid URL.
+  try {
+    const override = localStorage.getItem(API_BASE_OVERRIDE_KEY);
+    if (override) return override.replace(/\/+$/, '');
+  } catch {
+    // SSR / sandboxed iframe — fall through to the default.
+  }
+
+  // 2. Same-origin when the page itself runs on localhost. Vite proxies
+  //    `/api/*` in dev; the asc CLI serves the UI directly otherwise.
+  const host = window.location.hostname;
+  if (host === 'localhost' || host === '127.0.0.1') return '';
+
+  // 3. Public-domain UI (cc.asccli.app, etc.). Must be HTTPS to avoid
+  //    mixed-content blocks. The user has to accept the self-signed cert
+  //    once at https://localhost:8421 — the CliSetupSheet links there.
+  return DEFAULT_HTTPS_LOCAL;
+}
+
+export function setApiBaseUrlOverride(url: string | null): void {
+  try {
+    if (url) localStorage.setItem(API_BASE_OVERRIDE_KEY, url);
+    else localStorage.removeItem(API_BASE_OVERRIDE_KEY);
+  } catch {
+    // best-effort
+  }
+}
+
+/** Rewrite a request URL when it starts with `/api/`. Anything else
+ *  (absolute URLs, third-party endpoints, plugin assets) passes through
+ *  unchanged. */
+function rewriteApiUrl(url: string): string {
+  if (!url.startsWith('/api/')) return url;
+  const base = getApiBaseUrl();
+  return base ? `${base}${url}` : url;
+}
+
+let fetchInterceptorInstalled = false;
+function installFetchInterceptor() {
+  if (fetchInterceptorInstalled) return;
+  if (typeof globalThis.fetch !== 'function') return;
+  fetchInterceptorInstalled = true;
+  const originalFetch = globalThis.fetch.bind(globalThis);
+  globalThis.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
+    if (typeof input === 'string') {
+      return originalFetch(rewriteApiUrl(input), init);
+    }
+    if (input instanceof Request) {
+      const rewritten = rewriteApiUrl(input.url);
+      if (rewritten !== input.url) {
+        return originalFetch(new Request(rewritten, input), init);
+      }
+    }
+    return originalFetch(input, init);
+  }) as typeof fetch;
+}
+
+installFetchInterceptor();
+
 // --- Data-mode context ---
 
 const DataModeContext = createContext<{
