@@ -1,5 +1,9 @@
 import { useEffect, useState } from 'react';
-import { useRecheckMode } from '../../../shared/api-client.tsx';
+import {
+  getApiBaseUrl,
+  setApiBaseUrlOverride,
+  useRecheckMode,
+} from '../../../shared/api-client.tsx';
 import { useToast } from '../../../shared/components/Toast.tsx';
 import { accounts } from '../accountsInstance.ts';
 
@@ -26,11 +30,22 @@ export function CliSetupSheet({ open, onClose }: Props) {
   const showToast = useToast();
   const [trying, setTrying] = useState(false);
   const [copiedCmd, setCopiedCmd] = useState<string | null>(null);
+  const [baseUrl, setBaseUrl] = useState<string>(() => getApiBaseUrl());
+
+  // Surface whether the page itself is served over HTTPS — that's what
+  // forces the UI to target `https://localhost:8421` instead of the
+  // friendlier `http://localhost:8420`. The cert-trust step only matters
+  // in the HTTPS case, so we hide it otherwise.
+  const isHttpsPage =
+    typeof window !== 'undefined' && window.location.protocol === 'https:' &&
+    window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+  const resolvedBase = baseUrl || (typeof window !== 'undefined' ? window.location.origin : '');
 
   useEffect(() => {
     if (!open) return;
     setTrying(false);
     setCopiedCmd(null);
+    setBaseUrl(getApiBaseUrl());
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !trying) onClose(); };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
@@ -51,13 +66,21 @@ export function CliSetupSheet({ open, onClose }: Props) {
   const handleTryAgain = async () => {
     setTrying(true);
     try {
+      // Persist the (possibly edited) URL before we re-probe so the rest
+      // of the app picks it up.
+      const trimmed = baseUrl.trim().replace(/\/+$/, '');
+      setApiBaseUrlOverride(trimmed && trimmed !== getDefaultBase() ? trimmed : null);
+
       const ok = await recheck();
       if (ok) {
         await accounts.refresh();
         showToast('asc backend connected', 'success');
         onClose();
       } else {
-        showToast("Still can't reach asc — make sure web-server is running on port 8420", 'error');
+        const hint = isHttpsPage
+          ? `Still can't reach ${trimmed || 'https://localhost:8421'}. Visit it once in this browser to accept the self-signed certificate.`
+          : "Still can't reach asc — make sure web-server is running.";
+        showToast(hint, 'error');
       }
     } finally {
       setTrying(false);
