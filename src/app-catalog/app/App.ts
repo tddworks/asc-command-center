@@ -102,6 +102,14 @@ export class App {
     return this.versions.some((v) => v.canEdit);
   }
 
+  /** Is the given version the app's only/first version?
+   *  Used by the editor to hide "What's New" on a first release — the field
+   *  has no prior version to compare against. Mirrors the iOS Mac app's
+   *  `AppStoryDescription.isFirstVersion` gate. */
+  isFirstVersion(version: Version): boolean {
+    return this.versions.length <= 1 && this.versions[0]?.id === version.id;
+  }
+
   // ── Display ──
 
   get displayName(): string {
