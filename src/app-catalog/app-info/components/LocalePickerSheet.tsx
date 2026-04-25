@@ -234,9 +234,7 @@ export const LocalePickerSheet = observer(function LocalePickerSheet({
 
         <div className={`locale-manager-footer ${appInfo.hasUnsavedChanges ? 'is-pending' : ''}`}>
           <span className="locale-manager-footer-text">
-            {saveError ? (
-              <span className="save-bar-error">Save failed: {saveError}</span>
-            ) : appInfo.hasUnsavedChanges ? (
+            {appInfo.hasUnsavedChanges ? (
               <><span className="locale-manager-footer-dot" aria-hidden>●</span> <strong>Pending Changes</strong></>
             ) : (
               <span style={{ color: 'var(--text-muted)' }}>Add or remove languages, then Save.</span>
@@ -273,3 +271,13 @@ export const LocalePickerSheet = observer(function LocalePickerSheet({
     </div>
   );
 });
+
+function savedToast(adds: number, removes: number): string {
+  if (adds && removes) {
+    return `Saved — added ${adds} ${plural(adds)}, removed ${removes} ${plural(removes)}`;
+  }
+  if (adds) return `Saved — added ${adds} ${plural(adds)}`;
+  if (removes) return `Saved — removed ${removes} ${plural(removes)}`;
+  return 'Saved changes';
+}
+function plural(n: number): string { return n === 1 ? 'language' : 'languages'; }
