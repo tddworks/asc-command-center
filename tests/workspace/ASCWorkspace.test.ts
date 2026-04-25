@@ -31,6 +31,7 @@ function makeRepo(apps: App[], versionsByApp: Record<string, Version[]> = {}): A
     versions: vi.fn(async (app: App) => versionsByApp[app.id] ?? []),
     createVersion: vi.fn(),
     appInfos: vi.fn().mockResolvedValue([]),
+    updateContentRights: vi.fn().mockResolvedValue(undefined),
   };
   apps.forEach((a) => a.setRepository(repo));
   return repo;

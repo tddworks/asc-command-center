@@ -27,7 +27,6 @@ function stubBackend(extra: Partial<Record<string, (init: RequestInit | undefine
             appId: 'app-9',
             primaryCategoryId: 'FINANCE',
             secondaryCategoryId: null,
-            contentRightsDeclaration: null,
             state: 'READY_FOR_DISTRIBUTION',
             appStoreState: 'READY_FOR_SALE',
           },
@@ -100,7 +99,6 @@ describe('RestAppInfoRepository', () => {
     const [info] = await repo.list('app-9');
     info.setPrimaryCategory('UTILITIES');
     info.setSecondaryCategory('PRODUCTIVITY');
-    info.setContentRightsDeclaration('USES_THIRD_PARTY_CONTENT');
 
     await info.save();
 
@@ -108,12 +106,11 @@ describe('RestAppInfoRepository', () => {
     expect(JSON.parse(capturedInit!.body as string)).toEqual({
       primaryCategoryId: 'UTILITIES',
       secondaryCategoryId: 'PRODUCTIVITY',
-      contentRightsDeclaration: 'USES_THIRD_PARTY_CONTENT',
     });
     expect(info.hasUnsavedChanges).toBe(false);
   });
 
-  it('saveCategories sends null for contentRightsDeclaration so it can be cleared', async () => {
+  it('saveCategories does not send contentRightsDeclaration (it lives on App, not AppInfo)', async () => {
     let capturedBody: unknown;
     stubBackend({
       '/api/v1/app-infos/info-42': (init) => {
@@ -124,12 +121,14 @@ describe('RestAppInfoRepository', () => {
     const repo = new RestAppInfoRepository();
 
     const [info] = await repo.list('app-9');
-    info.setContentRightsDeclaration('USES_THIRD_PARTY_CONTENT');
-    await info.save();
-    info.setContentRightsDeclaration(null);
+    info.setPrimaryCategory('UTILITIES');
     await info.save();
 
-    expect((capturedBody as { contentRightsDeclaration: unknown }).contentRightsDeclaration).toBeNull();
+    expect(capturedBody).toEqual({
+      primaryCategoryId: 'UTILITIES',
+      secondaryCategoryId: null,
+    });
+    expect((capturedBody as Record<string, unknown>).contentRightsDeclaration).toBeUndefined();
   });
 
   it('save throws when the categories PATCH returns non-OK', async () => {
