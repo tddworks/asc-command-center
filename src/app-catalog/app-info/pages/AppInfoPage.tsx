@@ -580,19 +580,17 @@ const AgeRatingCard = observer(function AgeRatingCard({
 
 const StickySaveBar = observer(({ appInfo }: { appInfo: AppInfo }) => {
   const [saving, setSaving] = useState(false);
-  const [msg, setMsg] = useState<{ kind: 'ok' | 'error'; text: string } | null>(null);
+  const showToast = useToast();
 
   if (!appInfo.hasUnsavedChanges && !saving) return null;
 
   const handleSave = async () => {
     setSaving(true);
-    setMsg(null);
     try {
       await appInfo.save();
-      setMsg({ kind: 'ok', text: 'Saved' });
-      setTimeout(() => setMsg(null), 2000);
+      showToast('Saved changes', 'success');
     } catch (err) {
-      setMsg({ kind: 'error', text: (err as Error).message });
+      showToast(`Save failed: ${(err as Error).message}`, 'error');
     } finally {
       setSaving(false);
     }
@@ -601,14 +599,14 @@ const StickySaveBar = observer(({ appInfo }: { appInfo: AppInfo }) => {
   return (
     <div className="save-bar" role="region" aria-label="Unsaved changes">
       <div className="save-bar-inner">
-        <span className="save-bar-status">
-          {msg?.kind === 'error'
-            ? <span className="save-bar-error">Save failed: {msg.text}</span>
-            : msg?.kind === 'ok' ? <span style={{ color: 'var(--success-text)', fontWeight: 600 }}>{msg.text}</span>
-            : <span>You have unsaved changes</span>}
-        </span>
+        <span className="save-bar-status">You have unsaved changes</span>
         <div className="save-bar-actions">
-          <button type="button" className="btn btn-secondary" onClick={() => appInfo.discard()} disabled={saving}>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => { appInfo.discard(); showToast('Discarded changes', 'info'); }}
+            disabled={saving}
+          >
             Discard
           </button>
           <button type="button" className="btn btn-primary" onClick={handleSave} disabled={saving}>
