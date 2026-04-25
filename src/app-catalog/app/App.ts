@@ -13,7 +13,10 @@ export interface AppInit {
   primaryLocale: string;
   isAvailableInNewTerritories: boolean;
   affordances: Affordances;
-  contentRightsDeclaration?: string;
+  /** USES_THIRD_PARTY_CONTENT / DOES_NOT_USE_THIRD_PARTY_CONTENT, or null
+   *  when the developer hasn't answered yet. Lives on App per Apple's
+   *  data model; the asc backend exposes it via `PATCH /apps/:appId`. */
+  contentRightsDeclaration?: string | null;
   /** Already-resolved icon URL (http, data:, etc.). Takes precedence. */
   iconUrl?: string;
   /** ASC ImageAsset template URL — contains `{w}x{h}` and `{f}` placeholders. */
@@ -35,9 +38,15 @@ export class App {
   primaryLocale: string;
   isAvailableInNewTerritories: boolean;
   affordances: Affordances;
-  contentRightsDeclaration?: string;
+  contentRightsDeclaration: string | null;
   iconUrl?: string;
   iconTemplateUrl?: string;
+
+  /** Pristine snapshot for `contentRightsDeclaration`. Used to power
+   *  `contentRightsDirty` so the page-level save bar knows when to PATCH
+   *  the App. Other fields aren't yet editable — when they become so, this
+   *  expands. */
+  private contentRightsSnapshot: string | null;
 
   /** Versions loaded for this app (populated by loadVersions()). */
   versions: Version[] = [];
@@ -60,7 +69,8 @@ export class App {
     this.primaryLocale = init.primaryLocale;
     this.isAvailableInNewTerritories = init.isAvailableInNewTerritories;
     this.affordances = init.affordances;
-    this.contentRightsDeclaration = init.contentRightsDeclaration;
+    this.contentRightsDeclaration = init.contentRightsDeclaration ?? null;
+    this.contentRightsSnapshot = this.contentRightsDeclaration;
     this.iconUrl = init.iconUrl;
     this.iconTemplateUrl = init.iconTemplateUrl;
     this.repository = repository;
@@ -71,7 +81,32 @@ export class App {
   // ── Semantic Booleans ──
 
   get hasContentRights(): boolean {
-    return this.contentRightsDeclaration !== undefined;
+    return this.contentRightsDeclaration !== null;
+  }
+
+  // ── Mutators / dirty tracking ──
+
+  setContentRightsDeclaration(decl: string | null): void {
+    this.contentRightsDeclaration = decl;
+  }
+
+  get contentRightsDirty(): boolean {
+    return this.contentRightsDeclaration !== this.contentRightsSnapshot;
+  }
+
+  /** Save app-level dirty fields. Today that's just contentRightsDeclaration;
+   *  AppInfo / AppInfoLocalization / AgeRatingDeclaration each save themselves
+   *  for fields they own. */
+  async saveContentRights(): Promise<void> {
+    if (!this.contentRightsDirty) return;
+    await this.requireRepo().updateContentRights(this);
+    runInAction(() => {
+      this.contentRightsSnapshot = this.contentRightsDeclaration;
+    });
+  }
+
+  discardContentRights(): void {
+    this.contentRightsDeclaration = this.contentRightsSnapshot;
   }
 
   get canEdit(): boolean {
@@ -274,7 +309,7 @@ export class App {
         primaryLocale: (json.primaryLocale as string) ?? 'en-US',
         isAvailableInNewTerritories: (json.isAvailableInNewTerritories as boolean) ?? true,
         affordances: (json.affordances as Affordances) ?? {},
-        contentRightsDeclaration: json.contentRightsDeclaration as string | undefined,
+        contentRightsDeclaration: (json.contentRightsDeclaration as string | null | undefined) ?? null,
         iconUrl: json.iconUrl as string | undefined,
         iconTemplateUrl: iconAsset?.templateUrl,
       },

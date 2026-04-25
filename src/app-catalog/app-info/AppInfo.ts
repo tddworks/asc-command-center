@@ -16,8 +16,6 @@ export interface AppInfoInit {
   privacyPolicyUrl?: string | null;
   /** Same story as `privacyPolicyUrl`. */
   privacyChoicesUrl?: string | null;
-  /** `USES_THIRD_PARTY_CONTENT` / `DOES_NOT_USE_THIRD_PARTY_CONTENT` / null. */
-  contentRightsDeclaration?: string | null;
   primaryLocale: string;
   localizations: AppInfoLocalization[];
   /** HATEOAS affordances from the backend (updateCategories, createLocalization, …). */
@@ -44,21 +42,22 @@ function pickCategoryId(flat: unknown, nested: unknown): string | null {
 
 /** Snapshot of the category-level fields used for dirty tracking + discard.
  *  Per-locale fields (name, subtitle, privacy URLs) live on each
- *  AppInfoLocalization's own snapshot. */
+ *  AppInfoLocalization's own snapshot. Content-rights moved to App — Apple's
+ *  data model puts that on the App resource, and the asc backend's PATCH
+ *  /app-infos endpoint silently ignores the field. */
 interface CategorySnapshot {
   primaryCategoryId: string | null;
   secondaryCategoryId: string | null;
-  contentRightsDeclaration: string | null;
   localeIds: Set<string>;
 }
 
 /**
  * AppInfo — aggregate root for the app-metadata slice under App Catalog.
  *
- * Mutable observable. Holds the category-level fields that Apple's AppInfo
- * resource owns (primary/secondary category, content-rights declaration) and
- * a list of per-locale `AppInfoLocalization` entries that own everything else
- * (name, subtitle, privacy URLs).
+ * Mutable observable. Holds the category-level fields Apple's AppInfo
+ * resource actually owns (primary/secondary category) and a list of
+ * per-locale `AppInfoLocalization` entries that own everything else
+ * (name, subtitle, privacy URLs). Content-rights lives on App.
  *
  * `save()` orchestrates the write: POST new locales, DELETE removed locales,
  * PATCH dirty locales, PATCH categories when category-level fields changed.
@@ -70,7 +69,6 @@ export class AppInfo {
 
   primaryCategoryId: string | null;
   secondaryCategoryId: string | null;
-  contentRightsDeclaration: string | null;
   localizations: AppInfoLocalization[];
   affordances: Affordances;
   state: string | undefined;
@@ -93,7 +91,6 @@ export class AppInfo {
     this.primaryLocale = init.primaryLocale;
     this.primaryCategoryId = init.primaryCategoryId;
     this.secondaryCategoryId = init.secondaryCategoryId;
-    this.contentRightsDeclaration = init.contentRightsDeclaration ?? null;
     this.localizations = [...init.localizations];
     this.affordances = init.affordances ?? {};
     this.state = init.state;
@@ -151,10 +148,6 @@ export class AppInfo {
 
   setSecondaryCategory(id: string | null): void {
     this.secondaryCategoryId = id;
-  }
-
-  setContentRightsDeclaration(decl: string | null): void {
-    this.contentRightsDeclaration = decl;
   }
 
   // ── Capability checks ──
@@ -297,15 +290,13 @@ export class AppInfo {
   get categoriesDirty(): boolean {
     return (
       this.primaryCategoryId !== this.snapshot.primaryCategoryId ||
-      this.secondaryCategoryId !== this.snapshot.secondaryCategoryId ||
-      this.contentRightsDeclaration !== this.snapshot.contentRightsDeclaration
+      this.secondaryCategoryId !== this.snapshot.secondaryCategoryId
     );
   }
 
   discard(): void {
     this.primaryCategoryId = this.snapshot.primaryCategoryId;
     this.secondaryCategoryId = this.snapshot.secondaryCategoryId;
-    this.contentRightsDeclaration = this.snapshot.contentRightsDeclaration;
 
     // Drop locally-added locales; restore locally-removed ones.
     this.localizations = this.localizations.filter((l) =>
@@ -436,7 +427,6 @@ export class AppInfo {
       secondaryCategoryId: pickCategoryId(json.secondaryCategoryId, json.secondaryCategory),
       privacyPolicyUrl: (json.privacyPolicyUrl as string | null | undefined) ?? undefined,
       privacyChoicesUrl: (json.privacyChoicesUrl as string | null | undefined) ?? undefined,
-      contentRightsDeclaration: (json.contentRightsDeclaration as string | null) ?? null,
       appStoreAgeRating: (json.appStoreAgeRating as string | undefined) ?? undefined,
       state: (json.state as string | undefined) ?? undefined,
       appStoreState: (json.appStoreState as string | undefined) ?? undefined,
@@ -452,7 +442,6 @@ export class AppInfo {
     return {
       primaryCategoryId: this.primaryCategoryId,
       secondaryCategoryId: this.secondaryCategoryId,
-      contentRightsDeclaration: this.contentRightsDeclaration,
       localeIds: new Set(this.localizations.map((l) => l.locale)),
     };
   }

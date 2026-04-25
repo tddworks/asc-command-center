@@ -104,8 +104,8 @@ function AppInfoPage() {
       {readOnly && <ReadOnlyBanner app={currentApp} />}
       <AppMetadataCard appInfo={appInfo} readOnly={readOnly} />
       <LocalizationsCard appInfo={appInfo} readOnly={readOnly} />
-      <PrivacyComplianceCard appInfo={appInfo} readOnly={readOnly} />
-      {!readOnly && <StickySaveBar appInfo={appInfo} />}
+      <PrivacyComplianceCard appInfo={appInfo} app={currentApp} readOnly={readOnly} />
+      {!readOnly && <StickySaveBar appInfo={appInfo} app={currentApp} />}
     </div>
   );
 }
@@ -457,7 +457,7 @@ const LocaleTableRow = observer(({ localization, appInfo, isPrimary, editing, re
 
 // ─── Privacy & Compliance ──────────────────────────────────────────
 
-const PrivacyComplianceCard = observer(({ appInfo, readOnly }: { appInfo: AppInfo; readOnly: boolean }) => {
+const PrivacyComplianceCard = observer(({ appInfo, app, readOnly }: { appInfo: AppInfo; app: App; readOnly: boolean }) => {
   return (
     <div className="card">
       <div className="toolbar">
@@ -517,8 +517,8 @@ const PrivacyComplianceCard = observer(({ appInfo, readOnly }: { appInfo: AppInf
           <RadioCard
             name="content-rights"
             selectedTone="blue"
-            value={appInfo.contentRightsDeclaration}
-            onChange={(id) => { if (!readOnly) appInfo.setContentRightsDeclaration(id); }}
+            value={app.contentRightsDeclaration}
+            onChange={(id) => { if (!readOnly) app.setContentRightsDeclaration(id); }}
             options={[
               {
                 id: 'DOES_NOT_USE_THIRD_PARTY_CONTENT',
@@ -578,16 +578,25 @@ const AgeRatingCard = observer(function AgeRatingCard({
 
 // ─── Sticky save bar ───────────────────────────────────────────────
 
-const StickySaveBar = observer(({ appInfo }: { appInfo: AppInfo }) => {
+const StickySaveBar = observer(({ appInfo, app }: { appInfo: AppInfo; app: App }) => {
   const [saving, setSaving] = useState(false);
   const showToast = useToast();
 
-  if (!appInfo.hasUnsavedChanges && !saving) return null;
+  // Two independent dirty surfaces: AppInfo (categories + locales) and App
+  // (content-rights). Both are coordinated here because the user thinks of
+  // them as one "App Info" page even though Apple splits them across two
+  // resources.
+  const dirty = appInfo.hasUnsavedChanges || app.contentRightsDirty;
+  if (!dirty && !saving) return null;
 
   const handleSave = async () => {
     setSaving(true);
     try {
-      await appInfo.save();
+      // Run in parallel — distinct endpoints, no ordering constraint.
+      await Promise.all([
+        appInfo.hasUnsavedChanges ? appInfo.save() : Promise.resolve(),
+        app.contentRightsDirty ? app.saveContentRights() : Promise.resolve(),
+      ]);
       showToast('Saved changes', 'success');
     } catch (err) {
       showToast(`Save failed: ${(err as Error).message}`, 'error');
@@ -596,17 +605,18 @@ const StickySaveBar = observer(({ appInfo }: { appInfo: AppInfo }) => {
     }
   };
 
+  const handleDiscard = () => {
+    appInfo.discard();
+    app.discardContentRights();
+    showToast('Discarded changes', 'info');
+  };
+
   return (
     <div className="save-bar" role="region" aria-label="Unsaved changes">
       <div className="save-bar-inner">
         <span className="save-bar-status">You have unsaved changes</span>
         <div className="save-bar-actions">
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={() => { appInfo.discard(); showToast('Discarded changes', 'info'); }}
-            disabled={saving}
-          >
+          <button type="button" className="btn btn-secondary" onClick={handleDiscard} disabled={saving}>
             Discard
           </button>
           <button type="button" className="btn btn-primary" onClick={handleSave} disabled={saving}>
