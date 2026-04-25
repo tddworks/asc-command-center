@@ -9,6 +9,8 @@ import { APP_CATEGORIES } from '../AppCategoryRegistry.ts';
 import { AgeRatingWizardSheet } from '../../age-rating/pages/AgeRatingWizardSheet.tsx';
 import { PluginSlot } from '../../../extensibility/plugin/PluginSlot.tsx';
 import type { BatchTargets } from '../../../extensibility/plugin/slots.ts';
+import { LocalePickerSheet } from '../components/LocalePickerSheet.tsx';
+import { localeDisplayName } from '../AppStoreLocaleRegistry.ts';
 
 // Build cross-locale batch targets for a single field. Called by the
 // primary-locale slot so the plugin can fan out one enhancement across
@@ -275,22 +277,18 @@ const AppMetadataCard = observer(({ appInfo, readOnly }: { appInfo: AppInfo; rea
 
 const LocalizationsCard = observer(({ appInfo, readOnly }: { appInfo: AppInfo; readOnly: boolean }) => {
   const [editingLocale, setEditingLocale] = useState<string | null>(null);
-  const [adding, setAdding] = useState(false);
-  const [newLocale, setNewLocale] = useState('');
+  const [pickerOpen, setPickerOpen] = useState(false);
 
-  const startAdd = () => { setAdding(true); setNewLocale(''); };
-  const commitAdd = () => {
-    const locale = newLocale.trim();
-    if (!locale) return;
+  const handleSelectLocale = (code: string) => {
     try {
-      appInfo.addLocalization(locale);
-      setAdding(false);
-      setNewLocale('');
-      setEditingLocale(locale);
+      appInfo.addLocalization(code);
+      setEditingLocale(code);
     } catch (err) {
       alert((err as Error).message);
     }
   };
+
+  const noneLeft = appInfo.availableLocalesToAdd.length === 0;
 
   return (
     <div className="card">
@@ -298,35 +296,18 @@ const LocalizationsCard = observer(({ appInfo, readOnly }: { appInfo: AppInfo; r
         <div className="toolbar-left"><h3>Localizations</h3></div>
         <div className="toolbar-right">
           {!readOnly && (
-            <button type="button" className="btn btn-primary btn-sm" onClick={startAdd}>
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={() => setPickerOpen(true)}
+              disabled={noneLeft}
+              title={noneLeft ? 'All App Store locales are already added' : undefined}
+            >
               + Add Locale
             </button>
           )}
         </div>
       </div>
-
-      {adding && (
-        <div style={{
-          display: 'flex', gap: 8, alignItems: 'center',
-          padding: '12px 20px', borderBottom: '1px solid var(--border)',
-          background: 'var(--bg-hover)',
-        }}>
-          <input
-            className="form-input"
-            style={{ maxWidth: 240 }}
-            placeholder="Locale code (e.g. fr-FR)"
-            value={newLocale}
-            onChange={(e) => setNewLocale(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter') commitAdd();
-              else if (e.key === 'Escape') { setAdding(false); setNewLocale(''); }
-            }}
-            autoFocus
-          />
-          <button type="button" className="btn btn-primary btn-sm" onClick={commitAdd}>Add</button>
-          <button type="button" className="btn btn-secondary btn-sm" onClick={() => { setAdding(false); setNewLocale(''); }}>Cancel</button>
-        </div>
-      )}
 
       <div className="table-wrapper">
         <table>
@@ -363,6 +344,13 @@ const LocalizationsCard = observer(({ appInfo, readOnly }: { appInfo: AppInfo; r
           </tbody>
         </table>
       </div>
+
+      <LocalePickerSheet
+        open={pickerOpen}
+        available={appInfo.availableLocalesToAdd}
+        onSelect={handleSelectLocale}
+        onClose={() => setPickerOpen(false)}
+      />
     </div>
   );
 });
@@ -387,10 +375,17 @@ const LocaleTableRow = observer(({ localization, appInfo, isPrimary, editing, re
   return (
     <tr>
       <td className="cell-primary">
-        {localization.locale}
-        {isPrimary && (
-          <span className="platform-badge" style={{ marginLeft: 8, fontSize: 9 }}>PRIMARY</span>
-        )}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <span>
+            {localeDisplayName(localization.locale) || localization.locale}
+            {isPrimary && (
+              <span className="platform-badge" style={{ marginLeft: 8, fontSize: 9 }}>PRIMARY</span>
+            )}
+          </span>
+          <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'var(--font-mono, ui-monospace, SFMono-Regular, Menlo, monospace)' }}>
+            {localization.locale}
+          </span>
+        </div>
       </td>
       <td>
         {editing && !readOnly ? (
