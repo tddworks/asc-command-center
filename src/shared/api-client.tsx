@@ -96,7 +96,85 @@ function installFetchInterceptor() {
   }) as typeof fetch;
 }
 
+// ─── HTML element src/href interceptor ────────────────────────────────
+//
+// Plugin code that does `img.src = '/api/plugins/ASCPro/frames/foo.png'`
+// or `<img src="/api/plugins/...">` doesn't go through `fetch`, so the
+// browser resolves the URL against `window.location.origin` — wrong on
+// the public-domain build.
+//
+// We catch this at the DOM-API layer: patch the `src`/`href` property
+// setters on the prototypes that ship them, plus `Element.setAttribute`,
+// so any `/api/...` URL the plugin assigns gets rewritten through
+// `resolveApiUrl`. CSS `background-image: url(/api/...)` is the one
+// surface this doesn't cover; plugins should use `<img>` for assets
+// they want re-routed.
+
+let assetUrlInterceptorInstalled = false;
+function installAssetUrlInterceptor() {
+  if (assetUrlInterceptorInstalled) return;
+  if (typeof window === 'undefined') return;
+  assetUrlInterceptorInstalled = true;
+
+  // Patch the property setter on each element prototype that exposes a
+  // resource attribute. Walking up the prototype chain handles cases
+  // where the IDL property is defined on `HTMLElement` rather than the
+  // specific subclass.
+  const elements: Array<[unknown, 'src' | 'href']> = [
+    [globalThis.HTMLImageElement?.prototype, 'src'],
+    [globalThis.HTMLScriptElement?.prototype, 'src'],
+    [globalThis.HTMLSourceElement?.prototype, 'src'],
+    [globalThis.HTMLLinkElement?.prototype, 'href'],
+    [globalThis.HTMLAnchorElement?.prototype, 'href'],
+  ];
+  for (const [proto, prop] of elements) {
+    if (!proto) continue;
+    patchUrlProperty(proto as object, prop);
+  }
+
+  // setAttribute is a separate code path — patching the property setter
+  // catches `el.src = ...` but not `el.setAttribute('src', ...)`. Cover
+  // both so we don't miss plugin code that uses either form.
+  const ElementProto = globalThis.Element?.prototype;
+  if (ElementProto && typeof ElementProto.setAttribute === 'function') {
+    const original = ElementProto.setAttribute;
+    ElementProto.setAttribute = function (name: string, value: string) {
+      if ((name === 'src' || name === 'href') && typeof value === 'string') {
+        return original.call(this, name, resolveApiUrl(value));
+      }
+      return original.call(this, name, value);
+    };
+  }
+}
+
+function patchUrlProperty(proto: object, prop: 'src' | 'href'): void {
+  // The IDL property might be defined further up the prototype chain
+  // (e.g. on HTMLElement). Walk until we find a descriptor with both
+  // a getter and a setter.
+  let current: object | null = proto;
+  let descriptor: PropertyDescriptor | undefined;
+  while (current) {
+    descriptor = Object.getOwnPropertyDescriptor(current, prop);
+    if (descriptor?.set && descriptor.get) break;
+    current = Object.getPrototypeOf(current);
+  }
+  if (!descriptor?.set || !descriptor.get) return;
+  const originalSet = descriptor.set;
+  const originalGet = descriptor.get;
+
+  Object.defineProperty(proto, prop, {
+    configurable: true,
+    enumerable: descriptor.enumerable,
+    get(this: HTMLElement) { return originalGet.call(this); },
+    set(this: HTMLElement, value: unknown) {
+      const rewritten = typeof value === 'string' ? resolveApiUrl(value) : value;
+      originalSet.call(this, rewritten);
+    },
+  });
+}
+
 installFetchInterceptor();
+installAssetUrlInterceptor();
 
 // --- Data-mode context ---
 
