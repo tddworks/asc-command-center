@@ -6,6 +6,7 @@ import { RadioCard } from '../../../shared/components/RadioCard.tsx';
 import { PluginSlot } from '../../../extensibility/plugin/PluginSlot.tsx';
 import type { TextEditKind, BatchTargets } from '../../../extensibility/plugin/slots.ts';
 import type { VersionLocalization } from '../VersionLocalization.ts';
+import { localeDisplayName } from '../../../shared/AppStoreLocaleRegistry.ts';
 
 function VersionPage() {
   const currentApp = workspace.currentApp;
@@ -222,11 +223,26 @@ const LanguageSwitcher = observer(({
 }) => {
   const locales = version.localizations.map((l) => l.locale);
   if (locales.length === 0) return null;
+
+  // Sort: primary first, then alphabetical by display name. Pin the primary
+  // at the top so the user always sees it without scrolling, and group the
+  // rest in a stable, name-driven order.
+  const sorted = [...locales].sort((a, b) => {
+    if (a === primaryLocale) return -1;
+    if (b === primaryLocale) return 1;
+    return localeDisplayName(a).localeCompare(localeDisplayName(b));
+  });
+
+  const labelFor = (code: string): string => {
+    const name = localeDisplayName(code) || code;
+    return code === primaryLocale ? `${name} · primary` : name;
+  };
+
   return (
     <span className="language-switcher">
       <span className="language-switcher-label">Language</span>
       <span className="language-switcher-pill">
-        <span>{value}{value === primaryLocale ? ' · primary' : ''}</span>
+        <span>{labelFor(value)}</span>
         <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
           <polyline points="5 6 8 9 11 6"/>
         </svg>
@@ -235,9 +251,9 @@ const LanguageSwitcher = observer(({
           value={value}
           onChange={(e) => onChange(e.target.value)}
         >
-          {locales.map((l) => (
+          {sorted.map((l) => (
             <option key={l} value={l}>
-              {l}{l === primaryLocale ? ' · primary' : ''}
+              {labelFor(l)}
             </option>
           ))}
         </select>
@@ -299,6 +315,7 @@ const StoryDescriptionCard = observer(({
                 locale={loc.locale}
                 maxLength={4000}
                 version={version}
+                batch={maybeBatch('description', loc.description)}
               />
               <textarea
                 id="sd-description"
@@ -314,30 +331,33 @@ const StoryDescriptionCard = observer(({
               </div>
             </div>
 
-            <div className="form-group">
-              <VersionFieldHeader
-                htmlFor="sd-whatsnew"
-                label="What's New"
-                kind="version.whatsNew"
-                text={loc.whatsNew}
-                onChange={(v) => loc.setWhatsNew(v)}
-                locale={loc.locale}
-                maxLength={4000}
-                version={version}
-              />
-              <textarea
-                id="sd-whatsnew"
-                className="form-input"
-                rows={4}
-                maxLength={4000}
-                value={loc.whatsNew}
-                placeholder="Describe what's new in this version…"
-                onChange={(e) => loc.setWhatsNew(e.target.value)}
-              />
-              <div className="form-hint">
-                Optional · {loc.whatsNew.length.toLocaleString()} / 4,000 characters
+            {!isFirstVersion && (
+              <div className="form-group">
+                <VersionFieldHeader
+                  htmlFor="sd-whatsnew"
+                  label="What's New"
+                  kind="version.whatsNew"
+                  text={loc.whatsNew}
+                  onChange={(v) => loc.setWhatsNew(v)}
+                  locale={loc.locale}
+                  maxLength={4000}
+                  version={version}
+                  batch={maybeBatch('whatsNew', loc.whatsNew)}
+                />
+                <textarea
+                  id="sd-whatsnew"
+                  className="form-input"
+                  rows={4}
+                  maxLength={4000}
+                  value={loc.whatsNew}
+                  placeholder="Describe what's new in this version…"
+                  onChange={(e) => loc.setWhatsNew(e.target.value)}
+                />
+                <div className="form-hint">
+                  Optional · {loc.whatsNew.length.toLocaleString()} / 4,000 characters
+                </div>
               </div>
-            </div>
+            )}
 
             <div className="form-group">
               <VersionFieldHeader
@@ -349,6 +369,7 @@ const StoryDescriptionCard = observer(({
                 locale={loc.locale}
                 maxLength={100}
                 version={version}
+                batch={maybeBatch('keywords', loc.keywords)}
               />
               <input
                 id="sd-keywords"
@@ -373,6 +394,7 @@ const StoryDescriptionCard = observer(({
                 locale={loc.locale}
                 maxLength={170}
                 version={version}
+                batch={maybeBatch('promotionalText', loc.promotionalText)}
               />
               <input
                 id="sd-promo"
@@ -397,7 +419,7 @@ const StoryDescriptionCard = observer(({
  *  Description fields tidy without repeating the same 10 lines of
  *  boilerplate per field. */
 function VersionFieldHeader({
-  htmlFor, label, kind, text, onChange, locale, maxLength, version,
+  htmlFor, label, kind, text, onChange, locale, maxLength, version, batch,
 }: {
   htmlFor: string;
   label: React.ReactNode;
@@ -407,13 +429,14 @@ function VersionFieldHeader({
   locale: string;
   maxLength?: number;
   version: Version;
+  batch?: BatchTargets;
 }) {
   return (
     <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
       <label className="form-label" htmlFor={htmlFor}>{label}</label>
       <PluginSlot
         slot="text.edit"
-        ctx={{ slot: 'text.edit', kind, text, onChange, locale, maxLength, version }}
+        ctx={{ slot: 'text.edit', kind, text, onChange, locale, maxLength, version, batch }}
       />
     </div>
   );

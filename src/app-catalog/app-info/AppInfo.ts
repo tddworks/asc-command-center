@@ -1,7 +1,7 @@
 import { makeAutoObservable, runInAction } from 'mobx';
 import { AppInfoLocalization } from './AppInfoLocalization.ts';
 import type { AppInfoRepository } from './AppInfoRepository.ts';
-import { APP_STORE_LOCALES, type AppStoreLocale } from './AppStoreLocaleRegistry.ts';
+import { APP_STORE_LOCALES, type AppStoreLocale } from '../../shared/AppStoreLocaleRegistry.ts';
 import type { Affordances } from '../../shared/types.ts';
 import type { AgeRatingDeclaration } from '../age-rating/AgeRatingDeclaration.ts';
 

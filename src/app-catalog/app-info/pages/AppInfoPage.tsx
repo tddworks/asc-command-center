@@ -10,7 +10,7 @@ import { AgeRatingWizardSheet } from '../../age-rating/pages/AgeRatingWizardShee
 import { PluginSlot } from '../../../extensibility/plugin/PluginSlot.tsx';
 import type { BatchTargets } from '../../../extensibility/plugin/slots.ts';
 import { LocalePickerSheet } from '../components/LocalePickerSheet.tsx';
-import { localeDisplayName } from '../AppStoreLocaleRegistry.ts';
+import { localeDisplayName } from '../../../shared/AppStoreLocaleRegistry.ts';
 import { useToast } from '../../../shared/components/Toast.tsx';
 
 // Build cross-locale batch targets for a single field. Called by the
