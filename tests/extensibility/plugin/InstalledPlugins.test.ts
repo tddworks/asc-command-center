@@ -289,6 +289,45 @@ describe('InstalledPlugins', () => {
     expect(a.busy).toBeNull();
   });
 
+  it('applyUpdate passes the installed slug so URLs use the canonical identifier', async () => {
+    // `update.name` is "ASC Pro" (human-readable, contains a space). The
+    // backend's `update(name:)` matches on name, but the eventual install
+    // step needs the marketplace id — passing the slug routes through the
+    // canonical URL segment instead.
+    const ascPro = new InstalledPlugin({ slug: 'ASCPro', id: 'ASCPro', name: 'ASC Pro' });
+    const update = new PluginUpdate({
+      name: 'ASC Pro', installedVersion: '0.9.0', latestVersion: '1.0.0',
+    });
+    const repo = stubRepo({
+      installed: vi.fn().mockResolvedValue([ascPro]),
+      updates: vi.fn().mockResolvedValue([update]),
+    });
+    const a = new InstalledPlugins(repo);
+    await a.refreshAll();
+
+    await a.applyUpdate(update);
+
+    expect(repo.applyUpdate).toHaveBeenCalledWith(update, { slug: 'ASCPro' });
+  });
+
+  it('refreshAll filters out PluginUpdate rows where the local version is newer', async () => {
+    const real = new PluginUpdate({
+      name: 'NeedsUpdate', installedVersion: '1.0.0', latestVersion: '1.2.0',
+    });
+    const downhill = new PluginUpdate({
+      name: 'LocallyNewer', installedVersion: '1.0.1', latestVersion: '1.0.0',
+    });
+    const sameVersion = new PluginUpdate({
+      name: 'Same', installedVersion: '1.0.0', latestVersion: '1.0.0',
+    });
+    const repo = stubRepo({ updates: vi.fn().mockResolvedValue([real, downhill, sameVersion]) });
+    const a = new InstalledPlugins(repo);
+
+    await a.refreshAll();
+
+    expect(a.updates).toEqual([real]);
+  });
+
   it('installedBySlug finds a loaded installed plugin', async () => {
     const p = new InstalledPlugin({ slug: 'ASCPro', name: 'ASC Pro', isInstalled: true });
     const repo = stubRepo({ installed: vi.fn().mockResolvedValue([p]) });
