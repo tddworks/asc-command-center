@@ -7,29 +7,43 @@ export type DataMode = 'mock' | 'rest';
 const DataModeContext = createContext<{
   mode: DataMode;
   toggleMode: () => void;
-}>({ mode: 'mock', toggleMode: () => {} });
+  recheck: () => Promise<boolean>;
+}>({ mode: 'mock', toggleMode: () => {}, recheck: async () => false });
+
+/** Probe the asc backend at /api/v1. Resolves to true when reachable. */
+async function probeBackend(): Promise<boolean> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 2000);
+  try {
+    const resp = await fetch('/api/v1', { signal: controller.signal });
+    return resp.ok;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 export function DataModeProviderComponent({ children }: { children: ReactNode }) {
   const [mode, setMode] = useState<DataMode>('mock');
   const toggleMode = useCallback(() => setMode(m => m === 'mock' ? 'rest' : 'mock'), []);
 
-  // Auto-detect backend on mount — probe /api/v1
-  useEffect(() => {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 2000);
-
-    fetch('/api/v1', { signal: controller.signal })
-      .then(resp => {
-        if (resp.ok) setMode('rest');
-      })
-      .catch(() => {
-        // Backend not running — stay in mock mode
-      })
-      .finally(() => clearTimeout(timeout));
+  /** Re-probe the backend. Called from the CLI setup sheet's "Try again"
+   *  button after the user runs `asc web-server`. Flips to `rest` on
+   *  success so the rest of the app starts hitting real endpoints. */
+  const recheck = useCallback(async (): Promise<boolean> => {
+    const ok = await probeBackend();
+    setMode(ok ? 'rest' : 'mock');
+    return ok;
   }, []);
 
+  // Auto-detect backend on mount — single probe at startup.
+  useEffect(() => {
+    void recheck();
+  }, [recheck]);
+
   return (
-    <DataModeContext.Provider value={{ mode, toggleMode }}>
+    <DataModeContext.Provider value={{ mode, toggleMode, recheck }}>
       {children}
     </DataModeContext.Provider>
   );
@@ -40,6 +54,10 @@ export const useDataMode = () => useContext(DataModeContext).mode;
 
 /** Returns a function to toggle between mock and rest modes */
 export const useToggleMode = () => useContext(DataModeContext).toggleMode;
+
+/** Returns a function that re-probes /api/v1 and flips mode accordingly.
+ *  Resolves with `true` when the backend is reachable. */
+export const useRecheckMode = () => useContext(DataModeContext).recheck;
 
 // --- Command-log context ---
 
