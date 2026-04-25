@@ -21,5 +21,9 @@ export interface InstalledPluginRepository {
   updates(): Promise<PluginUpdate[]>;
   install(plugin: InstalledPlugin): Promise<void>;
   uninstall(plugin: InstalledPlugin): Promise<void>;
-  applyUpdate(update: PluginUpdate): Promise<void>;
+  /** Apply a marketplace update. The optional `slug` lets callers route
+   *  the request through the canonical URL segment when the
+   *  `PluginUpdate.name` would otherwise be a human-readable string with
+   *  spaces (e.g. "ASC Pro" → URL-encoded "ASC%20Pro"). */
+  applyUpdate(update: PluginUpdate, opts?: { slug?: string }): Promise<void>;
 }

@@ -111,7 +111,11 @@ export class InstalledPlugins {
       runInAction(() => {
         this.installed = installed;
         this.marketplace = marketplace;
-        this.updates = updates;
+        // Only surface entries where the marketplace version is strictly
+        // newer than the installed one — the asc backend ships every
+        // mismatch, including local-is-newer (which we don't want to
+        // present as "Update available · 1.0.1 → 1.0").
+        this.updates = updates.filter((u) => u.isUpgrade);
         this.loaded = true;
       });
     } catch (err) {
@@ -180,11 +184,16 @@ export class InstalledPlugins {
 
   /** Apply a marketplace update — POSTs to the update endpoint, then
    *  refreshes both lists so the version bump and isInstalled state are
-   *  reflected in one render. */
+   *  reflected in one render. The installed counterpart's slug is passed
+   *  to the repo so URL routing uses the canonical (URL-safe) identifier
+   *  instead of the human-readable name (which can contain spaces). */
   async applyUpdate(update: PluginUpdate): Promise<void> {
+    const installed = this.installed.find((p) =>
+      p.name === update.name || p.slug === update.name || p.id === update.name,
+    );
     this.busy = update.name;
     try {
-      await this.repository.applyUpdate(update);
+      await this.repository.applyUpdate(update, { slug: installed?.slug });
       await this.refreshAll();
     } finally {
       runInAction(() => { this.busy = null; });
