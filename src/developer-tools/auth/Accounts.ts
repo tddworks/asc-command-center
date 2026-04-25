@@ -79,12 +79,15 @@ export class Accounts {
   }
 
   /** Reload the accounts list. The response carries `isActive` per row, so
-   *  one call gives us the full picture — no separate `/active` probe. */
+   *  one call gives us the full picture — no separate `/active` probe.
+   *  Cascades the repository to every loaded entity so each can save and
+   *  delete itself without going back through the aggregate. */
   async refresh(): Promise<void> {
     this.isLoading = true;
     this.error = null;
     try {
       const list = await this.repository.list();
+      list.forEach((a) => a.setRepository(this.repository));
       runInAction(() => {
         this.accounts = list;
         this.active = list.find((a) => a.isActive) ?? null;
@@ -98,6 +101,15 @@ export class Accounts {
     } finally {
       runInAction(() => { this.isLoading = false; });
     }
+  }
+
+  /** Permanently remove a stored account. Distinct from `logout()`, which
+   *  just clears `active` and keeps the record. After deletion we refresh
+   *  so the manager sheet reflects the new list (and the active state if
+   *  the deleted account was the active one). */
+  async deleteAccount(name: string): Promise<void> {
+    await this.repository.remove(name);
+    await this.refresh();
   }
 
   /** Create + activate a new account from the user's credentials. Refreshes
