@@ -22,6 +22,7 @@ function stubRepo(overrides: Partial<SubscriptionGroupRepository> = {}): Subscri
     createGroupLocalization: vi.fn(),
     saveGroupLocalization: vi.fn().mockResolvedValue(undefined),
     deleteGroupLocalization: vi.fn().mockResolvedValue(undefined),
+    reorderSubscriptions: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   } as SubscriptionGroupRepository;
 }

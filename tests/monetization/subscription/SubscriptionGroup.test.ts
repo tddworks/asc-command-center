@@ -25,6 +25,7 @@ function stubRepo(overrides: Partial<SubscriptionGroupRepository> = {}): Subscri
     createGroupLocalization: vi.fn(),
     saveGroupLocalization: vi.fn().mockResolvedValue(undefined),
     deleteGroupLocalization: vi.fn().mockResolvedValue(undefined),
+    reorderSubscriptions: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   } as SubscriptionGroupRepository;
 }
@@ -228,6 +229,45 @@ describe('SubscriptionGroup', () => {
 
     expect(repo.deleteGroupLocalization).toHaveBeenCalledWith(a);
     expect(group.groupLocalizations).toEqual([b]);
+  });
+
+  // ── Reorder tiers ──
+
+  it('canReorderSubscriptions maps to the reorderSubscriptions affordance', () => {
+    const open = new SubscriptionGroup(groupInit({ affordances: { reorderSubscriptions: '/x' } }));
+    expect(open.canReorderSubscriptions).toBe(true);
+
+    const closed = new SubscriptionGroup(groupInit({ affordances: {} }));
+    expect(closed.canReorderSubscriptions).toBe(false);
+  });
+
+  it('reorderSubscriptions delegates to the repo, mutates groupLevels in order, and reorders the local list', async () => {
+    const a = mkTier('sub-1');
+    const b = mkTier('sub-2');
+    const c = mkTier('sub-3');
+    const repo = stubRepo({
+      subscriptions: vi.fn().mockResolvedValue([a, b, c]),
+      reorderSubscriptions: vi.fn().mockResolvedValue(undefined),
+    });
+    const group = new SubscriptionGroup(
+      groupInit({ affordances: { listSubscriptions: '/x', reorderSubscriptions: '/y' } }),
+      repo,
+    );
+    await group.loadSubscriptions();
+
+    await group.reorderSubscriptions(['sub-3', 'sub-1', 'sub-2']);
+
+    expect(repo.reorderSubscriptions).toHaveBeenCalledWith(group, ['sub-3', 'sub-1', 'sub-2']);
+    expect(group.subscriptions.map((s) => s.id)).toEqual(['sub-3', 'sub-1', 'sub-2']);
+    expect(group.subscriptions.map((s) => s.groupLevel)).toEqual([1, 2, 3]);
+  });
+
+  it('reorderSubscriptions throws when affordance missing', async () => {
+    const repo = stubRepo();
+    const group = new SubscriptionGroup(groupInit({ affordances: {} }), repo);
+
+    await expect(group.reorderSubscriptions(['sub-1'])).rejects.toThrow(/cannot reorder/);
+    expect(repo.reorderSubscriptions).not.toHaveBeenCalled();
   });
 
   it('update calls the repo and applies the patch only on success', async () => {
