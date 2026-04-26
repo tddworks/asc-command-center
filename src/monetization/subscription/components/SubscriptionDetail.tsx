@@ -3,6 +3,7 @@ import { observer } from 'mobx-react-lite';
 import type { Subscription } from '../Subscription.ts';
 import { subscriptionGroups } from '../subscriptionGroupsInstance.ts';
 import { SubscriptionLocalizationsTab } from './SubscriptionLocalizationsTab.tsx';
+import { SubscriptionPricingTab } from './SubscriptionPricingTab.tsx';
 
 const STATUS_CLASS: Record<string, string> = {
   success: 'live',
@@ -126,7 +127,8 @@ function SubscriptionDetailImpl({ sub }: Props) {
 
       {/* Tab body */}
       {tab === 'localizations' && <SubscriptionLocalizationsTab sub={sub} />}
-      {tab !== 'localizations' && <ComingSoon tab={tab} />}
+      {tab === 'pricing' && <SubscriptionPricingTab sub={sub} />}
+      {tab !== 'localizations' && tab !== 'pricing' && <ComingSoon tab={tab} />}
     </div>
   );
 }

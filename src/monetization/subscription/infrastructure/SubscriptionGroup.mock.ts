@@ -1,6 +1,7 @@
 import { Subscription, SubscriptionPeriod, SubscriptionState } from '../Subscription.ts';
 import { SubscriptionGroup } from '../SubscriptionGroup.ts';
 import { SubscriptionLocalization } from '../SubscriptionLocalization.ts';
+import { SubscriptionPriceSchedule, SubscriptionTerritoryPrice } from '../SubscriptionPriceSchedule.ts';
 import type {
   CreateSubscriptionInput,
   CreateSubscriptionLocalizationInput,
@@ -95,6 +96,12 @@ export class MockSubscriptionGroupRepository implements SubscriptionGroupReposit
 
   async submit(_sub: Subscription): Promise<void> {}
   async unsubmit(_sub: Subscription): Promise<void> {}
+
+  // ── Pricing ──
+
+  async priceSchedule(sub: Subscription): Promise<SubscriptionPriceSchedule | null> {
+    return mockSubPriceScheduleFor(sub);
+  }
 
   // ── Localizations ──
 
@@ -230,4 +237,48 @@ export class MockSubscriptionGroupRepository implements SubscriptionGroupReposit
       mkTier('sub-4', 'sg-2', 'Cloud Backup', 'com.example.addon.cloud', SubscriptionPeriod.OneMonth, SubscriptionState.WaitingForReview, false, 1, true),
     ]);
   }
+}
+
+// ── Mock pricing helpers (module-level so they're not bound to `this`) ──
+
+const SUB_TERRITORIES: { id: string; name: string; currency: string; symbol: string; rate: number }[] = [
+  { id: 'USA', name: 'United States', currency: 'USD', symbol: '$', rate: 1 },
+  { id: 'GBR', name: 'United Kingdom', currency: 'GBP', symbol: '£', rate: 0.79 },
+  { id: 'DEU', name: 'Germany', currency: 'EUR', symbol: '€', rate: 0.92 },
+  { id: 'JPN', name: 'Japan', currency: 'JPY', symbol: '¥', rate: 152 },
+  { id: 'CHN', name: 'China', currency: 'CNY', symbol: '¥', rate: 7.2 },
+  { id: 'AUS', name: 'Australia', currency: 'AUD', symbol: 'A$', rate: 1.52 },
+  { id: 'CAN', name: 'Canada', currency: 'CAD', symbol: 'C$', rate: 1.38 },
+];
+
+/** USD base price per fixture tier. Returns null for tiers that should
+ *  display the empty state instead. */
+function subBasePriceFor(sub: Subscription): number | null {
+  switch (sub.id) {
+    case 'sub-1': return 4.99;
+    case 'sub-2': return 49.99;
+    case 'sub-3': return 9.99;
+    case 'sub-4': return 1.99;
+    default: return null;
+  }
+}
+
+function formatSubPrice(amount: number, currency: string, symbol: string): string {
+  if (currency === 'JPY' || currency === 'KRW') {
+    return `${symbol}${Math.round(amount).toLocaleString('en-US')}`;
+  }
+  return `${symbol}${amount.toFixed(2)}`;
+}
+
+function mockSubPriceScheduleFor(sub: Subscription): SubscriptionPriceSchedule | null {
+  const usd = subBasePriceFor(sub);
+  if (usd === null) return null;
+  const rows = SUB_TERRITORIES.map((t) => new SubscriptionTerritoryPrice({
+    territoryId: t.id,
+    territoryName: t.name,
+    formattedPrice: formatSubPrice(usd * t.rate, t.currency, t.symbol),
+    currency: t.currency,
+    pricePointId: `pp-${sub.id}-${t.id}`,
+  }));
+  return new SubscriptionPriceSchedule({ territoryPrices: rows });
 }
