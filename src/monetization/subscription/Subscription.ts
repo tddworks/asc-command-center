@@ -144,6 +144,7 @@ export class Subscription {
   get canViewLocalizations(): boolean { return 'listLocalizations' in this.affordances; }
   get canCreateLocalization(): boolean { return 'createLocalization' in this.affordances; }
   get canViewPricing(): boolean { return 'getPriceSchedule' in this.affordances; }
+  get canSetPrices(): boolean { return 'setPrices' in this.affordances; }
   get canViewReviewScreenshot(): boolean { return 'getReviewScreenshot' in this.affordances; }
   get canUploadReviewScreenshot(): boolean { return 'uploadReviewScreenshot' in this.affordances; }
   get canViewAvailability(): boolean { return 'getAvailability' in this.affordances; }
@@ -424,6 +425,17 @@ export class Subscription {
   }
 
   // ── Pricing ──
+
+  /** Set prices for one or more territories. Apple equalises the rest off
+   *  the passed list, so a single-territory input usually suffices. We
+   *  refetch the schedule so the page reflects the equalised rows. */
+  async setPrices(input: Array<{ territoryId: string; pricePointId: string }>): Promise<void> {
+    if (!this.canSetPrices) {
+      throw new Error(`Subscription ${this.id} cannot set prices (no setPrices affordance)`);
+    }
+    await this.requireRepo().setPrices(this, input);
+    await this.loadPriceSchedule();
+  }
 
   async loadPriceSchedule(): Promise<SubscriptionPriceSchedule | null> {
     if (!this.canViewPricing) {
