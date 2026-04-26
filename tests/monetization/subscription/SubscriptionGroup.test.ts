@@ -21,7 +21,7 @@ function stubRepo(overrides: Partial<SubscriptionGroupRepository> = {}): Subscri
     createSubscription: vi.fn(),
     removeSubscription: vi.fn().mockResolvedValue(undefined),
     ...overrides,
-  };
+  } as SubscriptionGroupRepository;
 }
 
 function groupInit(overrides: Partial<SubscriptionGroupInit> = {}): SubscriptionGroupInit {

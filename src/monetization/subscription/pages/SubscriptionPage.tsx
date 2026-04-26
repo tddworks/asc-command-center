@@ -6,6 +6,7 @@ import type { Subscription } from '../Subscription.ts';
 import type { SubscriptionGroup } from '../SubscriptionGroup.ts';
 import { CreateSubscriptionGroupModal } from '../components/CreateSubscriptionGroupModal.tsx';
 import { CreateSubscriptionModal } from '../components/CreateSubscriptionModal.tsx';
+import { SubscriptionDetail } from '../components/SubscriptionDetail.tsx';
 
 const STATUS_CLASS: Record<string, string> = {
   success: 'live',
@@ -16,15 +17,18 @@ const STATUS_CLASS: Record<string, string> = {
 };
 
 function TierRow({ sub, group }: { sub: Subscription; group: SubscriptionGroup }) {
-  const submit = async () => {
+  const submit = async (e: React.MouseEvent) => {
+    e.stopPropagation();
     try { await sub.submit(); }
     catch (err) { console.warn('[subscription] submit failed:', err); }
   };
-  const unsubmit = async () => {
+  const unsubmit = async (e: React.MouseEvent) => {
+    e.stopPropagation();
     try { await sub.unsubmit(); }
     catch (err) { console.warn('[subscription] unsubmit failed:', err); }
   };
-  const remove = async () => {
+  const remove = async (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (!sub.canDelete) return;
     if (!window.confirm(`Delete tier "${sub.name}"?`)) return;
     try { await group.removeSubscription(sub); }
@@ -32,7 +36,7 @@ function TierRow({ sub, group }: { sub: Subscription; group: SubscriptionGroup }
   };
 
   return (
-    <tr>
+    <tr style={{ cursor: 'pointer' }} onClick={() => subscriptionGroups.selectTier(sub)}>
       <td className="cell-primary">{sub.name}</td>
       <td className="cell-mono">{sub.productId}</td>
       <td>{sub.periodLabel}</td>
@@ -129,6 +133,11 @@ function SubscriptionPage() {
   }
   if (subscriptionGroups.error) {
     return <div className="error">Error: {subscriptionGroups.error.message}</div>;
+  }
+
+  // Detail mode — selected tier takes over the page
+  if (subscriptionGroups.selectedTier) {
+    return <SubscriptionDetail sub={subscriptionGroups.selectedTier} />;
   }
 
   const canCreateGroup = !!workspace.currentApp;
