@@ -1,6 +1,11 @@
 import { Subscription, SubscriptionPeriod, SubscriptionState } from '../Subscription.ts';
 import { SubscriptionGroup } from '../SubscriptionGroup.ts';
-import type { CreateSubscriptionInput, SubscriptionRepository } from '../SubscriptionRepository.ts';
+import { SubscriptionLocalization } from '../SubscriptionLocalization.ts';
+import type {
+  CreateSubscriptionInput,
+  CreateSubscriptionLocalizationInput,
+  SubscriptionRepository,
+} from '../SubscriptionRepository.ts';
 import type { SubscriptionGroupRepository } from '../SubscriptionGroupRepository.ts';
 
 /** Deterministic in-memory repo seeding two groups + tier fixtures so the
@@ -8,6 +13,8 @@ import type { SubscriptionGroupRepository } from '../SubscriptionGroupRepository
 export class MockSubscriptionGroupRepository implements SubscriptionGroupRepository, SubscriptionRepository {
   private groupsByApp = new Map<string, SubscriptionGroup[]>();
   private tiersByGroup = new Map<string, Subscription[]>();
+  private localizationsByTier = new Map<string, SubscriptionLocalization[]>();
+  private nextLocId = 500;
 
   async list(appId: string): Promise<SubscriptionGroup[]> {
     if (!this.groupsByApp.has(appId)) {
@@ -89,6 +96,68 @@ export class MockSubscriptionGroupRepository implements SubscriptionGroupReposit
   async submit(_sub: Subscription): Promise<void> {}
   async unsubmit(_sub: Subscription): Promise<void> {}
 
+  // ── Localizations ──
+
+  async localizations(sub: Subscription): Promise<SubscriptionLocalization[]> {
+    const cached = this.localizationsByTier.get(sub.id);
+    if (cached) return cached.map((l) => l);
+    const seeded = this.seedLocalizationsFor(sub);
+    this.localizationsByTier.set(sub.id, seeded);
+    return seeded.map((l) => l);
+  }
+
+  async createLocalization(
+    sub: Subscription,
+    input: CreateSubscriptionLocalizationInput,
+  ): Promise<SubscriptionLocalization> {
+    const id = `sub-loc-${this.nextLocId++}`;
+    const created = new SubscriptionLocalization({
+      id,
+      locale: input.locale,
+      name: input.name,
+      description: input.description ?? null,
+      affordances: this.localizationAffordances(id),
+    });
+    const list = this.localizationsByTier.get(sub.id) ?? [];
+    list.push(created);
+    this.localizationsByTier.set(sub.id, list);
+    return created;
+  }
+
+  async saveLocalization(_loc: SubscriptionLocalization): Promise<void> {
+    // Mutated in place by the domain after save resolves.
+  }
+
+  async deleteLocalization(loc: SubscriptionLocalization): Promise<void> {
+    for (const [tierId, list] of this.localizationsByTier.entries()) {
+      const next = list.filter((l) => l !== loc);
+      if (next.length !== list.length) {
+        this.localizationsByTier.set(tierId, next);
+        return;
+      }
+    }
+  }
+
+  private localizationAffordances(id: string): Record<string, string> {
+    return {
+      update: `/api/v1/subscription-localizations/${id}`,
+      delete: `/api/v1/subscription-localizations/${id}`,
+    };
+  }
+
+  private seedLocalizationsFor(sub: Subscription): SubscriptionLocalization[] {
+    const id = `sub-loc-en-${sub.id}`;
+    return [
+      new SubscriptionLocalization({
+        id,
+        locale: 'en-US',
+        name: sub.name,
+        description: `${sub.periodLabel} ${sub.name} subscription.`,
+        affordances: this.localizationAffordances(id),
+      }),
+    ];
+  }
+
   private groupAffordances(id: string): Record<string, string> {
     return {
       get: `/api/v1/subscription-groups/${id}`,
@@ -108,6 +177,7 @@ export class MockSubscriptionGroupRepository implements SubscriptionGroupReposit
       submit: `/api/v1/subscriptions/${id}/submit`,
       unsubmit: `/api/v1/subscriptions/${id}/submit`,
       listLocalizations: `/api/v1/subscriptions/${id}/localizations`,
+      createLocalization: `/api/v1/subscriptions/${id}/localizations`,
       getPriceSchedule: `/api/v1/subscriptions/${id}/price-schedule`,
       getAvailability: `/api/v1/subscriptions/${id}/availability`,
       listOfferCodes: `/api/v1/subscriptions/${id}/offer-codes`,

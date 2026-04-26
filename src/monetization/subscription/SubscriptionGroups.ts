@@ -14,6 +14,10 @@ export class SubscriptionGroups {
   list: SubscriptionGroup[] = [];
   appId: string | null = null;
 
+  /** Currently focused tier — drives the page's list-vs-detail switch.
+   *  Cleared on app switch. */
+  selectedTier: import('./Subscription.ts').Subscription | null = null;
+
   isLoading = false;
   loaded = false;
   error: Error | null = null;
@@ -36,6 +40,7 @@ export class SubscriptionGroups {
   switchRepository(repo: SubscriptionGroupRepository): void {
     this.repository = repo;
     this.list = [];
+    this.selectedTier = null;
     this.appId = null;
     this.loaded = false;
     this.error = null;
@@ -45,6 +50,9 @@ export class SubscriptionGroups {
     this.appId = appId;
     this.isLoading = true;
     this.error = null;
+    if (this.selectedTier) {
+      runInAction(() => { this.selectedTier = null; });
+    }
     try {
       const fetched = await this.repository.list(appId);
       runInAction(() => {
@@ -75,6 +83,23 @@ export class SubscriptionGroups {
     const created = await this.repository.create(input);
     runInAction(() => { this.list = [...this.list, created]; });
     return created;
+  }
+
+  // ── Selection ──
+
+  /** Focus a Subscription tier. Must be a tier loaded under one of the
+   *  groups in `list`. The page checks `selectedTier` to switch into
+   *  detail mode. */
+  selectTier(tier: import('./Subscription.ts').Subscription): void {
+    const owns = this.list.some((g) => g.subscriptions.includes(tier));
+    if (!owns) {
+      throw new Error(`Subscription ${tier.id} is not in any loaded group`);
+    }
+    this.selectedTier = tier;
+  }
+
+  clearSelection(): void {
+    this.selectedTier = null;
   }
 
   async remove(group: SubscriptionGroup): Promise<void> {

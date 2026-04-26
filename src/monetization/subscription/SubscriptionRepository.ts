@@ -1,4 +1,5 @@
 import type { Subscription, SubscriptionPeriod } from './Subscription.ts';
+import type { SubscriptionLocalization } from './SubscriptionLocalization.ts';
 
 export interface CreateSubscriptionInput {
   groupId: string;
@@ -6,6 +7,12 @@ export interface CreateSubscriptionInput {
   productId: string;
   subscriptionPeriod: SubscriptionPeriod | string;
   isFamilySharable: boolean;
+}
+
+export interface CreateSubscriptionLocalizationInput {
+  locale: string;
+  name: string;
+  description?: string | null;
 }
 
 /** Port for individual subscription tier mutations. The group-level
@@ -26,4 +33,10 @@ export interface SubscriptionRepository {
   remove(sub: Subscription): Promise<void>;
   submit(sub: Subscription): Promise<void>;
   unsubmit(sub: Subscription): Promise<void>;
+
+  // ── Localizations ──
+  localizations(sub: Subscription): Promise<SubscriptionLocalization[]>;
+  createLocalization(sub: Subscription, input: CreateSubscriptionLocalizationInput): Promise<SubscriptionLocalization>;
+  saveLocalization(loc: SubscriptionLocalization): Promise<void>;
+  deleteLocalization(loc: SubscriptionLocalization): Promise<void>;
 }
