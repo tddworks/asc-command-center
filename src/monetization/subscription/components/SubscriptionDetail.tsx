@@ -7,6 +7,7 @@ import { SubscriptionLocalizationsTab } from './SubscriptionLocalizationsTab.tsx
 import { SubscriptionOffersTab } from './SubscriptionOffersTab.tsx';
 import { SubscriptionPricingTab } from './SubscriptionPricingTab.tsx';
 import { SubscriptionReviewTab } from './SubscriptionReviewTab.tsx';
+import { InlineRename } from '../../../shared/components/InlineRename.tsx';
 
 const STATUS_CLASS: Record<string, string> = {
   success: 'live',
@@ -63,7 +64,12 @@ function SubscriptionDetailImpl({ sub }: Props) {
             <button type="button" className="btn btn-secondary btn-sm" onClick={back} style={{ marginBottom: 4 }}>
               ← Back to subscriptions
             </button>
-            <h3 style={{ margin: 0 }}>{sub.name}</h3>
+            <InlineRename
+              value={sub.name}
+              canEdit={sub.canUpdate}
+              onSave={(next) => sub.update({ name: next })}
+              placeholder="Display name"
+            />
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span className="cell-mono">{sub.productId}</span>
               <span className="platform-badge">{sub.periodLabel}</span>
@@ -93,6 +99,24 @@ function SubscriptionDetailImpl({ sub }: Props) {
           </div>
         )}
       </div>
+
+      {/* Needs-action banner */}
+      {(sub.isEditable && !sub.isApproved) && (
+        <div
+          className="card"
+          style={{
+            marginBottom: 12,
+            borderLeft: '3px solid var(--warning-bg, #f59e0b)',
+          }}
+        >
+          <div className="card-body">
+            <strong>{sub.statusLabel}</strong>
+            <span className="muted" style={{ marginLeft: 8 }}>
+              Add a localization with a display name and set a price before submitting for review.
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Tab nav */}
       <div className="card" style={{ marginBottom: 12, padding: 0 }}>

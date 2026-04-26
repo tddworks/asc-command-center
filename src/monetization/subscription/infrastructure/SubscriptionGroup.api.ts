@@ -11,6 +11,7 @@ import {
   SubscriptionOfferCode,
   SubscriptionPromotionalOffer,
 } from '../SubscriptionOffers.ts';
+import { WinBackOffer } from '../WinBackOffer.ts';
 import { apiClient, type DataMode } from '../../../shared/api-client.tsx';
 import type {
   CreateIntroductoryOfferInput,
@@ -425,6 +426,12 @@ export class RestSubscriptionGroupRepository implements SubscriptionGroupReposit
     const url = sub.affordances.listOfferCodes ?? `/api/v1/subscriptions/${sub.id}/offer-codes`;
     const json = await apiClient.get<{ data: Record<string, unknown>[] }>(url);
     return json.data.map(SubscriptionOfferCode.fromJSON);
+  }
+
+  async winBackOffers(sub: Subscription): Promise<WinBackOffer[]> {
+    const url = sub.affordances.listWinBackOffers ?? `/api/v1/subscriptions/${sub.id}/win-back-offers`;
+    const json = await apiClient.get<{ data: Record<string, unknown>[] }>(url);
+    return json.data.map(WinBackOffer.fromJSON);
   }
 
   async createOfferCode(

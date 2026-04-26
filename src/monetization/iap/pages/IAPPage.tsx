@@ -79,8 +79,31 @@ function IAPPage() {
 
   const canCreate = !!workspace.currentApp;
 
+  const showOnboarding = iaps.count === 0 && canCreate;
+
   return (
     <>
+      {showOnboarding && (
+        <div
+          className="card"
+          style={{ marginBottom: 16, borderLeft: '3px solid var(--accent)' }}
+        >
+          <div className="card-body">
+            <h4 style={{ marginBottom: 4 }}>👋 Get started with In-App Purchases</h4>
+            <p className="muted" style={{ marginBottom: 8 }}>
+              Add your first IAP, then complete the four submit-readiness steps:
+              localization, pricing, availability, and review screenshot.
+            </p>
+            <ol className="muted" style={{ paddingLeft: 20, marginBottom: 0 }}>
+              <li>Create an IAP and pick its type.</li>
+              <li>Add at least one localization with a display name.</li>
+              <li>Set a base price — Apple equalises every territory.</li>
+              <li>Submit for review.</li>
+            </ol>
+          </div>
+        </div>
+      )}
+
       <div className="card">
         <div className="toolbar">
           <div className="toolbar-left">

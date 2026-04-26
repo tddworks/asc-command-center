@@ -13,6 +13,7 @@ import type {
   SubscriptionOfferCode,
   SubscriptionPromotionalOffer,
 } from './SubscriptionOffers.ts';
+import type { WinBackOffer } from './WinBackOffer.ts';
 import type { SubscriptionRepository } from './SubscriptionRepository.ts';
 
 export const SubscriptionPeriod = {
@@ -99,6 +100,9 @@ export class Subscription {
   offerCodes: SubscriptionOfferCode[] = [];
   isOfferCodesLoaded = false;
 
+  winBackOffers: WinBackOffer[] = [];
+  isWinBackOffersLoaded = false;
+
   repository: SubscriptionRepository | null;
 
   constructor(init: SubscriptionInit, repository: SubscriptionRepository | null = null) {
@@ -157,6 +161,12 @@ export class Subscription {
   get canViewPromotionalOffers(): boolean { return 'listPromotionalOffers' in this.affordances; }
   get canViewOfferCodes(): boolean { return 'listOfferCodes' in this.affordances; }
   get canCreateOfferCode(): boolean { return 'createOfferCode' in this.affordances; }
+  /** Win-back offers gate on Apple's "subscription approved" + the affordance.
+   *  Page renders a "requires approval" landing card when the second is true
+   *  but the first isn't yet. */
+  get canViewWinBackOffers(): boolean {
+    return this.isApproved && 'listWinBackOffers' in this.affordances;
+  }
   get canCreateIntroductoryOffer(): boolean { return 'createIntroductoryOffer' in this.affordances; }
   get canCreatePromotionalOffer(): boolean { return 'createPromotionalOffer' in this.affordances; }
 
@@ -425,6 +435,22 @@ export class Subscription {
     runInAction(() => {
       this.promotionalOffers = this.promotionalOffers.filter((o) => o !== offer);
     });
+  }
+
+  async loadWinBackOffers(): Promise<WinBackOffer[]> {
+    if (!this.canViewWinBackOffers) {
+      runInAction(() => {
+        this.winBackOffers = [];
+        this.isWinBackOffersLoaded = true;
+      });
+      return [];
+    }
+    const list = await this.requireRepo().winBackOffers(this);
+    runInAction(() => {
+      this.winBackOffers = list;
+      this.isWinBackOffersLoaded = true;
+    });
+    return list;
   }
 
   async createOfferCode(input: {
