@@ -7,6 +7,7 @@ import {
 } from '../../../src/monetization/subscription/Subscription.ts';
 import { SubscriptionLocalization } from '../../../src/monetization/subscription/SubscriptionLocalization.ts';
 import { SubscriptionPriceSchedule } from '../../../src/monetization/subscription/SubscriptionPriceSchedule.ts';
+import { SubscriptionReviewScreenshot } from '../../../src/monetization/subscription/SubscriptionReviewScreenshot.ts';
 import type { SubscriptionRepository } from '../../../src/monetization/subscription/SubscriptionRepository.ts';
 
 function stubRepo(overrides: Partial<SubscriptionRepository> = {}): SubscriptionRepository {
@@ -20,6 +21,9 @@ function stubRepo(overrides: Partial<SubscriptionRepository> = {}): Subscription
     saveLocalization: vi.fn().mockResolvedValue(undefined),
     deleteLocalization: vi.fn().mockResolvedValue(undefined),
     priceSchedule: vi.fn().mockResolvedValue(null),
+    reviewScreenshot: vi.fn().mockResolvedValue(null),
+    uploadReviewScreenshot: vi.fn(),
+    deleteReviewScreenshot: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
@@ -239,6 +243,112 @@ describe('Subscription', () => {
     expect(sub.priceSchedule).toBe(sched);
     expect(sub.isPriceScheduleLoaded).toBe(true);
     expect(repo.priceSchedule).toHaveBeenCalledWith(sub);
+  });
+
+  // ── Review (notes + screenshot) ──
+
+  it('updateReviewNote calls update with reviewNote and mutates locally', async () => {
+    const repo = stubRepo();
+    const sub = new Subscription(subInit({
+      state: SubscriptionState.MissingMetadata,
+      affordances: { update: '/x' },
+    }), repo);
+
+    await sub.updateReviewNote('Use code TESTING');
+
+    expect(repo.update).toHaveBeenCalledWith(sub, { reviewNote: 'Use code TESTING' });
+    expect(sub.reviewNote).toBe('Use code TESTING');
+  });
+
+  it('updateReviewNote throws when not editable', async () => {
+    const repo = stubRepo();
+    const sub = new Subscription(subInit({
+      state: SubscriptionState.Approved,
+      affordances: { update: '/x' },
+    }), repo);
+
+    await expect(sub.updateReviewNote('x')).rejects.toThrow(/cannot update review note/);
+    expect(repo.update).not.toHaveBeenCalled();
+  });
+
+  it('canViewReviewScreenshot / canUploadReviewScreenshot map to affordances', () => {
+    const open = new Subscription(subInit({
+      affordances: { getReviewScreenshot: '/x', uploadReviewScreenshot: '/y' },
+    }));
+    expect(open.canViewReviewScreenshot).toBe(true);
+    expect(open.canUploadReviewScreenshot).toBe(true);
+
+    const closed = new Subscription(subInit({ affordances: {} }));
+    expect(closed.canViewReviewScreenshot).toBe(false);
+    expect(closed.canUploadReviewScreenshot).toBe(false);
+  });
+
+  it('loadReviewScreenshot short-circuits to null when affordance missing', async () => {
+    const repo = stubRepo();
+    const sub = new Subscription(subInit({ affordances: {} }), repo);
+
+    const result = await sub.loadReviewScreenshot();
+
+    expect(result).toBeNull();
+    expect(sub.isReviewScreenshotLoaded).toBe(true);
+    expect(repo.reviewScreenshot).not.toHaveBeenCalled();
+  });
+
+  it('loadReviewScreenshot populates from the repo', async () => {
+    const shot = new SubscriptionReviewScreenshot({ id: 'shot-1', fileName: 'a.png', previewUrl: 'data:x' });
+    const repo = stubRepo({ reviewScreenshot: vi.fn().mockResolvedValue(shot) });
+    const sub = new Subscription(subInit({ affordances: { getReviewScreenshot: '/x' } }), repo);
+
+    await sub.loadReviewScreenshot();
+
+    expect(sub.reviewScreenshot).toBe(shot);
+    expect(sub.isReviewScreenshotLoaded).toBe(true);
+  });
+
+  it('uploadReviewScreenshot replaces an existing screenshot (delete + upload)', async () => {
+    const existing = new SubscriptionReviewScreenshot({ id: 'shot-1', fileName: 'old.png', previewUrl: 'data:x', affordances: { delete: '/d' } });
+    const fresh = new SubscriptionReviewScreenshot({ id: 'shot-2', fileName: 'new.png', previewUrl: 'data:y' });
+    const repo = stubRepo({
+      reviewScreenshot: vi.fn().mockResolvedValue(existing),
+      uploadReviewScreenshot: vi.fn().mockResolvedValue(fresh),
+    });
+    const sub = new Subscription(subInit({
+      affordances: { getReviewScreenshot: '/x', uploadReviewScreenshot: '/y' },
+    }), repo);
+    await sub.loadReviewScreenshot();
+
+    const file = new File(['x'], 'new.png', { type: 'image/png' });
+    const result = await sub.uploadReviewScreenshot(file);
+
+    expect(repo.deleteReviewScreenshot).toHaveBeenCalledWith(sub, existing);
+    expect(repo.uploadReviewScreenshot).toHaveBeenCalledWith(sub, file);
+    expect(result).toBe(fresh);
+    expect(sub.reviewScreenshot).toBe(fresh);
+  });
+
+  it('uploadReviewScreenshot throws when affordance missing', async () => {
+    const repo = stubRepo();
+    const sub = new Subscription(subInit({ affordances: {} }), repo);
+    await expect(sub.uploadReviewScreenshot(new File([''], 'a.png'))).rejects.toThrow(/cannot upload review screenshot/);
+    expect(repo.uploadReviewScreenshot).not.toHaveBeenCalled();
+  });
+
+  it('deleteReviewScreenshot clears the screenshot on success', async () => {
+    const shot = new SubscriptionReviewScreenshot({ id: 'shot-1', fileName: 'x.png', previewUrl: 'data:x', affordances: { delete: '/d' } });
+    const repo = stubRepo({ reviewScreenshot: vi.fn().mockResolvedValue(shot) });
+    const sub = new Subscription(subInit({ affordances: { getReviewScreenshot: '/x' } }), repo);
+    await sub.loadReviewScreenshot();
+
+    await sub.deleteReviewScreenshot();
+
+    expect(repo.deleteReviewScreenshot).toHaveBeenCalledWith(sub, shot);
+    expect(sub.reviewScreenshot).toBeNull();
+  });
+
+  it('deleteReviewScreenshot throws when no screenshot present', async () => {
+    const repo = stubRepo();
+    const sub = new Subscription(subInit(), repo);
+    await expect(sub.deleteReviewScreenshot()).rejects.toThrow(/no review screenshot to delete/);
   });
 
   it('suggestedProductId derives a com.bundle.<slug> shape', () => {

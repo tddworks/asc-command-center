@@ -2,6 +2,7 @@ import { Subscription } from '../Subscription.ts';
 import { SubscriptionGroup } from '../SubscriptionGroup.ts';
 import { SubscriptionLocalization } from '../SubscriptionLocalization.ts';
 import { SubscriptionPriceSchedule } from '../SubscriptionPriceSchedule.ts';
+import { SubscriptionReviewScreenshot } from '../SubscriptionReviewScreenshot.ts';
 import { apiClient, type DataMode } from '../../../shared/api-client.tsx';
 import type {
   CreateSubscriptionInput,
@@ -169,6 +170,38 @@ export class RestSubscriptionGroupRepository implements SubscriptionGroupReposit
 
   async deleteLocalization(loc: SubscriptionLocalization): Promise<void> {
     const url = loc.deleteUrl ?? `/api/v1/subscription-localizations/${loc.id}`;
+    const res = await fetch(url, { method: 'DELETE' });
+    if (!res.ok) throw new Error(`DELETE ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
+  }
+
+  // ── Review screenshot ──
+
+  async reviewScreenshot(sub: Subscription): Promise<SubscriptionReviewScreenshot | null> {
+    const url = sub.affordances.getReviewScreenshot ?? `/api/v1/subscriptions/${sub.id}/review-screenshot`;
+    try {
+      const json = await apiClient.get<{ data: Record<string, unknown> | null }>(url);
+      const row = Array.isArray(json.data) ? (json.data as Record<string, unknown>[])[0] : json.data;
+      return row ? SubscriptionReviewScreenshot.fromJSON(row) : null;
+    } catch (err) {
+      const msg = (err as Error).message ?? '';
+      if (msg.includes('404')) return null;
+      throw err;
+    }
+  }
+
+  async uploadReviewScreenshot(sub: Subscription, file: File): Promise<SubscriptionReviewScreenshot> {
+    const url = sub.affordances.uploadReviewScreenshot ?? `/api/v1/subscriptions/${sub.id}/review-screenshot`;
+    const body = new FormData();
+    body.append('file', file, file.name);
+    const res = await fetch(url, { method: 'POST', body });
+    if (!res.ok) throw new Error(`POST ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
+    const json = await res.json().catch(() => ({}));
+    const data = (json.data ?? json) as Record<string, unknown>;
+    return SubscriptionReviewScreenshot.fromJSON(data);
+  }
+
+  async deleteReviewScreenshot(sub: Subscription, screenshot: SubscriptionReviewScreenshot): Promise<void> {
+    const url = screenshot.deleteUrl ?? `/api/v1/subscriptions/${sub.id}/review-screenshot`;
     const res = await fetch(url, { method: 'DELETE' });
     if (!res.ok) throw new Error(`DELETE ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
   }
