@@ -1,31 +1,93 @@
-import { useInAppPurchases } from '../IAP.hooks.ts';
-import { AffordanceBar } from '../../../shared/components/AffordanceBar.tsx';
+import { observer } from 'mobx-react-lite';
+import { iaps } from '../iapsInstance.ts';
+import { workspace } from '../../../workspace/workspaceInstance.ts';
+import type { InAppPurchase } from '../InAppPurchase.ts';
 
-export default function IAPPage({ appId = 'app-1' }: { appId?: string }) {
-  const { iaps, loading, error } = useInAppPurchases(appId);
+const STATUS_CLASS: Record<string, string> = {
+  success: 'live',
+  info: 'pending',
+  warning: 'pending',
+  danger: 'rejected',
+  neutral: '',
+};
 
-  if (loading) return <div className="loading"><span className="spinner" /><span>Loading in-app purchases...</span></div>;
-  if (error) return <div className="error">Error: {error.message}</div>;
+function IAPRow({ iap }: { iap: InAppPurchase }) {
+  const submit = async () => {
+    try { await iap.submit(); }
+    catch (err) { console.warn('[iap] submit failed:', err); }
+  };
+  const unsubmit = async () => {
+    try { await iap.unsubmit(); }
+    catch (err) { console.warn('[iap] unsubmit failed:', err); }
+  };
+  const remove = async () => {
+    if (!iap.canDelete) return;
+    if (!window.confirm(`Delete "${iap.referenceName}"?`)) return;
+    try { await iaps.remove(iap); }
+    catch (err) { console.warn('[iap] delete failed:', err); }
+  };
+
+  return (
+    <tr>
+      <td className="cell-primary">{iap.referenceName}</td>
+      <td className="cell-mono">{iap.productId}</td>
+      <td><span className="platform-badge">{iap.displayType}</span></td>
+      <td>
+        <span className={`status ${STATUS_CLASS[iap.statusTone]}`}>
+          {iap.statusLabel}
+        </span>
+      </td>
+      <td>
+        <div style={{ display: 'flex', gap: 6 }}>
+          {iap.canSubmit && (
+            <button className="btn btn-primary btn-sm" onClick={submit}>Submit</button>
+          )}
+          {iap.canUnsubmit && (
+            <button className="btn btn-secondary btn-sm" onClick={unsubmit}>Cancel</button>
+          )}
+          {iap.canDelete && (
+            <button className="btn btn-secondary btn-sm" onClick={remove}>Delete</button>
+          )}
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+const ObservedIAPRow = observer(IAPRow);
+
+function IAPPage() {
+  if (!workspace.hydrated || !iaps.loaded) {
+    return <div className="loading"><span className="spinner" /><span>Loading in-app purchases...</span></div>;
+  }
+  if (iaps.error) {
+    return <div className="error">Error: {iaps.error.message}</div>;
+  }
 
   return (
     <div className="card">
       <div className="toolbar">
-        <div className="toolbar-left"><h3>In-App Purchases</h3></div>
+        <div className="toolbar-left">
+          <h3>In-App Purchases</h3>
+          <span className="muted" style={{ marginLeft: 8 }}>
+            {iaps.count} total · {iaps.pendingCount} in review · {iaps.needsActionCount} need action
+          </span>
+        </div>
       </div>
       <div className="table-wrapper">
         <table>
           <thead>
-            <tr><th>Name</th><th>Product ID</th><th>Type</th><th>State</th><th>Actions</th></tr>
+            <tr>
+              <th>Reference Name</th>
+              <th>Product ID</th>
+              <th>Type</th>
+              <th>State</th>
+              <th>Actions</th>
+            </tr>
           </thead>
           <tbody>
-            {iaps.map((p) => (
-              <tr key={p.id}>
-                <td className="cell-primary">{p.name}</td>
-                <td className="cell-mono">{p.productId}</td>
-                <td><span className="platform-badge">{p.inAppPurchaseType}</span></td>
-                <td><span className={`status ${p.isApproved ? 'live' : 'pending'}`}>{p.state}</span></td>
-                <td><AffordanceBar affordances={p.affordances} /></td>
-              </tr>
+            {iaps.list.map((iap) => (
+              <ObservedIAPRow key={iap.id} iap={iap} />
             ))}
           </tbody>
         </table>
@@ -33,3 +95,5 @@ export default function IAPPage({ appId = 'app-1' }: { appId?: string }) {
     </div>
   );
 }
+
+export default observer(IAPPage);
