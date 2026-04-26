@@ -8,6 +8,7 @@ import {
   SubscriptionGroup,
   type SubscriptionGroupInit,
 } from '../../../src/monetization/subscription/SubscriptionGroup.ts';
+import { SubscriptionGroupLocalization } from '../../../src/monetization/subscription/SubscriptionGroupLocalization.ts';
 import type { SubscriptionGroupRepository } from '../../../src/monetization/subscription/SubscriptionGroupRepository.ts';
 
 function stubRepo(overrides: Partial<SubscriptionGroupRepository> = {}): SubscriptionGroupRepository {
@@ -20,6 +21,10 @@ function stubRepo(overrides: Partial<SubscriptionGroupRepository> = {}): Subscri
     subscriptions: vi.fn().mockResolvedValue([]),
     createSubscription: vi.fn(),
     removeSubscription: vi.fn().mockResolvedValue(undefined),
+    groupLocalizations: vi.fn().mockResolvedValue([]),
+    createGroupLocalization: vi.fn(),
+    saveGroupLocalization: vi.fn().mockResolvedValue(undefined),
+    deleteGroupLocalization: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   } as SubscriptionGroupRepository;
 }
@@ -161,6 +166,68 @@ describe('SubscriptionGroup', () => {
 
     expect(repo.removeSubscription).toHaveBeenCalledWith(a);
     expect(group.subscriptions).toEqual([b]);
+  });
+
+  // ── Group localizations ──
+
+  it('canViewGroupLocalizations / canCreateGroupLocalization map to affordances', () => {
+    const open = new SubscriptionGroup(groupInit({
+      affordances: { listLocalizations: '/x', createLocalization: '/y' },
+    }));
+    expect(open.canViewGroupLocalizations).toBe(true);
+    expect(open.canCreateGroupLocalization).toBe(true);
+
+    const closed = new SubscriptionGroup(groupInit({ affordances: {} }));
+    expect(closed.canViewGroupLocalizations).toBe(false);
+    expect(closed.canCreateGroupLocalization).toBe(false);
+  });
+
+  it('loadGroupLocalizations populates and attaches the repo', async () => {
+    const en = new SubscriptionGroupLocalization({ id: 'l-1', locale: 'en-US', name: 'Premium', customAppName: null });
+    const repo = stubRepo({ groupLocalizations: vi.fn().mockResolvedValue([en]) });
+    const group = new SubscriptionGroup(groupInit({ affordances: { listLocalizations: '/x' } }), repo);
+
+    await group.loadGroupLocalizations();
+
+    expect(group.groupLocalizations).toEqual([en]);
+    expect(group.isGroupLocalizationsLoaded).toBe(true);
+    expect(en.repository).toBe(repo);
+  });
+
+  it('addGroupLocalization gates on affordance and appends', async () => {
+    const created = new SubscriptionGroupLocalization({ id: 'l-new', locale: 'de-DE', name: 'X', customAppName: null });
+    const repo = stubRepo({ createGroupLocalization: vi.fn().mockResolvedValue(created) });
+    const group = new SubscriptionGroup(
+      groupInit({ affordances: { createLocalization: '/x' } }),
+      repo,
+    );
+
+    const result = await group.addGroupLocalization({ locale: 'de-DE', name: 'X' });
+
+    expect(result).toBe(created);
+    expect(group.groupLocalizations).toContain(created);
+    expect(repo.createGroupLocalization).toHaveBeenCalledWith(group, { locale: 'de-DE', name: 'X' });
+  });
+
+  it('addGroupLocalization throws when affordance missing', async () => {
+    const repo = stubRepo();
+    const group = new SubscriptionGroup(groupInit({ affordances: {} }), repo);
+
+    await expect(group.addGroupLocalization({ locale: 'de-DE', name: 'X' })).rejects.toThrow(/cannot create a localization/);
+    expect(repo.createGroupLocalization).not.toHaveBeenCalled();
+  });
+
+  it('removeGroupLocalization delegates to loc.delete and prunes the list', async () => {
+    const a = new SubscriptionGroupLocalization({ id: 'l-1', locale: 'en-US', name: 'X', customAppName: null, affordances: { delete: '/x' } });
+    const b = new SubscriptionGroupLocalization({ id: 'l-2', locale: 'fr-FR', name: 'Y', customAppName: null, affordances: { delete: '/y' } });
+    const repo = stubRepo({ groupLocalizations: vi.fn().mockResolvedValue([a, b]) });
+    const group = new SubscriptionGroup(groupInit({ affordances: { listLocalizations: '/x' } }), repo);
+    await group.loadGroupLocalizations();
+
+    await group.removeGroupLocalization(a);
+
+    expect(repo.deleteGroupLocalization).toHaveBeenCalledWith(a);
+    expect(group.groupLocalizations).toEqual([b]);
   });
 
   it('update calls the repo and applies the patch only on success', async () => {

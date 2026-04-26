@@ -6,6 +6,7 @@ import type { Subscription } from '../Subscription.ts';
 import type { SubscriptionGroup } from '../SubscriptionGroup.ts';
 import { CreateSubscriptionGroupModal } from '../components/CreateSubscriptionGroupModal.tsx';
 import { CreateSubscriptionModal } from '../components/CreateSubscriptionModal.tsx';
+import { GroupLocalizationsPanel } from '../components/GroupLocalizationsPanel.tsx';
 import { SubscriptionDetail } from '../components/SubscriptionDetail.tsx';
 
 const STATUS_CLASS: Record<string, string> = {
@@ -65,6 +66,7 @@ function GroupCard({
   group: SubscriptionGroup;
   onAddTier: (group: SubscriptionGroup) => void;
 }) {
+  const [locsOpen, setLocsOpen] = useState(false);
   const remove = async () => {
     if (!group.canDelete) return;
     if (!window.confirm(`Delete group "${group.referenceName}"?`)) return;
@@ -80,6 +82,15 @@ function GroupCard({
           <span className="muted" style={{ marginLeft: 8 }}>{group.tierCount} tier(s)</span>
         </div>
         <div className="toolbar-right" style={{ display: 'flex', gap: 6 }}>
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm"
+            onClick={() => setLocsOpen((open) => !open)}
+            disabled={!group.canViewGroupLocalizations}
+            title={group.canViewGroupLocalizations ? 'Group localizations' : 'Backend does not expose localizations'}
+          >
+            {locsOpen ? 'Hide Localizations' : 'Localizations'}
+          </button>
           <button
             type="button"
             className="btn btn-primary btn-sm"
@@ -118,6 +129,7 @@ function GroupCard({
           </table>
         </div>
       )}
+      {locsOpen && <GroupLocalizationsPanel group={group} />}
     </div>
   );
 }

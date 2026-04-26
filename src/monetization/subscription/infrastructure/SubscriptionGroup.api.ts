@@ -1,6 +1,7 @@
 import { Subscription } from '../Subscription.ts';
 import { SubscriptionGroup } from '../SubscriptionGroup.ts';
 import { SubscriptionLocalization } from '../SubscriptionLocalization.ts';
+import { SubscriptionGroupLocalization } from '../SubscriptionGroupLocalization.ts';
 import { SubscriptionAvailability } from '../SubscriptionAvailability.ts';
 import { SubscriptionPriceSchedule } from '../SubscriptionPriceSchedule.ts';
 import { SubscriptionReviewScreenshot } from '../SubscriptionReviewScreenshot.ts';
@@ -15,7 +16,10 @@ import type {
   CreateSubscriptionLocalizationInput,
   SubscriptionRepository,
 } from '../SubscriptionRepository.ts';
-import type { SubscriptionGroupRepository } from '../SubscriptionGroupRepository.ts';
+import type {
+  CreateSubscriptionGroupLocalizationInput,
+  SubscriptionGroupRepository,
+} from '../SubscriptionGroupRepository.ts';
 
 /** True for SubscriptionGroup (has appId) — used by the shared REST handle
  *  to pick the right URL when implementing both ports' `update`/`remove`. */
@@ -132,6 +136,52 @@ export class RestSubscriptionGroupRepository implements SubscriptionGroupReposit
   async unsubmit(sub: Subscription): Promise<void> {
     const url = sub.affordances.unsubmit;
     if (!url) throw new Error(`Subscription ${sub.id} has no unsubmit affordance`);
+    const res = await fetch(url, { method: 'DELETE' });
+    if (!res.ok) throw new Error(`DELETE ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
+  }
+
+  // ── Group localizations ──
+
+  async groupLocalizations(group: SubscriptionGroup): Promise<SubscriptionGroupLocalization[]> {
+    const url = group.affordances.listLocalizations ?? `/api/v1/subscription-groups/${group.id}/localizations`;
+    const json = await apiClient.get<{ data: Record<string, unknown>[] }>(url);
+    return json.data.map(SubscriptionGroupLocalization.fromJSON);
+  }
+
+  async createGroupLocalization(
+    group: SubscriptionGroup,
+    input: CreateSubscriptionGroupLocalizationInput,
+  ): Promise<SubscriptionGroupLocalization> {
+    const url = group.affordances.createLocalization ?? `/api/v1/subscription-groups/${group.id}/localizations`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        locale: input.locale,
+        name: input.name,
+        customAppName: input.customAppName ?? null,
+      }),
+    });
+    if (!res.ok) throw new Error(`POST ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
+    const body = await res.json().catch(() => ({}));
+    const data = (body.data ?? body) as Record<string, unknown>;
+    return SubscriptionGroupLocalization.fromJSON(data);
+  }
+
+  async saveGroupLocalization(loc: SubscriptionGroupLocalization): Promise<void> {
+    const url = loc.affordances.update ?? loc.affordances.updateLocalization
+      ?? `/api/v1/subscription-group-localizations/${loc.id}`;
+    const res = await fetch(url, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: loc.name, customAppName: loc.customAppName }),
+    });
+    if (!res.ok) throw new Error(`PATCH ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
+  }
+
+  async deleteGroupLocalization(loc: SubscriptionGroupLocalization): Promise<void> {
+    const url = loc.affordances.delete ?? loc.affordances.deleteLocalization
+      ?? `/api/v1/subscription-group-localizations/${loc.id}`;
     const res = await fetch(url, { method: 'DELETE' });
     if (!res.ok) throw new Error(`DELETE ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
   }
