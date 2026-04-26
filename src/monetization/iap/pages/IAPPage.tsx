@@ -4,6 +4,7 @@ import { iaps } from '../iapsInstance.ts';
 import { workspace } from '../../../workspace/workspaceInstance.ts';
 import type { InAppPurchase } from '../InAppPurchase.ts';
 import { CreateIAPModal } from '../components/CreateIAPModal.tsx';
+import { IAPDetail } from '../components/IAPDetail.tsx';
 
 const STATUS_CLASS: Record<string, string> = {
   success: 'live',
@@ -14,15 +15,18 @@ const STATUS_CLASS: Record<string, string> = {
 };
 
 function IAPRow({ iap }: { iap: InAppPurchase }) {
-  const submit = async () => {
+  const submit = async (e: React.MouseEvent) => {
+    e.stopPropagation();
     try { await iap.submit(); }
     catch (err) { console.warn('[iap] submit failed:', err); }
   };
-  const unsubmit = async () => {
+  const unsubmit = async (e: React.MouseEvent) => {
+    e.stopPropagation();
     try { await iap.unsubmit(); }
     catch (err) { console.warn('[iap] unsubmit failed:', err); }
   };
-  const remove = async () => {
+  const remove = async (e: React.MouseEvent) => {
+    e.stopPropagation();
     if (!iap.canDelete) return;
     if (!window.confirm(`Delete "${iap.referenceName}"?`)) return;
     try { await iaps.remove(iap); }
@@ -30,7 +34,7 @@ function IAPRow({ iap }: { iap: InAppPurchase }) {
   };
 
   return (
-    <tr>
+    <tr style={{ cursor: 'pointer' }} onClick={() => iaps.select(iap)}>
       <td className="cell-primary">{iap.referenceName}</td>
       <td className="cell-mono">{iap.productId}</td>
       <td><span className="platform-badge">{iap.displayType}</span></td>
@@ -66,6 +70,11 @@ function IAPPage() {
   }
   if (iaps.error) {
     return <div className="error">Error: {iaps.error.message}</div>;
+  }
+
+  // Detail mode — selected IAP takes over the page
+  if (iaps.selectedIap) {
+    return <IAPDetail iap={iaps.selectedIap} />;
   }
 
   const canCreate = !!workspace.currentApp;
