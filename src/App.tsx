@@ -17,6 +17,10 @@ import { accounts } from './developer-tools/auth/accountsInstance.ts';
 import { repositoryFor as authRepositoryFor } from './developer-tools/auth/infrastructure/Account.api.ts';
 import { installedPlugins } from './extensibility/plugin/installedPluginsInstance.ts';
 import { repositoryFor as installedPluginRepositoryFor } from './extensibility/plugin/infrastructure/InstalledPlugin.api.ts';
+import { iaps } from './monetization/iap/iapsInstance.ts';
+import { repositoryFor as iapRepositoryFor } from './monetization/iap/infrastructure/InAppPurchase.api.ts';
+import { subscriptionGroups } from './monetization/subscription/subscriptionGroupsInstance.ts';
+import { repositoryFor as subscriptionGroupRepositoryFor } from './monetization/subscription/infrastructure/SubscriptionGroup.api.ts';
 import { ThemeProvider, useTheme } from './shared/components/ThemeProvider.tsx';
 import { ToastProvider } from './shared/components/Toast.tsx';
 import { Sidebar } from './shared/layout/Sidebar.tsx';
@@ -61,6 +65,12 @@ function WorkspaceModeBridge() {
     });
     installedPluginRepositoryFor(mode).then((repo) => {
       if (!cancelled) installedPlugins.switchRepository(repo);
+    });
+    iapRepositoryFor(mode).then((repo) => {
+      if (!cancelled) iaps.switchRepository(repo);
+    });
+    subscriptionGroupRepositoryFor(mode).then((repo) => {
+      if (!cancelled) subscriptionGroups.switchRepository(repo);
     });
     return () => { cancelled = true; };
   }, [mode]);
