@@ -1,6 +1,13 @@
 import type { Subscription } from './Subscription.ts';
 import type { CreateSubscriptionInput } from './SubscriptionRepository.ts';
 import type { SubscriptionGroup } from './SubscriptionGroup.ts';
+import type { SubscriptionGroupLocalization } from './SubscriptionGroupLocalization.ts';
+
+export interface CreateSubscriptionGroupLocalizationInput {
+  locale: string;
+  name: string;
+  customAppName?: string | null;
+}
 
 /** Port for the SubscriptionGroups slice. Group-level CRUD plus the
  *  navigation methods child Subscriptions need (`subscriptions`,
@@ -16,4 +23,10 @@ export interface SubscriptionGroupRepository {
   subscriptions(group: SubscriptionGroup): Promise<Subscription[]>;
   createSubscription(input: CreateSubscriptionInput): Promise<Subscription>;
   removeSubscription(sub: Subscription): Promise<void>;
+
+  // ── Group localizations ──
+  groupLocalizations(group: SubscriptionGroup): Promise<SubscriptionGroupLocalization[]>;
+  createGroupLocalization(group: SubscriptionGroup, input: CreateSubscriptionGroupLocalizationInput): Promise<SubscriptionGroupLocalization>;
+  saveGroupLocalization(loc: SubscriptionGroupLocalization): Promise<void>;
+  deleteGroupLocalization(loc: SubscriptionGroupLocalization): Promise<void>;
 }
