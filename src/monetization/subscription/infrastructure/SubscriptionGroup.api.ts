@@ -1,7 +1,12 @@
 import { Subscription } from '../Subscription.ts';
 import { SubscriptionGroup } from '../SubscriptionGroup.ts';
+import { SubscriptionLocalization } from '../SubscriptionLocalization.ts';
 import { apiClient, type DataMode } from '../../../shared/api-client.tsx';
-import type { CreateSubscriptionInput, SubscriptionRepository } from '../SubscriptionRepository.ts';
+import type {
+  CreateSubscriptionInput,
+  CreateSubscriptionLocalizationInput,
+  SubscriptionRepository,
+} from '../SubscriptionRepository.ts';
 import type { SubscriptionGroupRepository } from '../SubscriptionGroupRepository.ts';
 
 /** True for SubscriptionGroup (has appId) — used by the shared REST handle
@@ -119,6 +124,50 @@ export class RestSubscriptionGroupRepository implements SubscriptionGroupReposit
   async unsubmit(sub: Subscription): Promise<void> {
     const url = sub.affordances.unsubmit;
     if (!url) throw new Error(`Subscription ${sub.id} has no unsubmit affordance`);
+    const res = await fetch(url, { method: 'DELETE' });
+    if (!res.ok) throw new Error(`DELETE ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
+  }
+
+  // ── Localizations (subscription tier) ──
+
+  async localizations(sub: Subscription): Promise<SubscriptionLocalization[]> {
+    const url = sub.affordances.listLocalizations ?? `/api/v1/subscriptions/${sub.id}/localizations`;
+    const json = await apiClient.get<{ data: Record<string, unknown>[] }>(url);
+    return json.data.map(SubscriptionLocalization.fromJSON);
+  }
+
+  async createLocalization(
+    sub: Subscription,
+    input: CreateSubscriptionLocalizationInput,
+  ): Promise<SubscriptionLocalization> {
+    const url = sub.affordances.createLocalization ?? `/api/v1/subscriptions/${sub.id}/localizations`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        locale: input.locale,
+        name: input.name,
+        description: input.description ?? null,
+      }),
+    });
+    if (!res.ok) throw new Error(`POST ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
+    const body = await res.json().catch(() => ({}));
+    const data = (body.data ?? body) as Record<string, unknown>;
+    return SubscriptionLocalization.fromJSON(data);
+  }
+
+  async saveLocalization(loc: SubscriptionLocalization): Promise<void> {
+    const url = loc.updateUrl ?? `/api/v1/subscription-localizations/${loc.id}`;
+    const res = await fetch(url, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: loc.name, description: loc.description }),
+    });
+    if (!res.ok) throw new Error(`PATCH ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
+  }
+
+  async deleteLocalization(loc: SubscriptionLocalization): Promise<void> {
+    const url = loc.deleteUrl ?? `/api/v1/subscription-localizations/${loc.id}`;
     const res = await fetch(url, { method: 'DELETE' });
     if (!res.ok) throw new Error(`DELETE ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
   }

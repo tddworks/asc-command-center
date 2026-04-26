@@ -1,5 +1,6 @@
 import { makeAutoObservable, runInAction } from 'mobx';
 import type { Affordances } from '../../shared/types.ts';
+import { SubscriptionLocalization } from './SubscriptionLocalization.ts';
 import type { SubscriptionRepository } from './SubscriptionRepository.ts';
 
 export const SubscriptionPeriod = {
@@ -60,6 +61,11 @@ export class Subscription {
   hasSubmission: boolean;
   affordances: Affordances;
 
+  /** Localizations loaded for this tier (empty until `loadLocalizations()`). */
+  localizations: SubscriptionLocalization[] = [];
+  /** True once `loadLocalizations()` has resolved. */
+  isLocalizationsLoaded = false;
+
   repository: SubscriptionRepository | null;
 
   constructor(init: SubscriptionInit, repository: SubscriptionRepository | null = null) {
@@ -106,6 +112,22 @@ export class Subscription {
   }
   get canDelete(): boolean { return 'delete' in this.affordances; }
   get canUpdate(): boolean { return this.isEditable && 'update' in this.affordances; }
+  get canViewLocalizations(): boolean { return 'listLocalizations' in this.affordances; }
+  get canCreateLocalization(): boolean { return 'createLocalization' in this.affordances; }
+
+  // ── Localization aggregation ──
+
+  get completeLocalizationCount(): number {
+    return this.localizations.filter((l) => l.isComplete).length;
+  }
+
+  get hasAnyCompleteLocalization(): boolean {
+    return this.completeLocalizationCount > 0;
+  }
+
+  get hasUnsavedLocalizationChanges(): boolean {
+    return this.localizations.some((l) => l.isNew || l.hasUnsavedChanges);
+  }
 
   // ── Display ──
 
@@ -192,6 +214,49 @@ export class Subscription {
       if (patch.isFamilySharable !== undefined) this.isFamilySharable = patch.isFamilySharable;
       if (patch.groupLevel !== undefined) this.groupLevel = patch.groupLevel;
       if (patch.reviewNote !== undefined) this.reviewNote = patch.reviewNote;
+    });
+  }
+
+  // ── Localization navigation (mutating) ──
+
+  async loadLocalizations(): Promise<SubscriptionLocalization[]> {
+    if (!this.canViewLocalizations) {
+      runInAction(() => {
+        this.localizations = [];
+        this.isLocalizationsLoaded = true;
+      });
+      return [];
+    }
+    const repo = this.requireRepo();
+    const list = await repo.localizations(this);
+    runInAction(() => {
+      list.forEach((l) => l.setRepository(repo));
+      this.localizations = list;
+      this.isLocalizationsLoaded = true;
+    });
+    return list;
+  }
+
+  async addLocalization(input: { locale: string; name: string; description?: string | null }): Promise<SubscriptionLocalization> {
+    if (!this.canCreateLocalization) {
+      throw new Error(`Subscription ${this.id} cannot create a localization (no createLocalization affordance)`);
+    }
+    const repo = this.requireRepo();
+    const created = await repo.createLocalization(this, input);
+    runInAction(() => {
+      created.setRepository(repo);
+      this.localizations = [...this.localizations, created];
+    });
+    return created;
+  }
+
+  async removeLocalization(loc: SubscriptionLocalization): Promise<void> {
+    if (!loc.canDelete) {
+      throw new Error(`Localization ${loc.locale} cannot be deleted (no delete affordance)`);
+    }
+    await loc.delete();
+    runInAction(() => {
+      this.localizations = this.localizations.filter((l) => l !== loc);
     });
   }
 
