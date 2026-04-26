@@ -3,6 +3,7 @@ import type { Affordances } from '../../shared/types.ts';
 import { SubscriptionLocalization } from './SubscriptionLocalization.ts';
 import type { SubscriptionAvailability } from './SubscriptionAvailability.ts';
 import type { SubscriptionPriceSchedule } from './SubscriptionPriceSchedule.ts';
+import type { SubscriptionPricePointPage } from './SubscriptionPricePoint.ts';
 import type { SubscriptionReviewScreenshot } from './SubscriptionReviewScreenshot.ts';
 import type {
   OfferMode,
