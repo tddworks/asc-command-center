@@ -168,6 +168,21 @@ export class RestInAppPurchaseRepository implements InAppPurchaseRepository {
 
   // ── Pricing ──
 
+  async setPrice(iap: InAppPurchase, input: { territoryId: string; pricePointId: string }): Promise<void> {
+    const url = iap.affordances.setPrice ?? `/api/v1/iap/${iap.id}/price-schedule`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        baseTerritory: input.territoryId,
+        pricePointId: input.pricePointId,
+      }),
+    });
+    if (!res.ok) {
+      throw new Error(`POST ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
+    }
+  }
+
   async priceSchedule(iap: InAppPurchase): Promise<IAPPriceSchedule | null> {
     const url = iap.affordances.getPriceSchedule ?? `/api/v1/iap/${iap.id}/price-schedule`;
     try {
