@@ -2,6 +2,7 @@ import { makeAutoObservable, runInAction } from 'mobx';
 import type { Affordances } from '../../shared/types.ts';
 import { SubscriptionLocalization } from './SubscriptionLocalization.ts';
 import type { SubscriptionPriceSchedule } from './SubscriptionPriceSchedule.ts';
+import type { SubscriptionReviewScreenshot } from './SubscriptionReviewScreenshot.ts';
 import type { SubscriptionRepository } from './SubscriptionRepository.ts';
 
 export const SubscriptionPeriod = {
@@ -71,6 +72,10 @@ export class Subscription {
   priceSchedule: SubscriptionPriceSchedule | null = null;
   isPriceScheduleLoaded = false;
 
+  /** Currently uploaded review screenshot, or null when none exists. */
+  reviewScreenshot: SubscriptionReviewScreenshot | null = null;
+  isReviewScreenshotLoaded = false;
+
   repository: SubscriptionRepository | null;
 
   constructor(init: SubscriptionInit, repository: SubscriptionRepository | null = null) {
@@ -120,6 +125,8 @@ export class Subscription {
   get canViewLocalizations(): boolean { return 'listLocalizations' in this.affordances; }
   get canCreateLocalization(): boolean { return 'createLocalization' in this.affordances; }
   get canViewPricing(): boolean { return 'getPriceSchedule' in this.affordances; }
+  get canViewReviewScreenshot(): boolean { return 'getReviewScreenshot' in this.affordances; }
+  get canUploadReviewScreenshot(): boolean { return 'uploadReviewScreenshot' in this.affordances; }
 
   // ── Localization aggregation ──
 
@@ -254,6 +261,59 @@ export class Subscription {
       this.localizations = [...this.localizations, created];
     });
     return created;
+  }
+
+  // ── Review (notes + screenshot) ──
+
+  async updateReviewNote(note: string | null): Promise<void> {
+    if (!this.canUpdate) {
+      throw new Error(`Subscription ${this.id} cannot update review note (not editable or no update affordance)`);
+    }
+    await this.requireRepo().update(this, { reviewNote: note });
+    runInAction(() => { this.reviewNote = note; });
+  }
+
+  async loadReviewScreenshot(): Promise<SubscriptionReviewScreenshot | null> {
+    if (!this.canViewReviewScreenshot) {
+      runInAction(() => {
+        this.reviewScreenshot = null;
+        this.isReviewScreenshotLoaded = true;
+      });
+      return null;
+    }
+    const fetched = await this.requireRepo().reviewScreenshot(this);
+    runInAction(() => {
+      this.reviewScreenshot = fetched;
+      this.isReviewScreenshotLoaded = true;
+    });
+    return fetched;
+  }
+
+  async uploadReviewScreenshot(file: File): Promise<SubscriptionReviewScreenshot> {
+    if (!this.canUploadReviewScreenshot) {
+      throw new Error(`Subscription ${this.id} cannot upload review screenshot (no uploadReviewScreenshot affordance)`);
+    }
+    const repo = this.requireRepo();
+    if (this.reviewScreenshot && this.reviewScreenshot.canDelete) {
+      await repo.deleteReviewScreenshot(this, this.reviewScreenshot);
+    }
+    const created = await repo.uploadReviewScreenshot(this, file);
+    runInAction(() => {
+      this.reviewScreenshot = created;
+      this.isReviewScreenshotLoaded = true;
+    });
+    return created;
+  }
+
+  async deleteReviewScreenshot(): Promise<void> {
+    if (!this.reviewScreenshot) {
+      throw new Error(`Subscription ${this.id} has no review screenshot to delete`);
+    }
+    if (!this.reviewScreenshot.canDelete) {
+      throw new Error(`Subscription ${this.id} review screenshot cannot be deleted (no delete affordance)`);
+    }
+    await this.requireRepo().deleteReviewScreenshot(this, this.reviewScreenshot);
+    runInAction(() => { this.reviewScreenshot = null; });
   }
 
   // ── Pricing ──

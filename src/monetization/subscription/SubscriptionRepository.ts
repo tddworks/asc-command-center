@@ -1,6 +1,7 @@
 import type { Subscription, SubscriptionPeriod } from './Subscription.ts';
 import type { SubscriptionLocalization } from './SubscriptionLocalization.ts';
 import type { SubscriptionPriceSchedule } from './SubscriptionPriceSchedule.ts';
+import type { SubscriptionReviewScreenshot } from './SubscriptionReviewScreenshot.ts';
 
 export interface CreateSubscriptionInput {
   groupId: string;
@@ -44,4 +45,9 @@ export interface SubscriptionRepository {
   // ── Pricing ──
   /** Returns null when the subscription has no price schedule yet. */
   priceSchedule(sub: Subscription): Promise<SubscriptionPriceSchedule | null>;
+
+  // ── Review screenshot ──
+  reviewScreenshot(sub: Subscription): Promise<SubscriptionReviewScreenshot | null>;
+  uploadReviewScreenshot(sub: Subscription, file: File): Promise<SubscriptionReviewScreenshot>;
+  deleteReviewScreenshot(sub: Subscription, screenshot: SubscriptionReviewScreenshot): Promise<void>;
 }
