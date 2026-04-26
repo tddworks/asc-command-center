@@ -8,6 +8,7 @@ import {
 import { InAppPurchaseLocalization } from '../../../src/monetization/iap/InAppPurchaseLocalization.ts';
 import { ReviewScreenshot } from '../../../src/monetization/iap/ReviewScreenshot.ts';
 import { IAPPriceSchedule } from '../../../src/monetization/iap/IAPPriceSchedule.ts';
+import { IAPAvailability, TerritoryAvailability } from '../../../src/monetization/iap/IAPAvailability.ts';
 import type { InAppPurchaseRepository } from '../../../src/monetization/iap/InAppPurchaseRepository.ts';
 
 function stubRepo(overrides: Partial<InAppPurchaseRepository> = {}): InAppPurchaseRepository {
@@ -27,6 +28,8 @@ function stubRepo(overrides: Partial<InAppPurchaseRepository> = {}): InAppPurcha
     uploadReviewScreenshot: vi.fn(),
     deleteReviewScreenshot: vi.fn().mockResolvedValue(undefined),
     priceSchedule: vi.fn().mockResolvedValue(null),
+    availability: vi.fn().mockResolvedValue(null),
+    setAvailability: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
@@ -444,6 +447,89 @@ describe('InAppPurchase', () => {
 
     expect(iap.priceSchedule).toBe(sched);
     expect(iap.isPriceScheduleLoaded).toBe(true);
+  });
+
+  // ── Availability ──
+
+  it('canViewAvailability / canSetAvailability map to affordances', () => {
+    const open = new InAppPurchase(iapInit({
+      affordances: { getAvailability: '/x', setAvailability: '/y' },
+    }));
+    expect(open.canViewAvailability).toBe(true);
+    expect(open.canSetAvailability).toBe(true);
+
+    const closed = new InAppPurchase(iapInit({ affordances: {} }));
+    expect(closed.canViewAvailability).toBe(false);
+    expect(closed.canSetAvailability).toBe(false);
+  });
+
+  it('loadAvailability short-circuits to null when affordance missing', async () => {
+    const repo = stubRepo();
+    const iap = new InAppPurchase(iapInit({ affordances: {} }), repo);
+
+    const result = await iap.loadAvailability();
+
+    expect(result).toBeNull();
+    expect(iap.isAvailabilityLoaded).toBe(true);
+    expect(repo.availability).not.toHaveBeenCalled();
+  });
+
+  it('loadAvailability populates availability from the repo', async () => {
+    const avail = new IAPAvailability({
+      availableInNewTerritories: false,
+      territories: [new TerritoryAvailability({ territoryId: 'USA', territoryName: 'US', currency: 'USD', isAvailable: true })],
+    });
+    const repo = stubRepo({ availability: vi.fn().mockResolvedValue(avail) });
+    const iap = new InAppPurchase(iapInit({ affordances: { getAvailability: '/x' } }), repo);
+
+    await iap.loadAvailability();
+
+    expect(iap.availability).toBe(avail);
+    expect(iap.isAvailabilityLoaded).toBe(true);
+  });
+
+  it('saveAvailability calls repo.setAvailability with current state and marks the snapshot saved', async () => {
+    const avail = new IAPAvailability({
+      availableInNewTerritories: false,
+      territories: [
+        new TerritoryAvailability({ territoryId: 'USA', territoryName: 'US', currency: 'USD', isAvailable: true }),
+        new TerritoryAvailability({ territoryId: 'JPN', territoryName: 'Japan', currency: 'JPY', isAvailable: false }),
+      ],
+    });
+    const repo = stubRepo({ availability: vi.fn().mockResolvedValue(avail) });
+    const iap = new InAppPurchase(iapInit({
+      affordances: { getAvailability: '/x', setAvailability: '/y' },
+    }), repo);
+    await iap.loadAvailability();
+
+    avail.toggleTerritory('JPN');
+    avail.setAvailableInNewTerritories(true);
+    expect(avail.isDirty).toBe(true);
+
+    await iap.saveAvailability();
+
+    expect(repo.setAvailability).toHaveBeenCalledWith(iap, {
+      territoryIds: ['USA', 'JPN'],
+      availableInNewTerritories: true,
+    });
+    expect(avail.isDirty).toBe(false);
+  });
+
+  it('saveAvailability throws when no availability is loaded', async () => {
+    const repo = stubRepo();
+    const iap = new InAppPurchase(iapInit({ affordances: { setAvailability: '/y' } }), repo);
+
+    await expect(iap.saveAvailability()).rejects.toThrow(/no availability loaded/);
+    expect(repo.setAvailability).not.toHaveBeenCalled();
+  });
+
+  it('saveAvailability throws when canSetAvailability is false', async () => {
+    const avail = new IAPAvailability({ availableInNewTerritories: false, territories: [] });
+    const repo = stubRepo({ availability: vi.fn().mockResolvedValue(avail) });
+    const iap = new InAppPurchase(iapInit({ affordances: { getAvailability: '/x' } }), repo);
+    await iap.loadAvailability();
+
+    await expect(iap.saveAvailability()).rejects.toThrow(/cannot set availability/);
   });
 
   // ── Helpers ──

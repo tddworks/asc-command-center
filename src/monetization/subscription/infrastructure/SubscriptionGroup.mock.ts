@@ -1,7 +1,9 @@
 import { Subscription, SubscriptionPeriod, SubscriptionState } from '../Subscription.ts';
 import { SubscriptionGroup } from '../SubscriptionGroup.ts';
 import { SubscriptionLocalization } from '../SubscriptionLocalization.ts';
+import { SubscriptionAvailability, SubscriptionTerritoryAvailability } from '../SubscriptionAvailability.ts';
 import { SubscriptionPriceSchedule, SubscriptionTerritoryPrice } from '../SubscriptionPriceSchedule.ts';
+import { SubscriptionReviewScreenshot } from '../SubscriptionReviewScreenshot.ts';
 import type {
   CreateSubscriptionInput,
   CreateSubscriptionLocalizationInput,
@@ -15,7 +17,10 @@ export class MockSubscriptionGroupRepository implements SubscriptionGroupReposit
   private groupsByApp = new Map<string, SubscriptionGroup[]>();
   private tiersByGroup = new Map<string, Subscription[]>();
   private localizationsByTier = new Map<string, SubscriptionLocalization[]>();
+  private screenshotByTier = new Map<string, SubscriptionReviewScreenshot | null>();
+  private availabilityByTier = new Map<string, SubscriptionAvailability>();
   private nextLocId = 500;
+  private nextShotId = 600;
 
   async list(appId: string): Promise<SubscriptionGroup[]> {
     if (!this.groupsByApp.has(appId)) {
@@ -103,6 +108,53 @@ export class MockSubscriptionGroupRepository implements SubscriptionGroupReposit
     return mockSubPriceScheduleFor(sub);
   }
 
+  // ── Review screenshot ──
+
+  async reviewScreenshot(sub: Subscription): Promise<SubscriptionReviewScreenshot | null> {
+    return this.screenshotByTier.get(sub.id) ?? null;
+  }
+
+  async uploadReviewScreenshot(sub: Subscription, file: File): Promise<SubscriptionReviewScreenshot> {
+    const id = `sub-shot-${this.nextShotId++}`;
+    const previewUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(file);
+    });
+    const screenshot = new SubscriptionReviewScreenshot({
+      id,
+      fileName: file.name,
+      previewUrl,
+      affordances: { delete: `/api/v1/subscriptions/${sub.id}/review-screenshot` },
+    });
+    this.screenshotByTier.set(sub.id, screenshot);
+    return screenshot;
+  }
+
+  async deleteReviewScreenshot(sub: Subscription, _screenshot: SubscriptionReviewScreenshot): Promise<void> {
+    this.screenshotByTier.set(sub.id, null);
+  }
+
+  // ── Availability ──
+
+  async availability(sub: Subscription): Promise<SubscriptionAvailability | null> {
+    let avail = this.availabilityByTier.get(sub.id);
+    if (!avail) {
+      avail = mockSubAvailabilityFor(sub);
+      this.availabilityByTier.set(sub.id, avail);
+    }
+    return avail;
+  }
+
+  async setAvailability(
+    _sub: Subscription,
+    _input: { territoryIds: string[]; availableInNewTerritories: boolean },
+  ): Promise<void> {
+    // Mock holds the same instance the page edits — markSaved on the
+    // domain side is sufficient; nothing else to persist.
+  }
+
   // ── Localizations ──
 
   async localizations(sub: Subscription): Promise<SubscriptionLocalization[]> {
@@ -186,7 +238,10 @@ export class MockSubscriptionGroupRepository implements SubscriptionGroupReposit
       listLocalizations: `/api/v1/subscriptions/${id}/localizations`,
       createLocalization: `/api/v1/subscriptions/${id}/localizations`,
       getPriceSchedule: `/api/v1/subscriptions/${id}/price-schedule`,
+      getReviewScreenshot: `/api/v1/subscriptions/${id}/review-screenshot`,
+      uploadReviewScreenshot: `/api/v1/subscriptions/${id}/review-screenshot`,
       getAvailability: `/api/v1/subscriptions/${id}/availability`,
+      setAvailability: `/api/v1/subscriptions/${id}/availability`,
       listOfferCodes: `/api/v1/subscriptions/${id}/offer-codes`,
       listIntroOffers: `/api/v1/subscriptions/${id}/intro-offers`,
       listPromoOffers: `/api/v1/subscriptions/${id}/promo-offers`,
@@ -281,4 +336,18 @@ function mockSubPriceScheduleFor(sub: Subscription): SubscriptionPriceSchedule |
     pricePointId: `pp-${sub.id}-${t.id}`,
   }));
   return new SubscriptionPriceSchedule({ territoryPrices: rows });
+}
+
+function mockSubAvailabilityFor(sub: Subscription): SubscriptionAvailability {
+  const usd = subBasePriceFor(sub);
+  const territories = SUB_TERRITORIES.map((t) => new SubscriptionTerritoryAvailability({
+    territoryId: t.id,
+    territoryName: t.name,
+    currency: t.currency,
+    isAvailable: usd !== null,
+  }));
+  return new SubscriptionAvailability({
+    availableInNewTerritories: usd !== null,
+    territories,
+  });
 }

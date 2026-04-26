@@ -1,6 +1,7 @@
 import { makeAutoObservable, runInAction } from 'mobx';
 import type { Affordances } from '../../shared/types.ts';
 import { SubscriptionLocalization } from './SubscriptionLocalization.ts';
+import type { SubscriptionAvailability } from './SubscriptionAvailability.ts';
 import type { SubscriptionPriceSchedule } from './SubscriptionPriceSchedule.ts';
 import type { SubscriptionReviewScreenshot } from './SubscriptionReviewScreenshot.ts';
 import type { SubscriptionRepository } from './SubscriptionRepository.ts';
@@ -76,6 +77,10 @@ export class Subscription {
   reviewScreenshot: SubscriptionReviewScreenshot | null = null;
   isReviewScreenshotLoaded = false;
 
+  /** Territory availability + auto-include flag. Null until loaded. */
+  availability: SubscriptionAvailability | null = null;
+  isAvailabilityLoaded = false;
+
   repository: SubscriptionRepository | null;
 
   constructor(init: SubscriptionInit, repository: SubscriptionRepository | null = null) {
@@ -127,6 +132,8 @@ export class Subscription {
   get canViewPricing(): boolean { return 'getPriceSchedule' in this.affordances; }
   get canViewReviewScreenshot(): boolean { return 'getReviewScreenshot' in this.affordances; }
   get canUploadReviewScreenshot(): boolean { return 'uploadReviewScreenshot' in this.affordances; }
+  get canViewAvailability(): boolean { return 'getAvailability' in this.affordances; }
+  get canSetAvailability(): boolean { return 'setAvailability' in this.affordances; }
 
   // ── Localization aggregation ──
 
@@ -314,6 +321,39 @@ export class Subscription {
     }
     await this.requireRepo().deleteReviewScreenshot(this, this.reviewScreenshot);
     runInAction(() => { this.reviewScreenshot = null; });
+  }
+
+  // ── Availability ──
+
+  async loadAvailability(): Promise<SubscriptionAvailability | null> {
+    if (!this.canViewAvailability) {
+      runInAction(() => {
+        this.availability = null;
+        this.isAvailabilityLoaded = true;
+      });
+      return null;
+    }
+    const fetched = await this.requireRepo().availability(this);
+    runInAction(() => {
+      this.availability = fetched;
+      this.isAvailabilityLoaded = true;
+    });
+    return fetched;
+  }
+
+  async saveAvailability(): Promise<void> {
+    if (!this.availability) {
+      throw new Error(`Subscription ${this.id} has no availability loaded`);
+    }
+    if (!this.canSetAvailability) {
+      throw new Error(`Subscription ${this.id} cannot set availability (no setAvailability affordance)`);
+    }
+    const avail = this.availability;
+    await this.requireRepo().setAvailability(this, {
+      territoryIds: avail.availableTerritoryIds,
+      availableInNewTerritories: avail.availableInNewTerritories,
+    });
+    runInAction(() => avail.markSaved());
   }
 
   // ── Pricing ──

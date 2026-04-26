@@ -2,8 +2,10 @@ import { useEffect, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import type { Subscription } from '../Subscription.ts';
 import { subscriptionGroups } from '../subscriptionGroupsInstance.ts';
+import { SubscriptionAvailabilityTab } from './SubscriptionAvailabilityTab.tsx';
 import { SubscriptionLocalizationsTab } from './SubscriptionLocalizationsTab.tsx';
 import { SubscriptionPricingTab } from './SubscriptionPricingTab.tsx';
+import { SubscriptionReviewTab } from './SubscriptionReviewTab.tsx';
 
 const STATUS_CLASS: Record<string, string> = {
   success: 'live',
@@ -128,7 +130,9 @@ function SubscriptionDetailImpl({ sub }: Props) {
       {/* Tab body */}
       {tab === 'localizations' && <SubscriptionLocalizationsTab sub={sub} />}
       {tab === 'pricing' && <SubscriptionPricingTab sub={sub} />}
-      {tab !== 'localizations' && tab !== 'pricing' && <ComingSoon tab={tab} />}
+      {tab === 'availability' && <SubscriptionAvailabilityTab sub={sub} />}
+      {tab === 'review' && <SubscriptionReviewTab sub={sub} />}
+      {tab === 'offers' && <ComingSoon tab={tab} />}
     </div>
   );
 }

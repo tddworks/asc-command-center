@@ -1,6 +1,7 @@
 import { makeAutoObservable, runInAction } from 'mobx';
 import type { Affordances } from '../../shared/types.ts';
 import { InAppPurchaseLocalization } from './InAppPurchaseLocalization.ts';
+import type { IAPAvailability } from './IAPAvailability.ts';
 import type { IAPPriceSchedule } from './IAPPriceSchedule.ts';
 import type { ReviewScreenshot } from './ReviewScreenshot.ts';
 import type { InAppPurchaseRepository } from './InAppPurchaseRepository.ts';
@@ -79,6 +80,10 @@ export class InAppPurchase {
   /** True once `loadPriceSchedule()` has resolved. */
   isPriceScheduleLoaded = false;
 
+  /** Territory availability + auto-include flag. Null until loaded. */
+  availability: IAPAvailability | null = null;
+  isAvailabilityLoaded = false;
+
   repository: InAppPurchaseRepository | null;
 
   constructor(init: InAppPurchaseInit, repository: InAppPurchaseRepository | null = null) {
@@ -135,6 +140,7 @@ export class InAppPurchase {
   get canCreateLocalization(): boolean { return 'createLocalization' in this.affordances; }
   get canViewPricing(): boolean { return 'getPriceSchedule' in this.affordances; }
   get canViewAvailability(): boolean { return 'getAvailability' in this.affordances; }
+  get canSetAvailability(): boolean { return 'setAvailability' in this.affordances; }
   get canViewOfferCodes(): boolean { return 'listOfferCodes' in this.affordances; }
   get canViewReviewScreenshot(): boolean { return 'getReviewScreenshot' in this.affordances; }
   get canUploadReviewScreenshot(): boolean { return 'uploadReviewScreenshot' in this.affordances; }
@@ -337,6 +343,44 @@ export class InAppPurchase {
       this.isReviewScreenshotLoaded = true;
     });
     return created;
+  }
+
+  // ── Availability ──
+
+  /** Load the IAP's availability. Short-circuits to null when the affordance
+   *  is missing. */
+  async loadAvailability(): Promise<IAPAvailability | null> {
+    if (!this.canViewAvailability) {
+      runInAction(() => {
+        this.availability = null;
+        this.isAvailabilityLoaded = true;
+      });
+      return null;
+    }
+    const fetched = await this.requireRepo().availability(this);
+    runInAction(() => {
+      this.availability = fetched;
+      this.isAvailabilityLoaded = true;
+    });
+    return fetched;
+  }
+
+  /** Persist the user's pending availability edits. The page mutates
+   *  `availability` in place and calls this to flush. Snapshots the saved
+   *  state so `isDirty` reverts to false. */
+  async saveAvailability(): Promise<void> {
+    if (!this.availability) {
+      throw new Error(`IAP ${this.id} has no availability loaded`);
+    }
+    if (!this.canSetAvailability) {
+      throw new Error(`IAP ${this.id} cannot set availability (no setAvailability affordance)`);
+    }
+    const avail = this.availability;
+    await this.requireRepo().setAvailability(this, {
+      territoryIds: avail.availableTerritoryIds,
+      availableInNewTerritories: avail.availableInNewTerritories,
+    });
+    runInAction(() => avail.markSaved());
   }
 
   // ── Pricing ──
