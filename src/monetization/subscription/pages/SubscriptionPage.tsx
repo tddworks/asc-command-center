@@ -17,7 +17,26 @@ const STATUS_CLASS: Record<string, string> = {
   neutral: '',
 };
 
-function TierRow({ sub, group }: { sub: Subscription; group: SubscriptionGroup }) {
+function TierRow({
+  sub, group, isFirst, isLast,
+}: {
+  sub: Subscription;
+  group: SubscriptionGroup;
+  isFirst: boolean;
+  isLast: boolean;
+}) {
+  const move = async (direction: 'up' | 'down', e: React.MouseEvent) => {
+    e.stopPropagation();
+    const ids = group.subscriptions.map((s) => s.id);
+    const idx = ids.indexOf(sub.id);
+    if (idx === -1) return;
+    const swapWith = direction === 'up' ? idx - 1 : idx + 1;
+    if (swapWith < 0 || swapWith >= ids.length) return;
+    [ids[idx], ids[swapWith]] = [ids[swapWith], ids[idx]];
+    try { await group.reorderSubscriptions(ids); }
+    catch (err) { console.warn('[subscription] reorder failed:', err); }
+  };
+
   const submit = async (e: React.MouseEvent) => {
     e.stopPropagation();
     try { await sub.submit(); }
@@ -48,6 +67,26 @@ function TierRow({ sub, group }: { sub: Subscription; group: SubscriptionGroup }
       </td>
       <td>
         <div style={{ display: 'flex', gap: 6 }}>
+          {group.canReorderSubscriptions && (
+            <>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={(e) => move('up', e)}
+                disabled={isFirst}
+                title="Move up"
+              >
+                ↑
+              </button>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={(e) => move('down', e)}
+                disabled={isLast}
+                title="Move down"
+              >
+                ↓
+              </button>
+            </>
+          )}
           {sub.canSubmit && <button className="btn btn-primary btn-sm" onClick={submit}>Submit</button>}
           {sub.canUnsubmit && <button className="btn btn-secondary btn-sm" onClick={unsubmit}>Cancel</button>}
           {sub.canDelete && <button className="btn btn-secondary btn-sm" onClick={remove}>Delete</button>}
@@ -122,8 +161,14 @@ function GroupCard({
               </tr>
             </thead>
             <tbody>
-              {group.subscriptions.map((sub) => (
-                <ObservedTierRow key={sub.id} sub={sub} group={group} />
+              {group.subscriptions.map((sub, idx, arr) => (
+                <ObservedTierRow
+                  key={sub.id}
+                  sub={sub}
+                  group={group}
+                  isFirst={idx === 0}
+                  isLast={idx === arr.length - 1}
+                />
               ))}
             </tbody>
           </table>

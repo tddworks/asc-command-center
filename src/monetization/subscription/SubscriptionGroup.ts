@@ -51,6 +51,7 @@ export class SubscriptionGroup {
   get canViewLocalizations(): boolean { return 'listLocalizations' in this.affordances; }
   get canViewGroupLocalizations(): boolean { return 'listLocalizations' in this.affordances; }
   get canCreateGroupLocalization(): boolean { return 'createLocalization' in this.affordances; }
+  get canReorderSubscriptions(): boolean { return 'reorderSubscriptions' in this.affordances; }
 
   // ── Display ──
 
@@ -128,6 +129,28 @@ export class SubscriptionGroup {
     await loc.delete();
     runInAction(() => {
       this.groupLocalizations = this.groupLocalizations.filter((l) => l !== loc);
+    });
+  }
+
+  /** Reorder the group's tiers. Pass the ids in the desired order — Apple
+   *  assigns the level (1-indexed) by position. We mutate `subscriptions`
+   *  in place to reflect the new order + new groupLevel on each tier so
+   *  the page re-renders without a refetch. */
+  async reorderSubscriptions(orderedIds: string[]): Promise<void> {
+    if (!this.canReorderSubscriptions) {
+      throw new Error(`SubscriptionGroup ${this.id} cannot reorder subscriptions (no reorderSubscriptions affordance)`);
+    }
+    await this.requireRepo().reorderSubscriptions(this, orderedIds);
+    runInAction(() => {
+      const byId = new Map(this.subscriptions.map((s) => [s.id, s]));
+      const next: Subscription[] = [];
+      orderedIds.forEach((id, idx) => {
+        const tier = byId.get(id);
+        if (!tier) return;
+        tier.groupLevel = idx + 1;
+        next.push(tier);
+      });
+      this.subscriptions = next;
     });
   }
 

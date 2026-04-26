@@ -91,6 +91,17 @@ export class RestSubscriptionGroupRepository implements SubscriptionGroupReposit
     return this.remove(sub);
   }
 
+  async reorderSubscriptions(group: SubscriptionGroup, orderedIds: string[]): Promise<void> {
+    const url = group.affordances.reorderSubscriptions
+      ?? `/api/v1/subscription-groups/${group.id}/subscriptions/reorder`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderedIds }),
+    });
+    if (!res.ok) throw new Error(`POST ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
+  }
+
   // Overloads satisfy both SubscriptionGroupRepository.update / remove
   // and SubscriptionRepository.update / remove from a single REST handle.
 

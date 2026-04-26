@@ -93,6 +93,17 @@ export class MockSubscriptionGroupRepository implements SubscriptionGroupReposit
     return this.remove(sub);
   }
 
+  async reorderSubscriptions(group: SubscriptionGroup, orderedIds: string[]): Promise<void> {
+    const list = this.tiersByGroup.get(group.id) ?? [];
+    const byId = new Map(list.map((s) => [s.id, s]));
+    const next: Subscription[] = [];
+    orderedIds.forEach((id) => {
+      const tier = byId.get(id);
+      if (tier) next.push(tier);
+    });
+    this.tiersByGroup.set(group.id, next);
+  }
+
   update(group: SubscriptionGroup, patch: { referenceName?: string }): Promise<void>;
   update(sub: Subscription, patch: Record<string, unknown>): Promise<void>;
   async update(_target: SubscriptionGroup | Subscription, _patch: Record<string, unknown>): Promise<void> {
@@ -398,6 +409,7 @@ export class MockSubscriptionGroupRepository implements SubscriptionGroupReposit
       createSubscription: `/api/v1/subscription-groups/${id}/subscriptions`,
       listLocalizations: `/api/v1/subscription-groups/${id}/localizations`,
       createLocalization: `/api/v1/subscription-groups/${id}/localizations`,
+      reorderSubscriptions: `/api/v1/subscription-groups/${id}/subscriptions/reorder`,
     };
   }
 

@@ -23,6 +23,7 @@ export interface SubscriptionGroupRepository {
   subscriptions(group: SubscriptionGroup): Promise<Subscription[]>;
   createSubscription(input: CreateSubscriptionInput): Promise<Subscription>;
   removeSubscription(sub: Subscription): Promise<void>;
+  reorderSubscriptions(group: SubscriptionGroup, orderedIds: string[]): Promise<void>;
 
   // ── Group localizations ──
   groupLocalizations(group: SubscriptionGroup): Promise<SubscriptionGroupLocalization[]>;

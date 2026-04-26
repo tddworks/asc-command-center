@@ -7,6 +7,7 @@ import {
 } from '../InAppPurchaseLocalization.ts';
 import type { InAppPurchase } from '../InAppPurchase.ts';
 import { localeDisplayName } from '../../../shared/AppStoreLocaleRegistry.ts';
+import { getLocalizationAIService } from '../../AILocalizationService.ts';
 import { AddIAPLocalizationModal } from './AddIAPLocalizationModal.tsx';
 
 interface Props {
@@ -19,8 +20,42 @@ function LocaleCard({
   iap: InAppPurchase;
   loc: InAppPurchaseLocalization;
 }) {
-  const [busy, setBusy] = useState<'save' | 'delete' | null>(null);
+  const [busy, setBusy] = useState<'save' | 'delete' | 'ai' | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const aiService = getLocalizationAIService();
+  // Source locale: the first one in the IAP. The "Translate" button only
+  // shows on non-source cards and only when an AI plugin is registered.
+  const source = iap.localizations[0];
+  const isSource = !source || source.locale === loc.locale;
+  const canAI = !isSource && !!aiService && !!source && !!source.name;
+
+  const aiTranslate = async () => {
+    if (!aiService || !source) return;
+    setBusy('ai'); setError(null);
+    try {
+      const translatedName = await aiService.translate({
+        text: source.name,
+        fromLocale: source.locale,
+        toLocale: loc.locale,
+        context: 'In-app purchase display name',
+      });
+      loc.setName(translatedName);
+      if (source.description) {
+        const translatedDesc = await aiService.translate({
+          text: source.description,
+          fromLocale: source.locale,
+          toLocale: loc.locale,
+          context: 'In-app purchase description',
+        });
+        loc.setDescription(translatedDesc);
+      }
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  };
 
   const save = async () => {
     setBusy('save');
@@ -54,6 +89,17 @@ function LocaleCard({
           )}
         </div>
         <div className="toolbar-right" style={{ display: 'flex', gap: 6 }}>
+          {canAI && (
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={aiTranslate}
+              disabled={!!busy}
+              title={`Translate from ${localeDisplayName(source!.locale)} via AI plugin`}
+            >
+              {busy === 'ai' ? 'Translating…' : '✨ AI Translate'}
+            </button>
+          )}
           {loc.hasUnsavedChanges && !loc.isNew && (
             <button type="button" className="btn btn-secondary btn-sm" onClick={() => loc.discard()} disabled={!!busy}>
               Discard

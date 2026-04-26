@@ -7,6 +7,7 @@ import {
 } from '../SubscriptionLocalization.ts';
 import type { Subscription } from '../Subscription.ts';
 import { localeDisplayName } from '../../../shared/AppStoreLocaleRegistry.ts';
+import { getLocalizationAIService } from '../../AILocalizationService.ts';
 import { AddSubscriptionLocalizationModal } from './AddSubscriptionLocalizationModal.tsx';
 
 interface Props {
@@ -14,8 +15,40 @@ interface Props {
 }
 
 function LocaleCard({ sub, loc }: { sub: Subscription; loc: SubscriptionLocalization }) {
-  const [busy, setBusy] = useState<'save' | 'delete' | null>(null);
+  const [busy, setBusy] = useState<'save' | 'delete' | 'ai' | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const aiService = getLocalizationAIService();
+  const source = sub.localizations[0];
+  const isSource = !source || source.locale === loc.locale;
+  const canAI = !isSource && !!aiService && !!source && !!source.name;
+
+  const aiTranslate = async () => {
+    if (!aiService || !source) return;
+    setBusy('ai'); setError(null);
+    try {
+      const translatedName = await aiService.translate({
+        text: source.name,
+        fromLocale: source.locale,
+        toLocale: loc.locale,
+        context: 'Subscription tier display name',
+      });
+      loc.setName(translatedName);
+      if (source.description) {
+        const translatedDesc = await aiService.translate({
+          text: source.description,
+          fromLocale: source.locale,
+          toLocale: loc.locale,
+          context: 'Subscription tier description',
+        });
+        loc.setDescription(translatedDesc);
+      }
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setBusy(null);
+    }
+  };
 
   const save = async () => {
     setBusy('save'); setError(null);
