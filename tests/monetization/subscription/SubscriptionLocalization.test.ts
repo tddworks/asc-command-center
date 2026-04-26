@@ -25,6 +25,7 @@ function stubRepo(overrides: Partial<SubscriptionRepository> = {}): Subscription
     introductoryOffers: vi.fn().mockResolvedValue([]),
     promotionalOffers: vi.fn().mockResolvedValue([]),
     offerCodes: vi.fn().mockResolvedValue([]),
+    createOfferCode: vi.fn(),
     setPrices: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
