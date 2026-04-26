@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import type { InAppPurchase } from '../InAppPurchase.ts';
+import { IAP_LOCALIZATION_NAME_LIMIT, IAP_LOCALIZATION_DESCRIPTION_LIMIT } from '../InAppPurchaseLocalization.ts';
 import {
   APP_STORE_LOCALES,
   localeDisplayName,
 } from '../../../shared/AppStoreLocaleRegistry.ts';
+import { getLocalizationAIService } from '../../AILocalizationService.ts';
 
 interface Props {
   open: boolean;
@@ -12,70 +14,162 @@ interface Props {
   onClose: () => void;
 }
 
+type Step = 'select' | 'content';
+
+interface PendingLocaleContent {
+  locale: string;
+  name: string;
+  description: string;
+  status: 'idle' | 'translating' | 'translated' | 'saving' | 'saved' | 'error';
+  error?: string | null;
+}
+
 /**
- * Language Manager sheet for an IAP. Mirrors AppInfo's LocalePickerSheet
- * — a single modal with two sections (Active / Add). Each click commits
- * directly: there's no batched save here because IAP localizations save
- * per-row from the table.
+ * Add Languages sheet — two-step flow mirroring the iOS prototype's
+ * `iOSMultiLanguageLocalizationSheet`:
+ *
+ *   Step 1 — pick languages (multi-select; already-added rows shown but
+ *            disabled with an `Added` badge so the user has full context).
+ *
+ *   Step 2 — fill content for each picked language. AI plugin (if
+ *            registered) drives a "Translate All" button that fans out
+ *            from the source locale. Per-card AI button also available.
+ *            Pressing "Save" creates each localization sequentially with
+ *            per-row progress and error reporting.
+ *
+ * Removal happens from the Localizations table itself (Edit → Delete) —
+ * this sheet stays focused on the additive flow.
  */
-export const IAPLocalePickerSheet = observer(function IAPLocalePickerSheet({
-  open, iap, onClose,
-}: Props) {
+function IAPLocalePickerSheetImpl({ open, iap, onClose }: Props) {
+  const [step, setStep] = useState<Step>('select');
   const [query, setQuery] = useState('');
-  const [pendingLocale, setPendingLocale] = useState<string | null>(null);
-  const [pendingName, setPendingName] = useState('');
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [contents, setContents] = useState<PendingLocaleContent[]>([]);
+  const [batchRunning, setBatchRunning] = useState(false);
+  const [saving, setSaving] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
+  const aiService = getLocalizationAIService();
+  const source = iap.localizations[0] ?? null;
+
+  // Reset state every time the sheet opens.
   useEffect(() => {
     if (!open) return;
+    setStep('select');
     setQuery('');
-    setPendingLocale(null);
-    setPendingName('');
+    setSelected(new Set());
+    setContents([]);
+    setBatchRunning(false);
+    setSaving(false);
     requestAnimationFrame(() => inputRef.current?.focus());
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
   }, [open, onClose]);
 
+  const taken = useMemo(
+    () => new Set(iap.localizations.map((l) => l.locale)),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [open, iap.localizations.length],
+  );
+
   if (!open) return null;
 
-  const taken = new Set(iap.localizations.map((l) => l.locale));
-  const available = APP_STORE_LOCALES.filter((l) => !taken.has(l.code));
   const needle = query.trim().toLowerCase();
-  const matches = (display: string, code: string) =>
-    !needle || `${display} ${code}`.toLowerCase().includes(needle);
-
-  const filteredActive = [...iap.localizations].filter((l) =>
-    matches(localeDisplayName(l.locale), l.locale),
+  const filtered = APP_STORE_LOCALES.filter((l) =>
+    !needle || `${l.displayName} ${l.code}`.toLowerCase().includes(needle),
   );
-  const filteredAvailable = available.filter((l) => matches(l.displayName, l.code));
 
-  const startAdd = (code: string) => {
-    setPendingLocale(code);
-    setPendingName('');
+  // ── Step 1 helpers ──
+
+  const toggle = (code: string) => {
+    if (taken.has(code)) return;
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(code)) next.delete(code);
+      else next.add(code);
+      return next;
+    });
   };
 
-  const commitAdd = async () => {
-    if (!pendingLocale) return;
-    const trimmed = pendingName.trim();
-    if (!trimmed) return;
+  const goNext = () => {
+    if (selected.size === 0) return;
+    setContents([...selected].map((locale) => ({
+      locale,
+      name: '',
+      description: '',
+      status: 'idle',
+    })));
+    setStep('content');
+  };
+
+  // ── Step 2 helpers ──
+
+  const updateContent = (locale: string, patch: Partial<PendingLocaleContent>) => {
+    setContents((prev) => prev.map((c) => c.locale === locale ? { ...c, ...patch } : c));
+  };
+
+  const translateOne = async (locale: string) => {
+    if (!aiService || !source || !source.name) return;
+    updateContent(locale, { status: 'translating', error: null });
     try {
-      await iap.addLocalization({ locale: pendingLocale, name: trimmed });
-      setPendingLocale(null);
-      setPendingName('');
+      const name = await aiService.translate({
+        text: source.name,
+        fromLocale: source.locale,
+        toLocale: locale,
+        context: 'In-app purchase display name',
+      });
+      let description = '';
+      if (source.description) {
+        description = await aiService.translate({
+          text: source.description,
+          fromLocale: source.locale,
+          toLocale: locale,
+          context: 'In-app purchase description',
+        });
+      }
+      updateContent(locale, { name, description, status: 'translated' });
     } catch (err) {
-      console.warn('[iap] addLocalization failed:', err);
+      updateContent(locale, { status: 'error', error: (err as Error).message });
     }
   };
 
-  const remove = async (locale: string) => {
-    const loc = iap.localizations.find((l) => l.locale === locale);
-    if (!loc) return;
-    if (!loc.canDelete) return;
-    if (!confirm(`Remove ${localeDisplayName(locale) || locale}?`)) return;
-    try { await iap.removeLocalization(loc); }
-    catch (err) { console.warn('[iap] removeLocalization failed:', err); }
+  const translateAll = async () => {
+    if (!aiService || !source || !source.name) return;
+    setBatchRunning(true);
+    for (const c of contents) {
+      await translateOne(c.locale);
+    }
+    setBatchRunning(false);
   };
+
+  const save = async () => {
+    setSaving(true);
+    for (const c of contents) {
+      if (!c.name.trim()) continue;
+      updateContent(c.locale, { status: 'saving', error: null });
+      try {
+        await iap.addLocalization({
+          locale: c.locale,
+          name: c.name.trim(),
+          description: c.description.trim() || null,
+        });
+        updateContent(c.locale, { status: 'saved' });
+      } catch (err) {
+        updateContent(c.locale, { status: 'error', error: (err as Error).message });
+      }
+    }
+    setSaving(false);
+    // If everything saved, auto-close after a short pause.
+    const allSaved = contents.every((c) => c.status === 'saved' || !c.name.trim());
+    if (allSaved) {
+      setTimeout(() => onClose(), 600);
+    }
+  };
+
+  const savableCount = contents.filter((c) => c.name.trim().length > 0).length;
+  const savedCount = contents.filter((c) => c.status === 'saved').length;
+  const canSave = !saving && savableCount > 0;
 
   return (
     <div className="app-picker-backdrop" onClick={onClose}>
@@ -83,11 +177,15 @@ export const IAPLocalePickerSheet = observer(function IAPLocalePickerSheet({
         className="app-picker-modal locale-manager-modal"
         role="dialog"
         aria-modal="true"
-        aria-label="Language manager"
+        aria-label="Add languages"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="locale-manager-titlebar">
-          <h3 className="locale-manager-title">Languages · {iap.referenceName}</h3>
+          <h3 className="locale-manager-title">
+            {step === 'select'
+              ? 'Add Languages'
+              : `Add ${selected.size} Language${selected.size === 1 ? '' : 's'}`}
+          </h3>
           <button
             type="button"
             className="app-picker-close"
@@ -100,146 +198,259 @@ export const IAPLocalePickerSheet = observer(function IAPLocalePickerSheet({
           </button>
         </div>
 
-        <div className="locale-manager-search">
-          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
-            <circle cx="9" cy="9" r="6"/>
-            <path d="M14 14l4 4"/>
-          </svg>
-          <input
-            ref={inputRef}
-            type="text"
-            placeholder="Search languages…"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-        </div>
+        {step === 'select' && (
+          <>
+            <div className="locale-manager-search">
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden>
+                <circle cx="9" cy="9" r="6"/>
+                <path d="M14 14l4 4"/>
+              </svg>
+              <input
+                ref={inputRef}
+                type="text"
+                placeholder="Search languages…"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+            </div>
 
-        <div className="locale-manager-body">
-          <section className="locale-manager-section">
-            <header className="locale-manager-section-header">
-              <h4>Active <span className="locale-manager-count">{iap.localizations.length}</span></h4>
-            </header>
-            {filteredActive.length === 0 ? (
-              <div className="locale-manager-empty">{needle ? 'No active languages match.' : 'No active languages.'}</div>
-            ) : (
-              <ul className="locale-manager-list">
-                {filteredActive.map((loc, idx) => {
-                  const isPrimary = idx === 0;
+            <div
+              className="locale-manager-body"
+              style={{ display: 'flex', flexDirection: 'column', gap: 0 }}
+            >
+              <div
+                style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                  padding: '8px 16px', color: 'var(--text-muted)', fontSize: 12,
+                }}
+              >
+                <span>Select languages to add</span>
+                {selected.size > 0 && (
+                  <span
+                    style={{
+                      padding: '2px 10px', borderRadius: 99,
+                      background: 'var(--accent-light)', color: 'var(--accent)',
+                      fontWeight: 600, fontSize: 11,
+                    }}
+                  >
+                    {selected.size} selected
+                  </span>
+                )}
+              </div>
+
+              <ul className="locale-manager-list" style={{ padding: 0 }}>
+                {filtered.map((l) => {
+                  const added = taken.has(l.code);
+                  const isSelected = selected.has(l.code);
                   return (
-                    <li
-                      key={loc.locale}
-                      className={`locale-manager-row is-active ${isPrimary ? 'is-primary' : ''}`}
-                    >
-                      <span className="locale-manager-row-text">
-                        <span className="locale-manager-row-name">
-                          {localeDisplayName(loc.locale) || loc.locale}
-                          {isPrimary && <span className="locale-manager-badge tone-primary">Source</span>}
+                    <li key={l.code} className={`locale-manager-row ${added ? 'is-active' : 'is-available'}`}>
+                      <button
+                        type="button"
+                        className="locale-manager-row-button"
+                        onClick={() => toggle(l.code)}
+                        disabled={added}
+                        style={{ opacity: added ? 0.55 : 1, cursor: added ? 'default' : 'pointer' }}
+                      >
+                        <span className="locale-manager-row-text">
+                          <span className="locale-manager-row-name">
+                            {l.displayName}
+                            {added && <span className="locale-manager-badge tone-primary" style={{ marginLeft: 8 }}>Added</span>}
+                          </span>
+                          <span className="locale-manager-row-code">{l.code}</span>
                         </span>
-                        <span className="locale-manager-row-code">{loc.locale}</span>
-                      </span>
-                      {!isPrimary && loc.canDelete && (
-                        <button
-                          type="button"
-                          className="locale-manager-row-action tone-remove"
-                          onClick={() => remove(loc.locale)}
-                          aria-label={`Remove ${localeDisplayName(loc.locale) || loc.locale}`}
-                          title="Remove"
-                        >
-                          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M5 10h10"/>
-                          </svg>
-                        </button>
-                      )}
+                        {!added && (
+                          <span
+                            aria-hidden
+                            style={{
+                              width: 22, height: 22, borderRadius: 6,
+                              border: '1.5px solid ' + (isSelected ? 'var(--accent)' : 'var(--border)'),
+                              background: isSelected ? 'var(--accent)' : 'transparent',
+                              display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+                              color: 'white',
+                            }}
+                          >
+                            {isSelected && (
+                              <svg viewBox="0 0 20 20" width="14" height="14" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M5 10l3 3 7-7"/>
+                              </svg>
+                            )}
+                          </span>
+                        )}
+                      </button>
                     </li>
                   );
                 })}
               </ul>
-            )}
-          </section>
+            </div>
 
-          <section className="locale-manager-section">
-            <header className="locale-manager-section-header">
-              <h4>Add <span className="locale-manager-count">{available.length}</span></h4>
-            </header>
-            {available.length === 0 ? (
-              <div className="locale-manager-empty">All App Store locales are already added.</div>
-            ) : filteredAvailable.length === 0 ? (
-              <div className="locale-manager-empty">No languages match &ldquo;{query}&rdquo;.</div>
-            ) : (
-              <ul className="locale-manager-list">
-                {filteredAvailable.map((l) => (
-                  <li key={l.code} className="locale-manager-row is-available">
-                    {pendingLocale === l.code ? (
-                      <div style={{ display: 'flex', gap: 6, width: '100%', alignItems: 'center' }}>
-                        <span className="locale-manager-row-text" style={{ flex: '0 0 auto' }}>
-                          <span className="locale-manager-row-name">{l.displayName}</span>
-                          <span className="locale-manager-row-code">{l.code}</span>
-                        </span>
-                        <input
-                          autoFocus
-                          className="form-input"
-                          style={{ flex: 1 }}
-                          placeholder="Display name (e.g. Premium)"
-                          value={pendingName}
-                          maxLength={30}
-                          onChange={(e) => setPendingName(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') void commitAdd();
-                            if (e.key === 'Escape') setPendingLocale(null);
-                          }}
-                        />
-                        <button
-                          type="button"
-                          className="btn btn-primary btn-sm"
-                          onClick={() => void commitAdd()}
-                          disabled={!pendingName.trim()}
-                        >
-                          Add
-                        </button>
+            <div className="locale-manager-footer">
+              <span className="locale-manager-footer-text" style={{ color: 'var(--text-muted)' }}>
+                Removal happens from the Localizations table.
+              </span>
+              <div className="locale-manager-footer-actions">
+                <button type="button" className="btn btn-secondary btn-sm" onClick={onClose}>
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={goNext}
+                  disabled={selected.size === 0}
+                >
+                  Next ({selected.size})
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+
+        {step === 'content' && (
+          <>
+            <div className="locale-manager-body" style={{ padding: 16, display: 'flex', flexDirection: 'column', gap: 12 }}>
+              {/* Source preview */}
+              {source && source.name && (
+                <div
+                  style={{
+                    padding: 12, borderRadius: 8,
+                    background: 'var(--bg)', border: '1px solid var(--border)',
+                  }}
+                >
+                  <div style={{ fontSize: 11, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 0.5, marginBottom: 4 }}>
+                    Source · {localeDisplayName(source.locale) || source.locale}
+                  </div>
+                  <div style={{ fontWeight: 600 }}>{source.name}</div>
+                  {source.description && (
+                    <div className="muted" style={{ marginTop: 4 }}>{source.description}</div>
+                  )}
+                </div>
+              )}
+
+              {/* AI Translate All banner */}
+              {aiService && source && source.name && (
+                <div
+                  style={{
+                    padding: 12, borderRadius: 8,
+                    background: 'var(--accent-light)',
+                    display: 'flex', alignItems: 'center', gap: 12,
+                  }}
+                >
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 600 }}>✨ Translate All</div>
+                    <div className="form-hint">
+                      Auto-fill all {contents.length} languages from the source via the registered AI plugin.
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    onClick={translateAll}
+                    disabled={batchRunning || saving}
+                  >
+                    {batchRunning ? 'Translating…' : 'Translate All'}
+                  </button>
+                </div>
+              )}
+
+              {/* Per-language cards */}
+              {contents.map((c) => (
+                <div
+                  key={c.locale}
+                  style={{
+                    padding: 12, borderRadius: 8,
+                    border: '1px solid var(--border)',
+                    background: 'var(--bg-card, white)',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
+                    <div style={{ display: 'flex', flexDirection: 'column' }}>
+                      <strong>{localeDisplayName(c.locale) || c.locale}</strong>
+                      <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>
+                        {c.locale}
+                      </span>
+                    </div>
+                    <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                      {c.status === 'saved' && <span className="status live">Saved</span>}
+                      {c.status === 'translating' && <span className="status pending">Translating…</span>}
+                      {c.status === 'saving' && <span className="status pending">Saving…</span>}
+                      {c.status === 'error' && <span className="status rejected">Error</span>}
+                      {aiService && source && source.name && c.status !== 'saved' && c.status !== 'saving' && (
                         <button
                           type="button"
                           className="btn btn-secondary btn-sm"
-                          onClick={() => setPendingLocale(null)}
+                          onClick={() => translateOne(c.locale)}
+                          disabled={c.status === 'translating' || batchRunning}
                         >
-                          Cancel
+                          ✨ AI
                         </button>
-                      </div>
-                    ) : (
-                      <button
-                        type="button"
-                        className="locale-manager-row-button"
-                        onClick={() => startAdd(l.code)}
-                        disabled={!iap.canCreateLocalization}
-                      >
-                        <span className="locale-manager-row-text">
-                          <span className="locale-manager-row-name">{l.displayName}</span>
-                          <span className="locale-manager-row-code">{l.code}</span>
-                        </span>
-                        <span className="locale-manager-row-action tone-add" aria-hidden>
-                          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                            <path d="M10 5v10M5 10h10"/>
-                          </svg>
-                        </span>
-                      </button>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-        </div>
+                      )}
+                    </div>
+                  </div>
 
-        <div className="locale-manager-footer">
-          <span className="locale-manager-footer-text" style={{ color: 'var(--text-muted)' }}>
-            Add or remove languages, then close.
-          </span>
-          <div className="locale-manager-footer-actions">
-            <button type="button" className="btn btn-secondary btn-sm" onClick={onClose}>
-              Done
-            </button>
-          </div>
-        </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    <div>
+                      <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span>Display Name</span>
+                        <span className="form-hint">{c.name.length}/{IAP_LOCALIZATION_NAME_LIMIT}</span>
+                      </label>
+                      <input
+                        className="form-input"
+                        value={c.name}
+                        placeholder="Display name shown to users"
+                        onChange={(e) => updateContent(c.locale, { name: e.target.value })}
+                        disabled={c.status === 'saving' || c.status === 'saved'}
+                      />
+                    </div>
+                    <div>
+                      <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span>Description</span>
+                        <span className="form-hint">{c.description.length}/{IAP_LOCALIZATION_DESCRIPTION_LIMIT}</span>
+                      </label>
+                      <input
+                        className="form-input"
+                        value={c.description}
+                        placeholder="Short description"
+                        onChange={(e) => updateContent(c.locale, { description: e.target.value })}
+                        disabled={c.status === 'saving' || c.status === 'saved'}
+                      />
+                    </div>
+                    {c.error && (
+                      <div className="form-hint" style={{ color: 'var(--danger-text)' }}>{c.error}</div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="locale-manager-footer">
+              <span className="locale-manager-footer-text" style={{ color: 'var(--text-muted)' }}>
+                {savedCount > 0
+                  ? `Saved ${savedCount}/${contents.length}`
+                  : `${savableCount} of ${contents.length} ready to save`}
+              </span>
+              <div className="locale-manager-footer-actions">
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => setStep('select')}
+                  disabled={saving}
+                >
+                  Back
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm"
+                  onClick={save}
+                  disabled={!canSave}
+                >
+                  {saving ? `Saving ${savedCount}/${savableCount}…` : `Save ${savableCount}`}
+                </button>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
-});
+}
+
+export const IAPLocalePickerSheet = observer(IAPLocalePickerSheetImpl);
