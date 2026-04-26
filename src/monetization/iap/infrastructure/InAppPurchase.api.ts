@@ -1,5 +1,6 @@
 import { InAppPurchase } from '../InAppPurchase.ts';
 import { InAppPurchaseLocalization } from '../InAppPurchaseLocalization.ts';
+import { IAPPriceSchedule } from '../IAPPriceSchedule.ts';
 import { ReviewScreenshot } from '../ReviewScreenshot.ts';
 import { apiClient, type DataMode } from '../../../shared/api-client.tsx';
 import type {
@@ -132,6 +133,22 @@ export class RestInAppPurchaseRepository implements InAppPurchaseRepository {
     const res = await fetch(url, { method: 'DELETE' });
     if (!res.ok) {
       throw new Error(`DELETE ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
+    }
+  }
+
+  // ── Pricing ──
+
+  async priceSchedule(iap: InAppPurchase): Promise<IAPPriceSchedule | null> {
+    const url = iap.affordances.getPriceSchedule ?? `/api/v1/iap/${iap.id}/price-schedule`;
+    try {
+      const json = await apiClient.get<{ data: Record<string, unknown> | null }>(url);
+      const row = Array.isArray(json.data) ? (json.data as Record<string, unknown>[])[0] : json.data;
+      return row ? IAPPriceSchedule.fromJSON(row) : null;
+    } catch (err) {
+      // 404 = no schedule set yet — common for fresh IAPs.
+      const msg = (err as Error).message ?? '';
+      if (msg.includes('404')) return null;
+      throw err;
     }
   }
 

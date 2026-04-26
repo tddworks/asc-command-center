@@ -20,6 +20,9 @@ function stubRepo(overrides: Partial<InAppPurchaseRepository> = {}): InAppPurcha
     createLocalization: vi.fn(),
     saveLocalization: vi.fn().mockResolvedValue(undefined),
     deleteLocalization: vi.fn().mockResolvedValue(undefined),
+    reviewScreenshot: vi.fn().mockResolvedValue(null),
+    uploadReviewScreenshot: vi.fn(),
+    deleteReviewScreenshot: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }

@@ -1,6 +1,7 @@
 import { makeAutoObservable, runInAction } from 'mobx';
 import type { Affordances } from '../../shared/types.ts';
 import { InAppPurchaseLocalization } from './InAppPurchaseLocalization.ts';
+import type { IAPPriceSchedule } from './IAPPriceSchedule.ts';
 import type { ReviewScreenshot } from './ReviewScreenshot.ts';
 import type { InAppPurchaseRepository } from './InAppPurchaseRepository.ts';
 
@@ -71,6 +72,12 @@ export class InAppPurchase {
    *  yet" empty state and the "still loading" spinner share the same
    *  `null` value otherwise. */
   isReviewScreenshotLoaded = false;
+
+  /** Pricing snapshot (base territory + per-territory prices). Null until
+   *  the schedule is loaded; remains null when the IAP has no schedule. */
+  priceSchedule: IAPPriceSchedule | null = null;
+  /** True once `loadPriceSchedule()` has resolved. */
+  isPriceScheduleLoaded = false;
 
   repository: InAppPurchaseRepository | null;
 
@@ -330,6 +337,27 @@ export class InAppPurchase {
       this.isReviewScreenshotLoaded = true;
     });
     return created;
+  }
+
+  // ── Pricing ──
+
+  /** Load the IAP's price schedule. Short-circuits to null when the
+   *  affordance is missing (newly created IAPs sometimes don't expose it
+   *  until pricing is set). */
+  async loadPriceSchedule(): Promise<IAPPriceSchedule | null> {
+    if (!this.canViewPricing) {
+      runInAction(() => {
+        this.priceSchedule = null;
+        this.isPriceScheduleLoaded = true;
+      });
+      return null;
+    }
+    const fetched = await this.requireRepo().priceSchedule(this);
+    runInAction(() => {
+      this.priceSchedule = fetched;
+      this.isPriceScheduleLoaded = true;
+    });
+    return fetched;
   }
 
   async deleteReviewScreenshot(): Promise<void> {
