@@ -4,6 +4,7 @@ import { IAPAvailability } from '../IAPAvailability.ts';
 import { IAPPriceSchedule } from '../IAPPriceSchedule.ts';
 import { IAPPricePoint, type IAPPricePointPage } from '../IAPPricePoint.ts';
 import { InAppPurchaseOfferCode } from '../InAppPurchaseOfferCode.ts';
+import { IAPOneTimeUseCodeBatch, type CodeEnvironment } from '../OneTimeUseCodeBatch.ts';
 import { ReviewScreenshot } from '../ReviewScreenshot.ts';
 import { apiClient, type DataMode } from '../../../shared/api-client.tsx';
 import type {
@@ -274,6 +275,27 @@ export class RestInAppPurchaseRepository implements InAppPurchaseRepository {
     const url = iap.affordances.listOfferCodes ?? `/api/v1/iap/${iap.id}/offer-codes`;
     const json = await apiClient.get<{ data: Record<string, unknown>[] }>(url);
     return json.data.map((row) => InAppPurchaseOfferCode.fromJSON({ ...row, iapId: iap.id }));
+  }
+
+  async oneTimeUseCodes(code: InAppPurchaseOfferCode): Promise<IAPOneTimeUseCodeBatch[]> {
+    const url = `/api/v1/iap-offer-codes/${code.id}/one-time-use-codes`;
+    const json = await apiClient.get<{ data: Record<string, unknown>[] }>(url);
+    return json.data.map(IAPOneTimeUseCodeBatch.fromJSON);
+  }
+
+  async generateOneTimeUseCodes(
+    code: InAppPurchaseOfferCode,
+    input: { count: number; environment: CodeEnvironment | string },
+  ): Promise<IAPOneTimeUseCodeBatch> {
+    const url = `/api/v1/iap-offer-codes/${code.id}/one-time-use-codes`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ numberOfCodes: input.count, environment: input.environment }),
+    });
+    if (!res.ok) throw new Error(`POST ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
+    const body = await res.json().catch(() => ({}));
+    return IAPOneTimeUseCodeBatch.fromJSON((body.data ?? body) as Record<string, unknown>);
   }
 
   async createOfferCode(

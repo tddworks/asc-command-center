@@ -29,6 +29,8 @@ function stubRepo(overrides: Partial<InAppPurchaseRepository> = {}): InAppPurcha
     deactivateOfferCode: vi.fn().mockResolvedValue(undefined),
     createOfferCode: vi.fn(),
     setPrice: vi.fn().mockResolvedValue(undefined),
+    pricePoints: vi.fn().mockResolvedValue({ items: [], nextCursor: null }),
+    equalizations: vi.fn().mockResolvedValue({ items: [], nextCursor: null }),
     ...overrides,
   };
 }

@@ -7,6 +7,7 @@ import type {
   IAPCustomerEligibility,
   InAppPurchaseOfferCode,
 } from './InAppPurchaseOfferCode.ts';
+import type { CodeEnvironment, IAPOneTimeUseCodeBatch } from './OneTimeUseCodeBatch.ts';
 
 export interface CreateInAppPurchaseOfferCodeInput {
   name: string;
@@ -78,4 +79,9 @@ export interface InAppPurchaseRepository {
   offerCodes(iap: InAppPurchase): Promise<InAppPurchaseOfferCode[]>;
   createOfferCode(iap: InAppPurchase, input: CreateInAppPurchaseOfferCodeInput): Promise<InAppPurchaseOfferCode>;
   deactivateOfferCode(code: InAppPurchaseOfferCode): Promise<void>;
+  oneTimeUseCodes(code: InAppPurchaseOfferCode): Promise<IAPOneTimeUseCodeBatch[]>;
+  generateOneTimeUseCodes(
+    code: InAppPurchaseOfferCode,
+    input: { count: number; environment: CodeEnvironment | string },
+  ): Promise<IAPOneTimeUseCodeBatch>;
 }
