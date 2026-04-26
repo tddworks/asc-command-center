@@ -39,6 +39,10 @@ function stubRepo(overrides: Partial<SubscriptionRepository> = {}): Subscription
     promotionalOffers: vi.fn().mockResolvedValue([]),
     offerCodes: vi.fn().mockResolvedValue([]),
     createOfferCode: vi.fn(),
+    createIntroductoryOffer: vi.fn(),
+    deleteIntroductoryOffer: vi.fn().mockResolvedValue(undefined),
+    createPromotionalOffer: vi.fn(),
+    deletePromotionalOffer: vi.fn().mockResolvedValue(undefined),
     setPrices: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
@@ -510,6 +514,96 @@ describe('Subscription', () => {
     await sub.loadOfferCodes();
     expect(sub.offerCodes).toEqual([code]);
     expect(sub.isOfferCodesLoaded).toBe(true);
+  });
+
+  // ── createIntroductoryOffer / deleteIntroductoryOffer ──
+
+  it('canCreateIntroductoryOffer maps to the createIntroductoryOffer affordance', () => {
+    expect(new Subscription(subInit({ affordances: { createIntroductoryOffer: '/x' } })).canCreateIntroductoryOffer).toBe(true);
+    expect(new Subscription(subInit({ affordances: {} })).canCreateIntroductoryOffer).toBe(false);
+  });
+
+  it('createIntroductoryOffer appends the offer to the list', async () => {
+    const created = new SubscriptionIntroductoryOffer({
+      id: 'i-new',
+      offerMode: OfferMode.FreeTrial,
+      duration: SubscriptionDuration.OneWeek,
+      numberOfPeriods: 1,
+    });
+    const repo = stubRepo({ createIntroductoryOffer: vi.fn().mockResolvedValue(created) });
+    const sub = new Subscription(subInit({ affordances: { createIntroductoryOffer: '/x' } }), repo);
+
+    const result = await sub.createIntroductoryOffer({
+      offerMode: OfferMode.FreeTrial,
+      duration: SubscriptionDuration.OneWeek,
+      numberOfPeriods: 1,
+    });
+
+    expect(result).toBe(created);
+    expect(sub.introductoryOffers).toContain(created);
+  });
+
+  it('deleteIntroductoryOffer prunes the offer from the list', async () => {
+    const a = new SubscriptionIntroductoryOffer({
+      id: 'i-1', offerMode: OfferMode.FreeTrial,
+      duration: SubscriptionDuration.OneWeek, numberOfPeriods: 1,
+    });
+    const b = new SubscriptionIntroductoryOffer({
+      id: 'i-2', offerMode: OfferMode.PayAsYouGo,
+      duration: SubscriptionDuration.OneMonth, numberOfPeriods: 3,
+    });
+    const repo = stubRepo({ introductoryOffers: vi.fn().mockResolvedValue([a, b]) });
+    const sub = new Subscription(subInit({ affordances: { listIntroductoryOffers: '/x' } }), repo);
+    await sub.loadIntroductoryOffers();
+
+    await sub.deleteIntroductoryOffer(a);
+
+    expect(repo.deleteIntroductoryOffer).toHaveBeenCalledWith(a);
+    expect(sub.introductoryOffers).toEqual([b]);
+  });
+
+  // ── createPromotionalOffer / deletePromotionalOffer ──
+
+  it('canCreatePromotionalOffer maps to the createPromotionalOffer affordance', () => {
+    expect(new Subscription(subInit({ affordances: { createPromotionalOffer: '/x' } })).canCreatePromotionalOffer).toBe(true);
+    expect(new Subscription(subInit({ affordances: {} })).canCreatePromotionalOffer).toBe(false);
+  });
+
+  it('createPromotionalOffer appends the offer to the list', async () => {
+    const created = new SubscriptionPromotionalOffer({
+      id: 'p-new', name: 'Holiday', offerCode: 'HOLIDAY',
+      offerMode: OfferMode.PayAsYouGo,
+      duration: SubscriptionDuration.OneMonth,
+      numberOfPeriods: 1,
+    });
+    const repo = stubRepo({ createPromotionalOffer: vi.fn().mockResolvedValue(created) });
+    const sub = new Subscription(subInit({ affordances: { createPromotionalOffer: '/x' } }), repo);
+
+    const result = await sub.createPromotionalOffer({
+      name: 'Holiday', offerCode: 'HOLIDAY',
+      offerMode: OfferMode.PayAsYouGo,
+      duration: SubscriptionDuration.OneMonth,
+      numberOfPeriods: 1,
+    });
+
+    expect(result).toBe(created);
+    expect(sub.promotionalOffers).toContain(created);
+  });
+
+  it('deletePromotionalOffer prunes the offer from the list', async () => {
+    const a = new SubscriptionPromotionalOffer({
+      id: 'p-1', name: 'A', offerCode: 'A',
+      offerMode: OfferMode.PayAsYouGo,
+      duration: SubscriptionDuration.OneMonth, numberOfPeriods: 1,
+    });
+    const repo = stubRepo({ promotionalOffers: vi.fn().mockResolvedValue([a]) });
+    const sub = new Subscription(subInit({ affordances: { listPromotionalOffers: '/x' } }), repo);
+    await sub.loadPromotionalOffers();
+
+    await sub.deletePromotionalOffer(a);
+
+    expect(repo.deletePromotionalOffer).toHaveBeenCalledWith(a);
+    expect(sub.promotionalOffers).toEqual([]);
   });
 
   // ── createOfferCode ──
