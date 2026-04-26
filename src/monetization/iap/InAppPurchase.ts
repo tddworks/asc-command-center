@@ -144,6 +144,7 @@ export class InAppPurchase {
   get canViewLocalizations(): boolean { return 'listLocalizations' in this.affordances; }
   get canCreateLocalization(): boolean { return 'createLocalization' in this.affordances; }
   get canViewPricing(): boolean { return 'getPriceSchedule' in this.affordances; }
+  get canSetPrice(): boolean { return 'setPrice' in this.affordances; }
   get canViewAvailability(): boolean { return 'getAvailability' in this.affordances; }
   get canSetAvailability(): boolean { return 'setAvailability' in this.affordances; }
   get canViewOfferCodes(): boolean { return 'listOfferCodes' in this.affordances; }
@@ -415,6 +416,18 @@ export class InAppPurchase {
   }
 
   // ── Pricing ──
+
+  /** Set the base price for this IAP and refetch the schedule so the page
+   *  reflects Apple's auto-equalised territory prices. Gates on the
+   *  setPrice affordance — callers should disable the button via
+   *  `canSetPrice` but the throw is the safety net for programmer error. */
+  async setPrice(input: { territoryId: string; pricePointId: string }): Promise<void> {
+    if (!this.canSetPrice) {
+      throw new Error(`IAP ${this.id} cannot set price (no setPrice affordance)`);
+    }
+    await this.requireRepo().setPrice(this, input);
+    await this.loadPriceSchedule();
+  }
 
   /** Load the IAP's price schedule. Short-circuits to null when the
    *  affordance is missing (newly created IAPs sometimes don't expose it

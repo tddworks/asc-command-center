@@ -24,6 +24,8 @@ export class MockInAppPurchaseRepository implements InAppPurchaseRepository {
   private screenshotByIap = new Map<string, ReviewScreenshot | null>();
   private availabilityByIap = new Map<string, IAPAvailability>();
   private offerCodesByIap = new Map<string, InAppPurchaseOfferCode[]>();
+  /** Holds null for IAPs whose schedule we know is "no schedule yet". */
+  private priceScheduleByIap = new Map<string, IAPPriceSchedule | null>();
   private nextLocId = 100;
   private nextShotId = 200;
 
@@ -133,7 +135,17 @@ export class MockInAppPurchaseRepository implements InAppPurchaseRepository {
   // ── Pricing ──
 
   async priceSchedule(iap: InAppPurchase): Promise<IAPPriceSchedule | null> {
-    return mockPriceScheduleFor(iap);
+    const cached = this.priceScheduleByIap.get(iap.id);
+    if (cached !== undefined) return cached;
+    const seeded = mockPriceScheduleFor(iap);
+    this.priceScheduleByIap.set(iap.id, seeded);
+    return seeded;
+  }
+
+  async setPrice(iap: InAppPurchase, input: { territoryId: string; pricePointId: string }): Promise<void> {
+    // Persist a freshly-equalised schedule for this IAP so the next
+    // priceSchedule() call returns the new base price + recomputed rows.
+    this.priceScheduleByIap.set(iap.id, mockSetPriceScheduleFor(iap, input));
   }
 
   // ── Availability ──
@@ -245,6 +257,7 @@ export class MockInAppPurchaseRepository implements InAppPurchaseRepository {
       getReviewScreenshot: `/api/v1/iap/${id}/review-screenshot`,
       uploadReviewScreenshot: `/api/v1/iap/${id}/review-screenshot`,
       getPriceSchedule: `/api/v1/iap/${id}/price-schedule`,
+      setPrice: `/api/v1/iap/${id}/price-schedule`,
       getAvailability: `/api/v1/iap/${id}/availability`,
       setAvailability: `/api/v1/iap/${id}/availability`,
       listOfferCodes: `/api/v1/iap/${id}/offer-codes`,
@@ -384,4 +397,42 @@ function mockOfferCodesFor(iap: InAppPurchase): InAppPurchaseOfferCode[] {
       productionCodeCount: 50,
     }),
   ];
+}
+
+/** Build a fresh price schedule for an IAP after the user picks a base
+ *  price. The mock can't ask Apple for equalised territory prices, so it
+ *  runs the same FX-derived computation as the seed function but anchored
+ *  on the picked territory + parsed price-point amount. */
+function mockSetPriceScheduleFor(
+  iap: InAppPurchase,
+  input: { territoryId: string; pricePointId: string },
+): IAPPriceSchedule {
+  // Best-effort: parse a USD-equivalent from the pricePointId. Demo IDs
+  // look like "pp-iap-1-USA"; we fall back to the seed price for the IAP
+  // when we can't infer an amount.
+  const territory = SAMPLE_TERRITORIES.find((t) => t.id === input.territoryId)
+    ?? SAMPLE_TERRITORIES[0];
+  const fallbackUsd = basePriceFor(iap) ?? 9.99;
+  const amountInTerritory = fallbackUsd * territory.rate;
+  const usdEquivalent = amountInTerritory / territory.rate;
+
+  const rows = SAMPLE_TERRITORIES.map((t) => {
+    const local = usdEquivalent * t.rate;
+    return new TerritoryPrice({
+      territoryId: t.id,
+      territoryName: t.name,
+      formattedPrice: formatPrice(local, t.currency, t.symbol),
+      currency: t.currency,
+      pricePointId: t.id === input.territoryId ? input.pricePointId : `pp-${iap.id}-${t.id}`,
+    });
+  });
+
+  return new IAPPriceSchedule({
+    baseTerritoryId: territory.id,
+    baseTerritoryName: territory.name,
+    basePrice: formatPrice(amountInTerritory, territory.currency, territory.symbol),
+    baseCurrency: territory.currency,
+    basePricePointId: input.pricePointId,
+    territoryPrices: rows,
+  });
 }

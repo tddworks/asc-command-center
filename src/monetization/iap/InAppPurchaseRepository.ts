@@ -41,6 +41,7 @@ export interface InAppPurchaseRepository {
   // ── Pricing ──
   /** Returns null when the IAP has no price schedule yet (newly created). */
   priceSchedule(iap: InAppPurchase): Promise<IAPPriceSchedule | null>;
+  setPrice(iap: InAppPurchase, input: { territoryId: string; pricePointId: string }): Promise<void>;
 
   // ── Availability ──
   /** Returns null when the IAP has no availability resource yet. */

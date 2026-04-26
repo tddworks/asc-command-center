@@ -33,6 +33,7 @@ function stubRepo(overrides: Partial<InAppPurchaseRepository> = {}): InAppPurcha
     setAvailability: vi.fn().mockResolvedValue(undefined),
     offerCodes: vi.fn().mockResolvedValue([]),
     deactivateOfferCode: vi.fn().mockResolvedValue(undefined),
+    setPrice: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
@@ -584,6 +585,43 @@ describe('InAppPurchase', () => {
     await iap.loadOfferCodes();
 
     expect(iap.activeOfferCodeCount).toBe(1);
+  });
+
+  // ── setPrice ──
+
+  it('canSetPrice maps to the setPrice affordance', () => {
+    expect(new InAppPurchase(iapInit({ affordances: { setPrice: '/x' } })).canSetPrice).toBe(true);
+    expect(new InAppPurchase(iapInit({ affordances: {} })).canSetPrice).toBe(false);
+  });
+
+  it('setPrice calls repo.setPrice with input then reloads the schedule', async () => {
+    const sched = IAPPriceSchedule.fromJSON({
+      baseTerritory: { id: 'USA', displayName: 'United States', currency: 'USD' },
+      basePrice: '$9.99',
+      basePricePoint: { id: 'pp-base' },
+      territoryPrices: [],
+    });
+    const setPrice = vi.fn().mockResolvedValue(undefined);
+    const priceSchedule = vi.fn().mockResolvedValue(sched);
+    const repo = stubRepo({ setPrice, priceSchedule });
+    const iap = new InAppPurchase(iapInit({
+      affordances: { setPrice: '/x', getPriceSchedule: '/y' },
+    }), repo);
+
+    await iap.setPrice({ territoryId: 'USA', pricePointId: 'pp-base' });
+
+    expect(setPrice).toHaveBeenCalledWith(iap, { territoryId: 'USA', pricePointId: 'pp-base' });
+    expect(priceSchedule).toHaveBeenCalledWith(iap);
+    expect(iap.priceSchedule).toBe(sched);
+    expect(iap.isPriceScheduleLoaded).toBe(true);
+  });
+
+  it('setPrice throws when canSetPrice is false', async () => {
+    const repo = stubRepo();
+    const iap = new InAppPurchase(iapInit({ affordances: {} }), repo);
+
+    await expect(iap.setPrice({ territoryId: 'USA', pricePointId: 'pp-1' })).rejects.toThrow(/cannot set price/);
+    expect(repo.setPrice).not.toHaveBeenCalled();
   });
 
   // ── Helpers ──
