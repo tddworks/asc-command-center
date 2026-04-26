@@ -635,6 +635,34 @@ describe('InAppPurchase', () => {
     expect(repo.createOfferCode).not.toHaveBeenCalled();
   });
 
+  // ── Price-point picker ──
+
+  it('loadPricePoints passes territory + cursor + limit to the repo', async () => {
+    const items = [
+      new IAPPricePoint({ id: 'pp-1', territoryId: 'USA', formattedPrice: '$0.99', currency: 'USD', proceeds: '$0.69' }),
+      new IAPPricePoint({ id: 'pp-2', territoryId: 'USA', formattedPrice: '$4.99', currency: 'USD', proceeds: '$3.49' }),
+    ];
+    const pricePoints = vi.fn().mockResolvedValue({ items, nextCursor: 'CURSOR-2' });
+    const repo = stubRepo({ pricePoints });
+    const iap = new InAppPurchase(iapInit({ affordances: { setPrice: '/x' } }), repo);
+
+    const page = await iap.loadPricePoints({ territoryId: 'USA', cursor: 'CURSOR-1', limit: 25 });
+
+    expect(pricePoints).toHaveBeenCalledWith(iap, { territoryId: 'USA', cursor: 'CURSOR-1', limit: 25 });
+    expect(page.items).toBe(items);
+    expect(page.nextCursor).toBe('CURSOR-2');
+  });
+
+  it('loadEqualizations passes pricePointId + cursor to the repo', async () => {
+    const equalizations = vi.fn().mockResolvedValue({ items: [], nextCursor: null });
+    const repo = stubRepo({ equalizations });
+    const iap = new InAppPurchase(iapInit({ affordances: { setPrice: '/x' } }), repo);
+
+    await iap.loadEqualizations({ pricePointId: 'pp-base', cursor: null });
+
+    expect(equalizations).toHaveBeenCalledWith(iap, { pricePointId: 'pp-base', cursor: null });
+  });
+
   // ── setPrice ──
 
   it('canSetPrice maps to the setPrice affordance', () => {

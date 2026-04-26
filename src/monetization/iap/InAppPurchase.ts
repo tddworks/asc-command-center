@@ -3,6 +3,7 @@ import type { Affordances } from '../../shared/types.ts';
 import { InAppPurchaseLocalization } from './InAppPurchaseLocalization.ts';
 import type { IAPAvailability } from './IAPAvailability.ts';
 import type { IAPPriceSchedule } from './IAPPriceSchedule.ts';
+import type { IAPPricePointPage } from './IAPPricePoint.ts';
 import type {
   IAPCustomerEligibility,
   InAppPurchaseOfferCode,
@@ -433,6 +434,18 @@ export class InAppPurchase {
   }
 
   // ── Pricing ──
+
+  /** Paginate price points for the picker. Returns one page; the picker
+   *  concatenates pages locally for infinite scroll. */
+  async loadPricePoints(input: { territoryId: string; cursor: string | null; limit?: number }): Promise<IAPPricePointPage> {
+    return this.requireRepo().pricePoints(this, input);
+  }
+
+  /** Paginate equalisations for a chosen base price-point — used by the
+   *  preview pane after the user picks a tier. */
+  async loadEqualizations(input: { pricePointId: string; cursor: string | null; limit?: number }): Promise<IAPPricePointPage> {
+    return this.requireRepo().equalizations(this, input);
+  }
 
   /** Set the base price for this IAP and refetch the schedule so the page
    *  reflects Apple's auto-equalised territory prices. Gates on the
