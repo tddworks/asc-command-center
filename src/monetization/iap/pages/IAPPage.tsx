@@ -108,9 +108,15 @@ function IAPPage() {
         <div className="toolbar">
           <div className="toolbar-left">
             <h3>In-App Purchases</h3>
-            <span className="muted" style={{ marginLeft: 8 }}>
-              {iaps.count} total · {iaps.pendingCount} in review · {iaps.needsActionCount} need action
-            </span>
+            <div style={{ display: 'inline-flex', gap: 6, marginLeft: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+              <StatPill tone="neutral" count={iaps.count} label={iaps.count === 1 ? 'IAP' : 'IAPs'} />
+              {iaps.pendingCount > 0 && (
+                <StatPill tone="info" count={iaps.pendingCount} label="In Review" />
+              )}
+              {iaps.needsActionCount > 0 && (
+                <StatPill tone="warning" count={iaps.needsActionCount} label="Needs Action" />
+              )}
+            </div>
           </div>
           <div className="toolbar-right">
             <button
