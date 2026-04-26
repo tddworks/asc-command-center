@@ -5,6 +5,7 @@ import { workspace } from '../../../workspace/workspaceInstance.ts';
 import type { InAppPurchase } from '../InAppPurchase.ts';
 import { CreateIAPModal } from '../components/CreateIAPModal.tsx';
 import { IAPDetail } from '../components/IAPDetail.tsx';
+import { StatPill } from '../../../shared/components/StatPill.tsx';
 
 const STATUS_CLASS: Record<string, string> = {
   success: 'live',
