@@ -141,6 +141,7 @@ function SubscriptionOffersTabImpl({ sub }: Props) {
                   <th>Name</th>
                   <th>Identifier</th>
                   <th>Summary</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -149,6 +150,15 @@ function SubscriptionOffersTabImpl({ sub }: Props) {
                     <td className="cell-primary">{o.name}</td>
                     <td className="cell-mono">{o.identifier}</td>
                     <td>{o.summaryLabel}</td>
+                    <td>
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => deletePromo(o)}
+                      >
+                        Delete
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -227,6 +237,8 @@ function SubscriptionOffersTabImpl({ sub }: Props) {
       </div>
 
       <CreateSubscriptionOfferCodeModal sub={sub} open={createCodeOpen} onClose={() => setCreateCodeOpen(false)} />
+      <CreateIntroductoryOfferModal sub={sub} open={createIntroOpen} onClose={() => setCreateIntroOpen(false)} />
+      <CreatePromotionalOfferModal sub={sub} open={createPromoOpen} onClose={() => setCreatePromoOpen(false)} />
     </div>
   );
 }
