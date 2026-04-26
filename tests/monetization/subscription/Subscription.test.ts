@@ -140,6 +140,12 @@ describe('Subscription', () => {
     expect(repo.update).not.toHaveBeenCalled();
   });
 
+  it('suggestedProductId derives a com.bundle.<slug> shape', () => {
+    expect(Subscription.suggestedProductId('com.example.app', 'Premium Monthly'))
+      .toBe('com.example.premium_monthly');
+    expect(Subscription.suggestedProductId('com.example.app', '')).toBe('com.example.app');
+  });
+
   it('fromJSON tolerates `referenceName`/`subscriptionGroupId` aliases', () => {
     const sub = Subscription.fromJSON({
       id: 'sub-9',

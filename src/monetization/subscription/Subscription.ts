@@ -206,6 +206,25 @@ export class Subscription {
     return this.repository;
   }
 
+  // ── Helpers ──
+
+  /** Suggest a default product ID from a bundle ID + display name in the
+   *  shape the iOS prototype shows ("com.app.weekly"). Identical slugging
+   *  rules as `InAppPurchase.suggestedProductId`. */
+  static suggestedProductId(bundleId: string, displayName: string): string {
+    const slug = displayName
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '');
+    if (!slug) return bundleId;
+    if (!bundleId) return slug;
+    const segments = bundleId.split('.');
+    if (segments.length <= 1) return `${bundleId}.${slug}`;
+    segments[segments.length - 1] = slug;
+    return segments.join('.');
+  }
+
   // ── Factory ──
 
   static fromJSON(json: Record<string, unknown>, repo?: SubscriptionRepository): Subscription {

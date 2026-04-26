@@ -206,6 +206,27 @@ export class InAppPurchase {
     return this.repository;
   }
 
+  // ── Helpers ──
+
+  /** Suggest a default product ID from a bundle ID + reference name in the
+   *  shape the iOS prototype shows ("com.app.gempack"). The bundle ID's
+   *  last segment is replaced (or appended) with the slug, so
+   *  `com.example.weather` + `Premium Upgrade` → `com.example.premium_upgrade`.
+   *  Empty inputs fall back to the bundle ID itself. */
+  static suggestedProductId(bundleId: string, referenceName: string): string {
+    const slug = referenceName
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '');
+    if (!slug) return bundleId;
+    if (!bundleId) return slug;
+    const segments = bundleId.split('.');
+    if (segments.length <= 1) return `${bundleId}.${slug}`;
+    segments[segments.length - 1] = slug;
+    return segments.join('.');
+  }
+
   // ── Factory ──
 
   static fromJSON(json: Record<string, unknown>, repo?: InAppPurchaseRepository): InAppPurchase {
