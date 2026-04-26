@@ -1,19 +1,20 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { observer } from 'mobx-react-lite';
-import type { Subscription } from '../Subscription.ts';
-import {
-  SUBSCRIPTION_LOCALIZATION_NAME_LIMIT,
-  SUBSCRIPTION_LOCALIZATION_DESCRIPTION_LIMIT,
-} from '../SubscriptionLocalization.ts';
+import type {
+  LocalizationLike,
+  LocalizationsConfig,
+  ProductWithLocalizations,
+} from './LocalizableProduct.ts';
 import {
   APP_STORE_LOCALES,
   localeDisplayName,
-} from '../../../shared/AppStoreLocaleRegistry.ts';
-import { getLocalizationAIService } from '../../AILocalizationService.ts';
+} from '../../shared/AppStoreLocaleRegistry.ts';
+import { getLocalizationAIService } from '../AILocalizationService.ts';
 
-interface Props {
+interface Props<L extends LocalizationLike, P extends ProductWithLocalizations<L>> {
   open: boolean;
-  sub: Subscription;
+  product: P;
+  config: LocalizationsConfig;
   onClose: () => void;
 }
 
@@ -27,10 +28,20 @@ interface PendingLocaleContent {
   error?: string | null;
 }
 
-/** Add Languages sheet for a subscription tier — mirrors IAPLocalePickerSheet
- *  and the iOS multi-language sheet. Two-step: pick locales, then fill
- *  content (with AI batch translate when a plugin is registered). */
-function SubscriptionLocalePickerSheetImpl({ open, sub, onClose }: Props) {
+/**
+ * Two-step Add Languages sheet shared between IAP and Subscription tier
+ * localizations. Mirrors the iOS `iOSMultiLanguageLocalizationSheet`:
+ *
+ *   Step 1 — multi-select locales (already-added shown but disabled).
+ *   Step 2 — fill content for each picked locale, with AI batch translate
+ *            via the registered plugin.
+ *
+ * Removal happens from the parent table (Edit → Remove on each row), not
+ * from this sheet — keeps the add flow focused.
+ */
+function AddLanguagesSheetImpl<L extends LocalizationLike, P extends ProductWithLocalizations<L>>({
+  open, product, config, onClose,
+}: Props<L, P>) {
   const [step, setStep] = useState<Step>('select');
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -40,7 +51,7 @@ function SubscriptionLocalePickerSheetImpl({ open, sub, onClose }: Props) {
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const aiService = getLocalizationAIService();
-  const source = sub.localizations[0] ?? null;
+  const source = product.localizations[0] ?? null;
 
   useEffect(() => {
     if (!open) return;
@@ -57,9 +68,9 @@ function SubscriptionLocalePickerSheetImpl({ open, sub, onClose }: Props) {
   }, [open, onClose]);
 
   const taken = useMemo(
-    () => new Set(sub.localizations.map((l) => l.locale)),
+    () => new Set(product.localizations.map((l) => l.locale)),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [open, sub.localizations.length],
+    [open, product.localizations.length],
   );
 
   if (!open) return null;
@@ -102,7 +113,7 @@ function SubscriptionLocalePickerSheetImpl({ open, sub, onClose }: Props) {
         text: source.name,
         fromLocale: source.locale,
         toLocale: locale,
-        context: 'Subscription tier display name',
+        context: config.aiContext.name,
       });
       let description = '';
       if (source.description) {
@@ -110,7 +121,7 @@ function SubscriptionLocalePickerSheetImpl({ open, sub, onClose }: Props) {
           text: source.description,
           fromLocale: source.locale,
           toLocale: locale,
-          context: 'Subscription tier description',
+          context: config.aiContext.description,
         });
       }
       updateContent(locale, { name, description, status: 'translated' });
@@ -134,7 +145,7 @@ function SubscriptionLocalePickerSheetImpl({ open, sub, onClose }: Props) {
       if (!c.name.trim()) continue;
       updateContent(c.locale, { status: 'saving', error: null });
       try {
-        await sub.addLocalization({
+        await product.addLocalization({
           locale: c.locale,
           name: c.name.trim(),
           description: c.description.trim() || null,
@@ -167,7 +178,7 @@ function SubscriptionLocalePickerSheetImpl({ open, sub, onClose }: Props) {
         <div className="locale-manager-titlebar">
           <h3 className="locale-manager-title">
             {step === 'select'
-              ? 'Add Languages'
+              ? `Add Languages · ${config.productLabel}`
               : `Add ${selected.size} Language${selected.size === 1 ? '' : 's'}`}
           </h3>
           <button
@@ -371,7 +382,7 @@ function SubscriptionLocalePickerSheetImpl({ open, sub, onClose }: Props) {
                     <div>
                       <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
                         <span>Display Name</span>
-                        <span className="form-hint">{c.name.length}/{SUBSCRIPTION_LOCALIZATION_NAME_LIMIT}</span>
+                        <span className="form-hint">{c.name.length}/{config.nameLimit}</span>
                       </label>
                       <input
                         className="form-input"
@@ -384,7 +395,7 @@ function SubscriptionLocalePickerSheetImpl({ open, sub, onClose }: Props) {
                     <div>
                       <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
                         <span>Description</span>
-                        <span className="form-hint">{c.description.length}/{SUBSCRIPTION_LOCALIZATION_DESCRIPTION_LIMIT}</span>
+                        <span className="form-hint">{c.description.length}/{config.descriptionLimit}</span>
                       </label>
                       <input
                         className="form-input"
@@ -434,4 +445,4 @@ function SubscriptionLocalePickerSheetImpl({ open, sub, onClose }: Props) {
   );
 }
 
-export const SubscriptionLocalePickerSheet = observer(SubscriptionLocalePickerSheetImpl);
+export const AddLanguagesSheet = observer(AddLanguagesSheetImpl) as typeof AddLanguagesSheetImpl;
