@@ -6,6 +6,7 @@ import {
   type InAppPurchaseInit,
 } from '../../../src/monetization/iap/InAppPurchase.ts';
 import { InAppPurchaseLocalization } from '../../../src/monetization/iap/InAppPurchaseLocalization.ts';
+import { ReviewScreenshot } from '../../../src/monetization/iap/ReviewScreenshot.ts';
 import type { InAppPurchaseRepository } from '../../../src/monetization/iap/InAppPurchaseRepository.ts';
 
 function stubRepo(overrides: Partial<InAppPurchaseRepository> = {}): InAppPurchaseRepository {
@@ -21,6 +22,9 @@ function stubRepo(overrides: Partial<InAppPurchaseRepository> = {}): InAppPurcha
     createLocalization: vi.fn(),
     saveLocalization: vi.fn().mockResolvedValue(undefined),
     deleteLocalization: vi.fn().mockResolvedValue(undefined),
+    reviewScreenshot: vi.fn().mockResolvedValue(null),
+    uploadReviewScreenshot: vi.fn(),
+    deleteReviewScreenshot: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
@@ -310,6 +314,105 @@ describe('InAppPurchase', () => {
 
     expect(iap.completeLocalizationCount).toBe(1);
     expect(iap.hasAnyCompleteLocalization).toBe(true);
+  });
+
+  // ── Review (notes + screenshot) ──
+
+  it('updateReviewNote calls update with reviewNote and mutates locally', async () => {
+    const repo = stubRepo();
+    const iap = new InAppPurchase(iapInit({ affordances: { update: '/x' } }), repo);
+
+    await iap.updateReviewNote('Use code TESTING');
+
+    expect(repo.update).toHaveBeenCalledWith(iap, { reviewNote: 'Use code TESTING' });
+    expect(iap.reviewNote).toBe('Use code TESTING');
+  });
+
+  it('updateReviewNote throws when update affordance is missing', async () => {
+    const repo = stubRepo();
+    const iap = new InAppPurchase(iapInit({ affordances: {} }), repo);
+    await expect(iap.updateReviewNote('x')).rejects.toThrow(/cannot update review note/);
+    expect(repo.update).not.toHaveBeenCalled();
+  });
+
+  it('canViewReviewScreenshot / canUploadReviewScreenshot map to affordances', () => {
+    const open = new InAppPurchase(iapInit({
+      affordances: { getReviewScreenshot: '/x', uploadReviewScreenshot: '/y' },
+    }));
+    expect(open.canViewReviewScreenshot).toBe(true);
+    expect(open.canUploadReviewScreenshot).toBe(true);
+
+    const closed = new InAppPurchase(iapInit({ affordances: {} }));
+    expect(closed.canViewReviewScreenshot).toBe(false);
+    expect(closed.canUploadReviewScreenshot).toBe(false);
+  });
+
+  it('loadReviewScreenshot short-circuits to null when affordance missing', async () => {
+    const repo = stubRepo();
+    const iap = new InAppPurchase(iapInit({ affordances: {} }), repo);
+
+    const result = await iap.loadReviewScreenshot();
+
+    expect(result).toBeNull();
+    expect(iap.isReviewScreenshotLoaded).toBe(true);
+    expect(repo.reviewScreenshot).not.toHaveBeenCalled();
+  });
+
+  it('loadReviewScreenshot populates reviewScreenshot from the repo', async () => {
+    const shot = new ReviewScreenshot({ id: 'shot-1', fileName: 'a.png', previewUrl: 'data:image/x;base64,X' });
+    const repo = stubRepo({ reviewScreenshot: vi.fn().mockResolvedValue(shot) });
+    const iap = new InAppPurchase(iapInit({ affordances: { getReviewScreenshot: '/x' } }), repo);
+
+    await iap.loadReviewScreenshot();
+
+    expect(iap.reviewScreenshot).toBe(shot);
+    expect(iap.isReviewScreenshotLoaded).toBe(true);
+  });
+
+  it('uploadReviewScreenshot replaces existing screenshot (delete + upload) and stores result', async () => {
+    const existing = new ReviewScreenshot({ id: 'shot-1', fileName: 'old.png', previewUrl: 'data:x', affordances: { delete: '/d' } });
+    const fresh = new ReviewScreenshot({ id: 'shot-2', fileName: 'new.png', previewUrl: 'data:y' });
+    const repo = stubRepo({
+      reviewScreenshot: vi.fn().mockResolvedValue(existing),
+      uploadReviewScreenshot: vi.fn().mockResolvedValue(fresh),
+    });
+    const iap = new InAppPurchase(iapInit({
+      affordances: { getReviewScreenshot: '/x', uploadReviewScreenshot: '/y' },
+    }), repo);
+    await iap.loadReviewScreenshot();
+
+    const file = new File(['png-bytes'], 'new.png', { type: 'image/png' });
+    const result = await iap.uploadReviewScreenshot(file);
+
+    expect(repo.deleteReviewScreenshot).toHaveBeenCalledWith(iap, existing);
+    expect(repo.uploadReviewScreenshot).toHaveBeenCalledWith(iap, file);
+    expect(result).toBe(fresh);
+    expect(iap.reviewScreenshot).toBe(fresh);
+  });
+
+  it('uploadReviewScreenshot throws when affordance is missing', async () => {
+    const repo = stubRepo();
+    const iap = new InAppPurchase(iapInit({ affordances: {} }), repo);
+    await expect(iap.uploadReviewScreenshot(new File([''], 'a.png'))).rejects.toThrow(/cannot upload review screenshot/);
+    expect(repo.uploadReviewScreenshot).not.toHaveBeenCalled();
+  });
+
+  it('deleteReviewScreenshot clears reviewScreenshot on success', async () => {
+    const shot = new ReviewScreenshot({ id: 'shot-1', fileName: 'x.png', previewUrl: 'data:x', affordances: { delete: '/d' } });
+    const repo = stubRepo({ reviewScreenshot: vi.fn().mockResolvedValue(shot) });
+    const iap = new InAppPurchase(iapInit({ affordances: { getReviewScreenshot: '/x' } }), repo);
+    await iap.loadReviewScreenshot();
+
+    await iap.deleteReviewScreenshot();
+
+    expect(repo.deleteReviewScreenshot).toHaveBeenCalledWith(iap, shot);
+    expect(iap.reviewScreenshot).toBeNull();
+  });
+
+  it('deleteReviewScreenshot throws when no screenshot is present', async () => {
+    const repo = stubRepo();
+    const iap = new InAppPurchase(iapInit(), repo);
+    await expect(iap.deleteReviewScreenshot()).rejects.toThrow(/no review screenshot to delete/);
   });
 
   // ── Helpers ──

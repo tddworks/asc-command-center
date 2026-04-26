@@ -1,5 +1,6 @@
 import type { InAppPurchase, InAppPurchaseType } from './InAppPurchase.ts';
 import type { InAppPurchaseLocalization } from './InAppPurchaseLocalization.ts';
+import type { IAPPriceSchedule } from './IAPPriceSchedule.ts';
 import type { ReviewScreenshot } from './ReviewScreenshot.ts';
 
 export interface CreateInAppPurchaseInput {
@@ -34,6 +35,10 @@ export interface InAppPurchaseRepository {
   createLocalization(iap: InAppPurchase, input: CreateInAppPurchaseLocalizationInput): Promise<InAppPurchaseLocalization>;
   saveLocalization(loc: InAppPurchaseLocalization): Promise<void>;
   deleteLocalization(loc: InAppPurchaseLocalization): Promise<void>;
+
+  // ── Pricing ──
+  /** Returns null when the IAP has no price schedule yet (newly created). */
+  priceSchedule(iap: InAppPurchase): Promise<IAPPriceSchedule | null>;
 
   // ── Review screenshot ──
   /** Returns null when the IAP has no review screenshot uploaded yet. */

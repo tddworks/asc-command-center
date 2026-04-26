@@ -1,5 +1,6 @@
 import { InAppPurchase, InAppPurchaseState, InAppPurchaseType } from '../InAppPurchase.ts';
 import { InAppPurchaseLocalization } from '../InAppPurchaseLocalization.ts';
+import { IAPPriceSchedule, TerritoryPrice } from '../IAPPriceSchedule.ts';
 import { ReviewScreenshot } from '../ReviewScreenshot.ts';
 import type {
   CreateInAppPurchaseInput,
@@ -125,6 +126,12 @@ export class MockInAppPurchaseRepository implements InAppPurchaseRepository {
     }
   }
 
+  // ── Pricing ──
+
+  async priceSchedule(iap: InAppPurchase): Promise<IAPPriceSchedule | null> {
+    return mockPriceScheduleFor(iap);
+  }
+
   // ── Review screenshot ──
 
   async reviewScreenshot(iap: InAppPurchase): Promise<ReviewScreenshot | null> {
@@ -162,7 +169,69 @@ export class MockInAppPurchaseRepository implements InAppPurchaseRepository {
     };
   }
 
-  private seedLocalizationsFor(iap: InAppPurchase): InAppPurchaseLocalization[] {
+  private seedLocalizationsFor(iap: InAppPurchase): InAppPurchaseLocalization[] { void iap;
+    return seedLocalizationsImpl(iap);
+  }
+}
+
+const SAMPLE_TERRITORIES: { id: string; name: string; currency: string; symbol: string; rate: number }[] = [
+  { id: 'USA', name: 'United States', currency: 'USD', symbol: '$', rate: 1 },
+  { id: 'GBR', name: 'United Kingdom', currency: 'GBP', symbol: '£', rate: 0.79 },
+  { id: 'DEU', name: 'Germany', currency: 'EUR', symbol: '€', rate: 0.92 },
+  { id: 'JPN', name: 'Japan', currency: 'JPY', symbol: '¥', rate: 152 },
+  { id: 'CHN', name: 'China', currency: 'CNY', symbol: '¥', rate: 7.2 },
+  { id: 'AUS', name: 'Australia', currency: 'AUD', symbol: 'A$', rate: 1.52 },
+  { id: 'CAN', name: 'Canada', currency: 'CAD', symbol: 'C$', rate: 1.38 },
+  { id: 'BRA', name: 'Brazil', currency: 'BRL', symbol: 'R$', rate: 5.05 },
+  { id: 'IND', name: 'India', currency: 'INR', symbol: '₹', rate: 83 },
+  { id: 'KOR', name: 'South Korea', currency: 'KRW', symbol: '₩', rate: 1380 },
+];
+
+/** Map a fixture IAP to a USD base price. Returns null for IAPs that
+ *  shouldn't have a schedule yet (newly seeded with MISSING_METADATA). */
+function basePriceFor(iap: InAppPurchase): number | null {
+  switch (iap.id) {
+    case 'iap-1': return 9.99;
+    case 'iap-2': return 0.99;
+    case 'iap-3': return 4.99;
+    case 'iap-4': return 1.99;
+    default: return null; // MISSING_METADATA fixtures stay unpriced
+  }
+}
+
+function formatPrice(amount: number, currency: string, symbol: string): string {
+  // JPY/KRW have no decimals on the App Store; everything else gets two.
+  if (currency === 'JPY' || currency === 'KRW') {
+    return `${symbol}${Math.round(amount).toLocaleString('en-US')}`;
+  }
+  return `${symbol}${amount.toFixed(2)}`;
+}
+
+function mockPriceScheduleFor(iap: InAppPurchase): IAPPriceSchedule | null {
+  const usd = basePriceFor(iap);
+  if (usd === null) return null;
+  const base = SAMPLE_TERRITORIES[0];
+  const rows = SAMPLE_TERRITORIES.map((t) => {
+    const local = usd * t.rate;
+    return new TerritoryPrice({
+      territoryId: t.id,
+      territoryName: t.name,
+      formattedPrice: formatPrice(local, t.currency, t.symbol),
+      currency: t.currency,
+      pricePointId: `pp-${iap.id}-${t.id}`,
+    });
+  });
+  return new IAPPriceSchedule({
+    baseTerritoryId: base.id,
+    baseTerritoryName: base.name,
+    basePrice: formatPrice(usd, base.currency, base.symbol),
+    baseCurrency: base.currency,
+    basePricePointId: `pp-${iap.id}-${base.id}`,
+    territoryPrices: rows,
+  });
+}
+
+function seedLocalizationsImpl(iap: InAppPurchase): InAppPurchaseLocalization[] {
     const sample: Record<string, { name: string; description: string }> = {
       'iap-1': { name: 'Premium Upgrade', description: 'Unlock every feature forever.' },
       'iap-2': { name: '100 Coins', description: 'A pouch of 100 in-game coins.' },
