@@ -7,6 +7,7 @@ import {
 } from '../../../src/monetization/iap/InAppPurchase.ts';
 import { InAppPurchaseLocalization } from '../../../src/monetization/iap/InAppPurchaseLocalization.ts';
 import { ReviewScreenshot } from '../../../src/monetization/iap/ReviewScreenshot.ts';
+import { IAPPriceSchedule } from '../../../src/monetization/iap/IAPPriceSchedule.ts';
 import type { InAppPurchaseRepository } from '../../../src/monetization/iap/InAppPurchaseRepository.ts';
 
 function stubRepo(overrides: Partial<InAppPurchaseRepository> = {}): InAppPurchaseRepository {
@@ -25,6 +26,7 @@ function stubRepo(overrides: Partial<InAppPurchaseRepository> = {}): InAppPurcha
     reviewScreenshot: vi.fn().mockResolvedValue(null),
     uploadReviewScreenshot: vi.fn(),
     deleteReviewScreenshot: vi.fn().mockResolvedValue(undefined),
+    priceSchedule: vi.fn().mockResolvedValue(null),
     ...overrides,
   };
 }
@@ -413,6 +415,35 @@ describe('InAppPurchase', () => {
     const repo = stubRepo();
     const iap = new InAppPurchase(iapInit(), repo);
     await expect(iap.deleteReviewScreenshot()).rejects.toThrow(/no review screenshot to delete/);
+  });
+
+  // ── Pricing ──
+
+  it('loadPriceSchedule short-circuits to null when affordance is missing', async () => {
+    const repo = stubRepo();
+    const iap = new InAppPurchase(iapInit({ affordances: {} }), repo);
+
+    const result = await iap.loadPriceSchedule();
+
+    expect(result).toBeNull();
+    expect(iap.isPriceScheduleLoaded).toBe(true);
+    expect(repo.priceSchedule).not.toHaveBeenCalled();
+  });
+
+  it('loadPriceSchedule populates priceSchedule from the repo', async () => {
+    const sched = IAPPriceSchedule.fromJSON({
+      baseTerritory: { id: 'USA', displayName: 'United States', currency: 'USD' },
+      basePrice: '$9.99',
+      basePricePoint: { id: 'pp-base' },
+      territoryPrices: [],
+    });
+    const repo = stubRepo({ priceSchedule: vi.fn().mockResolvedValue(sched) });
+    const iap = new InAppPurchase(iapInit({ affordances: { getPriceSchedule: '/x' } }), repo);
+
+    await iap.loadPriceSchedule();
+
+    expect(iap.priceSchedule).toBe(sched);
+    expect(iap.isPriceScheduleLoaded).toBe(true);
   });
 
   // ── Helpers ──

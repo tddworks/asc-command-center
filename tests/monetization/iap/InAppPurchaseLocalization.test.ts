@@ -22,6 +22,7 @@ function stubRepo(overrides: Partial<InAppPurchaseRepository> = {}): InAppPurcha
     reviewScreenshot: vi.fn().mockResolvedValue(null),
     uploadReviewScreenshot: vi.fn(),
     deleteReviewScreenshot: vi.fn().mockResolvedValue(undefined),
+    priceSchedule: vi.fn().mockResolvedValue(null),
     ...overrides,
   };
 }
