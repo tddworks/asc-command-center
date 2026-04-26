@@ -8,6 +8,13 @@ import type {
   InAppPurchaseOfferCode,
 } from './InAppPurchaseOfferCode.ts';
 import type { CodeEnvironment, IAPOneTimeUseCodeBatch } from './OneTimeUseCodeBatch.ts';
+import type { IAPCustomCode } from './IAPCustomCode.ts';
+
+export interface CreateIAPCustomCodeInput {
+  customCode: string;
+  numberOfCodes: number;
+  expirationDate?: string | null;
+}
 
 export interface CreateInAppPurchaseOfferCodeInput {
   name: string;
@@ -84,4 +91,6 @@ export interface InAppPurchaseRepository {
     code: InAppPurchaseOfferCode,
     input: { count: number; environment: CodeEnvironment | string },
   ): Promise<IAPOneTimeUseCodeBatch>;
+  customCodes(code: InAppPurchaseOfferCode): Promise<IAPCustomCode[]>;
+  createCustomCode(code: InAppPurchaseOfferCode, input: CreateIAPCustomCodeInput): Promise<IAPCustomCode>;
 }

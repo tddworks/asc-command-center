@@ -5,6 +5,7 @@ import { IAPPriceSchedule, TerritoryPrice } from '../IAPPriceSchedule.ts';
 import { IAPPricePoint, type IAPPricePointPage } from '../IAPPricePoint.ts';
 import { IAPCustomerEligibility, InAppPurchaseOfferCode } from '../InAppPurchaseOfferCode.ts';
 import { CodeEnvironment, IAPOneTimeUseCodeBatch } from '../OneTimeUseCodeBatch.ts';
+import { IAPCustomCode } from '../IAPCustomCode.ts';
 import { ReviewScreenshot } from '../ReviewScreenshot.ts';
 import type {
   CreateInAppPurchaseInput,
@@ -27,6 +28,7 @@ export class MockInAppPurchaseRepository implements InAppPurchaseRepository {
   private availabilityByIap = new Map<string, IAPAvailability>();
   private offerCodesByIap = new Map<string, InAppPurchaseOfferCode[]>();
   private batchesByCode = new Map<string, IAPOneTimeUseCodeBatch[]>();
+  private customCodesByCode = new Map<string, IAPCustomCode[]>();
   /** Holds null for IAPs whose schedule we know is "no schedule yet". */
   private priceScheduleByIap = new Map<string, IAPPriceSchedule | null>();
   private nextLocId = 100;
@@ -224,6 +226,28 @@ export class MockInAppPurchaseRepository implements InAppPurchaseRepository {
       this.batchesByCode.set(code.id, cached);
     }
     return [...cached];
+  }
+
+  async customCodes(code: InAppPurchaseOfferCode): Promise<IAPCustomCode[]> {
+    return this.customCodesByCode.get(code.id) ?? [];
+  }
+
+  async createCustomCode(
+    code: InAppPurchaseOfferCode,
+    input: { customCode: string; numberOfCodes: number; expirationDate?: string | null },
+  ): Promise<IAPCustomCode> {
+    const id = `cc-${Date.now()}`;
+    const created = new IAPCustomCode({
+      id,
+      customCode: input.customCode,
+      numberOfCodes: input.numberOfCodes,
+      expirationDate: input.expirationDate ?? null,
+      isActive: true,
+    });
+    const list = this.customCodesByCode.get(code.id) ?? [];
+    list.push(created);
+    this.customCodesByCode.set(code.id, list);
+    return created;
   }
 
   async generateOneTimeUseCodes(
