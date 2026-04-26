@@ -10,6 +10,7 @@ import { ReviewScreenshot } from '../../../src/monetization/iap/ReviewScreenshot
 import { IAPPriceSchedule } from '../../../src/monetization/iap/IAPPriceSchedule.ts';
 import { IAPAvailability, TerritoryAvailability } from '../../../src/monetization/iap/IAPAvailability.ts';
 import { IAPCustomerEligibility, InAppPurchaseOfferCode } from '../../../src/monetization/iap/InAppPurchaseOfferCode.ts';
+import { IAPPricePoint } from '../../../src/monetization/iap/IAPPricePoint.ts';
 import type { InAppPurchaseRepository } from '../../../src/monetization/iap/InAppPurchaseRepository.ts';
 
 function stubRepo(overrides: Partial<InAppPurchaseRepository> = {}): InAppPurchaseRepository {
@@ -35,6 +36,8 @@ function stubRepo(overrides: Partial<InAppPurchaseRepository> = {}): InAppPurcha
     deactivateOfferCode: vi.fn().mockResolvedValue(undefined),
     createOfferCode: vi.fn(),
     setPrice: vi.fn().mockResolvedValue(undefined),
+    pricePoints: vi.fn().mockResolvedValue({ items: [], nextCursor: null }),
+    equalizations: vi.fn().mockResolvedValue({ items: [], nextCursor: null }),
     ...overrides,
   };
 }
