@@ -2,6 +2,7 @@ import { makeAutoObservable, runInAction } from 'mobx';
 import type { Affordances } from '../../shared/types.ts';
 import type { InAppPurchaseRepository } from './InAppPurchaseRepository.ts';
 import type { CodeEnvironment, IAPOneTimeUseCodeBatch } from './OneTimeUseCodeBatch.ts';
+import type { IAPCustomCode } from './IAPCustomCode.ts';
 
 /** Customer eligibility flags for IAP offer codes — Apple's three buckets:
  *  users who have never bought (`NonSpender` = "new"), users actively
@@ -53,6 +54,11 @@ export class InAppPurchaseOfferCode {
   oneTimeUseCodes: IAPOneTimeUseCodeBatch[] = [];
   isOneTimeUseCodesLoaded = false;
 
+  /** Developer-defined custom codes attached to this offer code. Empty
+   *  until `loadCustomCodes` has resolved. */
+  customCodes: IAPCustomCode[] = [];
+  isCustomCodesLoaded = false;
+
   repository: InAppPurchaseRepository | null = null;
 
   constructor(init: InAppPurchaseOfferCodeInit) {
@@ -93,6 +99,20 @@ export class InAppPurchaseOfferCode {
     return this.oneTimeUseCodes.reduce((sum, b) => sum + b.numberOfCodes, 0);
   }
 
+  /** Total redemption capacity of every loaded custom code. */
+  get totalCustomCodes(): number {
+    return this.customCodes.reduce((sum, c) => sum + c.numberOfCodes, 0);
+  }
+
+  /** App Store's redemption URL template. The page can show this with
+   *  `{appId}` substituted with the App Store id (carried on
+   *  `affordances.appId`) so users can copy it for marketing. */
+  get redemptionUrl(): string {
+    const appStoreId = this.affordances.appId ?? '{appId}';
+    const idParam = encodeURIComponent(appStoreId);
+    return `https://apps.apple.com/redeem?ctx=offercodes&id=${idParam}&code=CODE`;
+  }
+
   // ── Capability checks ──
 
   get canDeactivate(): boolean {
@@ -111,6 +131,30 @@ export class InAppPurchaseOfferCode {
       this.isOneTimeUseCodesLoaded = true;
     });
     return list;
+  }
+
+  async loadCustomCodes(): Promise<IAPCustomCode[]> {
+    if (!this.repository) {
+      throw new Error(`OfferCode ${this.id} has no repository attached`);
+    }
+    const list = await this.repository.customCodes(this);
+    runInAction(() => {
+      this.customCodes = list;
+      this.isCustomCodesLoaded = true;
+    });
+    return list;
+  }
+
+  async createCustomCode(input: { customCode: string; numberOfCodes: number; expirationDate?: string | null }): Promise<IAPCustomCode> {
+    if (!this.repository) {
+      throw new Error(`OfferCode ${this.id} has no repository attached`);
+    }
+    const created = await this.repository.createCustomCode(this, input);
+    runInAction(() => {
+      this.customCodes = [...this.customCodes, created];
+      this.isCustomCodesLoaded = true;
+    });
+    return created;
   }
 
   async generateOneTimeUseCodes(input: { count: number; environment: CodeEnvironment | string }): Promise<IAPOneTimeUseCodeBatch> {

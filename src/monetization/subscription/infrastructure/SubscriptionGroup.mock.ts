@@ -4,6 +4,7 @@ import { SubscriptionLocalization } from '../SubscriptionLocalization.ts';
 import { SubscriptionGroupLocalization } from '../SubscriptionGroupLocalization.ts';
 import { SubscriptionAvailability, SubscriptionTerritoryAvailability } from '../SubscriptionAvailability.ts';
 import { SubscriptionPriceSchedule, SubscriptionTerritoryPrice } from '../SubscriptionPriceSchedule.ts';
+import { SubscriptionPricePoint, type SubscriptionPricePointPage } from '../SubscriptionPricePoint.ts';
 import { SubscriptionReviewScreenshot } from '../SubscriptionReviewScreenshot.ts';
 import {
   OfferMode,
@@ -203,6 +204,32 @@ export class MockSubscriptionGroupRepository implements SubscriptionGroupReposit
     input: Array<{ territoryId: string; pricePointId: string }>,
   ): Promise<void> {
     this.priceScheduleByTier.set(sub.id, mockSetSubPricesFor(sub, input));
+  }
+
+  async pricePoints(
+    sub: Subscription,
+    input: { territoryId: string; cursor: string | null; limit?: number },
+  ): Promise<SubscriptionPricePointPage> {
+    return mockSubPricePointsPage(sub, input);
+  }
+
+  async equalizations(
+    sub: Subscription,
+    input: { pricePointId: string; cursor: string | null; limit?: number },
+  ): Promise<SubscriptionPricePointPage> {
+    void sub;
+    const limit = input.limit ?? 5;
+    const start = input.cursor ? Number(input.cursor) || 0 : 0;
+    const all = SUB_TERRITORIES.map((t) => new SubscriptionPricePoint({
+      id: `${input.pricePointId}-${t.id}`,
+      territoryId: t.id,
+      formattedPrice: formatSubPrice(9.99 * t.rate, t.currency, t.symbol),
+      currency: t.currency,
+      proceeds: formatSubPrice(9.99 * t.rate * 0.7, t.currency, t.symbol),
+    }));
+    const slice = all.slice(start, start + limit);
+    const next = start + limit < all.length ? String(start + limit) : null;
+    return { items: slice, nextCursor: next };
   }
 
   // ── Review screenshot ──
@@ -596,6 +623,35 @@ function mockSetSubPricesFor(
     });
   });
   return new SubscriptionPriceSchedule({ territoryPrices: rows });
+}
+
+const SUB_USD_TIERS: number[] = [
+  0.99, 1.99, 2.99, 3.99, 4.99, 5.99, 6.99, 7.99, 8.99, 9.99,
+  14.99, 19.99, 24.99, 29.99, 39.99, 49.99, 59.99, 69.99, 79.99, 99.99,
+  149.99, 199.99, 299.99, 499.99,
+];
+
+function mockSubPricePointsPage(
+  sub: Subscription,
+  input: { territoryId: string; cursor: string | null; limit?: number },
+): SubscriptionPricePointPage {
+  const territory = SUB_TERRITORIES.find((t) => t.id === input.territoryId)
+    ?? SUB_TERRITORIES[0];
+  const limit = input.limit ?? 25;
+  const start = input.cursor ? Number(input.cursor) || 0 : 0;
+  const all = SUB_USD_TIERS.map((usd) => {
+    const local = usd * territory.rate;
+    return new SubscriptionPricePoint({
+      id: `pp-${sub.id}-${territory.id}-${usd}`,
+      territoryId: territory.id,
+      formattedPrice: formatSubPrice(local, territory.currency, territory.symbol),
+      currency: territory.currency,
+      proceeds: formatSubPrice(local * 0.7, territory.currency, territory.symbol),
+    });
+  });
+  const slice = all.slice(start, start + limit);
+  const next = start + limit < all.length ? String(start + limit) : null;
+  return { items: slice, nextCursor: next };
 }
 
 function mockOfferCodesFor(sub: Subscription): SubscriptionOfferCode[] {

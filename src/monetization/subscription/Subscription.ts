@@ -495,6 +495,14 @@ export class Subscription {
 
   // ── Pricing ──
 
+  async loadPricePoints(input: { territoryId: string; cursor: string | null; limit?: number }): Promise<SubscriptionPricePointPage> {
+    return this.requireRepo().pricePoints(this, input);
+  }
+
+  async loadEqualizations(input: { pricePointId: string; cursor: string | null; limit?: number }): Promise<SubscriptionPricePointPage> {
+    return this.requireRepo().equalizations(this, input);
+  }
+
   /** Set prices for one or more territories. Apple equalises the rest off
    *  the passed list, so a single-territory input usually suffices. We
    *  refetch the schedule so the page reflects the equalised rows. */

@@ -80,6 +80,17 @@ function LocaleCard({ sub, loc }: { sub: Subscription; loc: SubscriptionLocaliza
           )}
         </div>
         <div className="toolbar-right" style={{ display: 'flex', gap: 6 }}>
+          {canAI && (
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={aiTranslate}
+              disabled={!!busy}
+              title={`Translate from ${localeDisplayName(source!.locale)} via AI plugin`}
+            >
+              {busy === 'ai' ? 'Translating…' : '✨ AI Translate'}
+            </button>
+          )}
           {loc.hasUnsavedChanges && !loc.isNew && (
             <button type="button" className="btn btn-secondary btn-sm" onClick={() => loc.discard()} disabled={!!busy}>
               Discard

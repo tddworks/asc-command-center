@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import type { Subscription } from '../Subscription.ts';
-import { SubscriptionSetPriceModal } from './SubscriptionSetPriceModal.tsx';
+import { SubscriptionPricePointPickerModal } from './SubscriptionPricePointPickerModal.tsx';
 
 interface Props {
   sub: Subscription;
@@ -46,7 +46,7 @@ function SubscriptionPricingTabImpl({ sub }: Props) {
             </button>
           )}
         </div>
-        <SubscriptionSetPriceModal sub={sub} open={setPriceOpen} onClose={() => setSetPriceOpen(false)} />
+        <SubscriptionPricePointPickerModal sub={sub} open={setPriceOpen} onClose={() => setSetPriceOpen(false)} />
       </>
     );
   }
@@ -103,7 +103,7 @@ function SubscriptionPricingTabImpl({ sub }: Props) {
           </tbody>
         </table>
       </div>
-      <SubscriptionSetPriceModal sub={sub} open={setPriceOpen} onClose={() => setSetPriceOpen(false)} />
+      <SubscriptionPricePointPickerModal sub={sub} open={setPriceOpen} onClose={() => setSetPriceOpen(false)} />
     </div>
   );
 }

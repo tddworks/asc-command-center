@@ -31,6 +31,8 @@ function stubRepo(overrides: Partial<SubscriptionRepository> = {}): Subscription
     offerCodes: vi.fn().mockResolvedValue([]),
     createOfferCode: vi.fn(),
     setPrices: vi.fn().mockResolvedValue(undefined),
+    pricePoints: vi.fn().mockResolvedValue({ items: [], nextCursor: null }),
+    equalizations: vi.fn().mockResolvedValue({ items: [], nextCursor: null }),
     ...overrides,
   };
 }

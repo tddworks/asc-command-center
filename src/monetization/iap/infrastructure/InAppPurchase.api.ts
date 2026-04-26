@@ -5,6 +5,7 @@ import { IAPPriceSchedule } from '../IAPPriceSchedule.ts';
 import { IAPPricePoint, type IAPPricePointPage } from '../IAPPricePoint.ts';
 import { InAppPurchaseOfferCode } from '../InAppPurchaseOfferCode.ts';
 import { IAPOneTimeUseCodeBatch, type CodeEnvironment } from '../OneTimeUseCodeBatch.ts';
+import { IAPCustomCode } from '../IAPCustomCode.ts';
 import { ReviewScreenshot } from '../ReviewScreenshot.ts';
 import { apiClient, type DataMode } from '../../../shared/api-client.tsx';
 import type {
@@ -296,6 +297,31 @@ export class RestInAppPurchaseRepository implements InAppPurchaseRepository {
     if (!res.ok) throw new Error(`POST ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
     const body = await res.json().catch(() => ({}));
     return IAPOneTimeUseCodeBatch.fromJSON((body.data ?? body) as Record<string, unknown>);
+  }
+
+  async customCodes(code: InAppPurchaseOfferCode): Promise<IAPCustomCode[]> {
+    const url = `/api/v1/iap-offer-codes/${code.id}/custom-codes`;
+    const json = await apiClient.get<{ data: Record<string, unknown>[] }>(url);
+    return json.data.map(IAPCustomCode.fromJSON);
+  }
+
+  async createCustomCode(
+    code: InAppPurchaseOfferCode,
+    input: { customCode: string; numberOfCodes: number; expirationDate?: string | null },
+  ): Promise<IAPCustomCode> {
+    const url = `/api/v1/iap-offer-codes/${code.id}/custom-codes`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        customCode: input.customCode,
+        numberOfCodes: input.numberOfCodes,
+        expirationDate: input.expirationDate ?? null,
+      }),
+    });
+    if (!res.ok) throw new Error(`POST ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
+    const body = await res.json().catch(() => ({}));
+    return IAPCustomCode.fromJSON((body.data ?? body) as Record<string, unknown>);
   }
 
   async createOfferCode(

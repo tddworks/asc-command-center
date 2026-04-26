@@ -4,6 +4,7 @@ import { SubscriptionLocalization } from '../SubscriptionLocalization.ts';
 import { SubscriptionGroupLocalization } from '../SubscriptionGroupLocalization.ts';
 import { SubscriptionAvailability } from '../SubscriptionAvailability.ts';
 import { SubscriptionPriceSchedule } from '../SubscriptionPriceSchedule.ts';
+import { SubscriptionPricePoint, type SubscriptionPricePointPage } from '../SubscriptionPricePoint.ts';
 import { SubscriptionReviewScreenshot } from '../SubscriptionReviewScreenshot.ts';
 import {
   SubscriptionIntroductoryOffer,
@@ -317,6 +318,38 @@ export class RestSubscriptionGroupRepository implements SubscriptionGroupReposit
       if (msg.includes('404')) return null;
       throw err;
     }
+  }
+
+  async pricePoints(
+    sub: Subscription,
+    input: { territoryId: string; cursor: string | null; limit?: number },
+  ): Promise<SubscriptionPricePointPage> {
+    const params = new URLSearchParams();
+    params.set('territory', input.territoryId);
+    if (input.cursor) params.set('cursor', input.cursor);
+    if (input.limit) params.set('limit', String(input.limit));
+    const url = `/api/v1/subscriptions/${sub.id}/price-points?${params.toString()}`;
+    const json = await apiClient.get<{ data: Record<string, unknown>[]; links?: { next?: string } }>(url);
+    return {
+      items: json.data.map(SubscriptionPricePoint.fromJSON),
+      nextCursor: json.links?.next ?? null,
+    };
+  }
+
+  async equalizations(
+    sub: Subscription,
+    input: { pricePointId: string; cursor: string | null; limit?: number },
+  ): Promise<SubscriptionPricePointPage> {
+    const params = new URLSearchParams();
+    params.set('pricePointId', input.pricePointId);
+    if (input.cursor) params.set('cursor', input.cursor);
+    if (input.limit) params.set('limit', String(input.limit));
+    const url = `/api/v1/subscriptions/${sub.id}/price-points/equalizations?${params.toString()}`;
+    const json = await apiClient.get<{ data: Record<string, unknown>[]; links?: { next?: string } }>(url);
+    return {
+      items: json.data.map(SubscriptionPricePoint.fromJSON),
+      nextCursor: json.links?.next ?? null,
+    };
   }
 
   async setPrices(

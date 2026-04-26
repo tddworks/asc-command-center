@@ -40,6 +40,8 @@ function stubRepo(overrides: Partial<InAppPurchaseRepository> = {}): InAppPurcha
     equalizations: vi.fn().mockResolvedValue({ items: [], nextCursor: null }),
     oneTimeUseCodes: vi.fn().mockResolvedValue([]),
     generateOneTimeUseCodes: vi.fn(),
+    customCodes: vi.fn().mockResolvedValue([]),
+    createCustomCode: vi.fn(),
     ...overrides,
   };
 }
