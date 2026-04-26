@@ -16,6 +16,10 @@ function stubRepo(overrides: Partial<InAppPurchaseRepository> = {}): InAppPurcha
     remove: vi.fn().mockResolvedValue(undefined),
     submit: vi.fn().mockResolvedValue(undefined),
     unsubmit: vi.fn().mockResolvedValue(undefined),
+    localizations: vi.fn().mockResolvedValue([]),
+    createLocalization: vi.fn(),
+    saveLocalization: vi.fn().mockResolvedValue(undefined),
+    deleteLocalization: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
@@ -129,6 +133,40 @@ describe('InAppPurchases (root aggregate)', () => {
     expect(iaps.list).toEqual([]);
     expect(iaps.loaded).toBe(false);
     expect(iaps.appId).toBeNull();
+  });
+
+  it('select focuses an IAP and clearSelection resets', async () => {
+    const a = mkIap('iap-1');
+    const repo = stubRepo({ list: vi.fn().mockResolvedValue([a]) });
+    const iaps = new InAppPurchases(repo);
+    await iaps.refreshFor('app-1');
+
+    iaps.select(a);
+    expect(iaps.selectedIap).toBe(a);
+
+    iaps.clearSelection();
+    expect(iaps.selectedIap).toBeNull();
+  });
+
+  it('select throws when the IAP is not in the loaded list', async () => {
+    const a = mkIap('iap-1');
+    const stranger = mkIap('iap-X');
+    const repo = stubRepo({ list: vi.fn().mockResolvedValue([a]) });
+    const iaps = new InAppPurchases(repo);
+    await iaps.refreshFor('app-1');
+
+    expect(() => iaps.select(stranger)).toThrow(/not in the loaded list/);
+  });
+
+  it('refreshFor clears selection when switching apps', async () => {
+    const repo = stubRepo({ list: vi.fn().mockImplementation((appId: string) => Promise.resolve([mkIap(`iap-${appId}`)])) });
+    const iaps = new InAppPurchases(repo);
+    await iaps.refreshFor('app-1');
+    iaps.select(iaps.list[0]);
+
+    await iaps.refreshFor('app-2');
+
+    expect(iaps.selectedIap).toBeNull();
   });
 
   it('byId looks up loaded IAPs', async () => {

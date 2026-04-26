@@ -5,6 +5,7 @@ import {
   InAppPurchaseType,
   type InAppPurchaseInit,
 } from '../../../src/monetization/iap/InAppPurchase.ts';
+import { InAppPurchaseLocalization } from '../../../src/monetization/iap/InAppPurchaseLocalization.ts';
 import type { InAppPurchaseRepository } from '../../../src/monetization/iap/InAppPurchaseRepository.ts';
 
 function stubRepo(overrides: Partial<InAppPurchaseRepository> = {}): InAppPurchaseRepository {
@@ -16,6 +17,10 @@ function stubRepo(overrides: Partial<InAppPurchaseRepository> = {}): InAppPurcha
     remove: vi.fn().mockResolvedValue(undefined),
     submit: vi.fn().mockResolvedValue(undefined),
     unsubmit: vi.fn().mockResolvedValue(undefined),
+    localizations: vi.fn().mockResolvedValue([]),
+    createLocalization: vi.fn(),
+    saveLocalization: vi.fn().mockResolvedValue(undefined),
+    deleteLocalization: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
@@ -219,6 +224,92 @@ describe('InAppPurchase', () => {
     }));
 
     await expect(iap.submit()).rejects.toThrow(/no repository/);
+  });
+
+  // ── Localizations ──
+
+  it('canViewLocalizations / canCreateLocalization map to affordances', () => {
+    const open = new InAppPurchase(iapInit({
+      affordances: { listLocalizations: '/x', createLocalization: '/y' },
+    }));
+    expect(open.canViewLocalizations).toBe(true);
+    expect(open.canCreateLocalization).toBe(true);
+
+    const closed = new InAppPurchase(iapInit({ affordances: {} }));
+    expect(closed.canViewLocalizations).toBe(false);
+    expect(closed.canCreateLocalization).toBe(false);
+  });
+
+  it('loadLocalizations populates localizations and attaches the repo', async () => {
+    const en = new InAppPurchaseLocalization({ id: 'l-1', locale: 'en-US', name: 'Premium', description: null });
+    const fr = new InAppPurchaseLocalization({ id: 'l-2', locale: 'fr-FR', name: 'Premium', description: null });
+    const repo = stubRepo({ localizations: vi.fn().mockResolvedValue([en, fr]) });
+    const iap = new InAppPurchase(iapInit({ affordances: { listLocalizations: '/x' } }), repo);
+
+    const list = await iap.loadLocalizations();
+
+    expect(list).toEqual([en, fr]);
+    expect(iap.localizations).toEqual([en, fr]);
+    expect(iap.isLocalizationsLoaded).toBe(true);
+    expect(en.repository).toBe(repo);
+    expect(fr.repository).toBe(repo);
+    expect(repo.localizations).toHaveBeenCalledWith(iap);
+  });
+
+  it('loadLocalizations short-circuits to [] when the affordance is missing', async () => {
+    const repo = stubRepo();
+    const iap = new InAppPurchase(iapInit({ affordances: {} }), repo);
+
+    const list = await iap.loadLocalizations();
+
+    expect(list).toEqual([]);
+    expect(iap.isLocalizationsLoaded).toBe(true);
+    expect(repo.localizations).not.toHaveBeenCalled();
+  });
+
+  it('addLocalization gates on canCreateLocalization, attaches the repo, appends', async () => {
+    const created = new InAppPurchaseLocalization({ id: 'l-new', locale: 'de-DE', name: 'Premium', description: null });
+    const repo = stubRepo({ createLocalization: vi.fn().mockResolvedValue(created) });
+    const iap = new InAppPurchase(iapInit({ affordances: { createLocalization: '/x' } }), repo);
+
+    const result = await iap.addLocalization({ locale: 'de-DE', name: 'Premium' });
+
+    expect(result).toBe(created);
+    expect(iap.localizations).toContain(created);
+    expect(created.repository).toBe(repo);
+    expect(repo.createLocalization).toHaveBeenCalledWith(iap, { locale: 'de-DE', name: 'Premium' });
+  });
+
+  it('addLocalization throws when the affordance is missing', async () => {
+    const repo = stubRepo();
+    const iap = new InAppPurchase(iapInit({ affordances: {} }), repo);
+
+    await expect(iap.addLocalization({ locale: 'de-DE', name: 'X' })).rejects.toThrow(/cannot create a localization/);
+    expect(repo.createLocalization).not.toHaveBeenCalled();
+  });
+
+  it('removeLocalization delegates to loc.delete and prunes the list', async () => {
+    const a = new InAppPurchaseLocalization({ id: 'l-1', locale: 'en-US', name: 'X', description: null, affordances: { delete: '/x' } });
+    const b = new InAppPurchaseLocalization({ id: 'l-2', locale: 'fr-FR', name: 'X', description: null, affordances: { delete: '/y' } });
+    const repo = stubRepo({ localizations: vi.fn().mockResolvedValue([a, b]) });
+    const iap = new InAppPurchase(iapInit({ affordances: { listLocalizations: '/x' } }), repo);
+    await iap.loadLocalizations();
+
+    await iap.removeLocalization(a);
+
+    expect(repo.deleteLocalization).toHaveBeenCalledWith(a);
+    expect(iap.localizations).toEqual([b]);
+  });
+
+  it('completeLocalizationCount counts only locales whose name is non-empty', async () => {
+    const a = new InAppPurchaseLocalization({ id: 'l-1', locale: 'en-US', name: 'Premium', description: null });
+    const b = new InAppPurchaseLocalization({ id: 'l-2', locale: 'fr-FR', name: '', description: null });
+    const repo = stubRepo({ localizations: vi.fn().mockResolvedValue([a, b]) });
+    const iap = new InAppPurchase(iapInit({ affordances: { listLocalizations: '/x' } }), repo);
+    await iap.loadLocalizations();
+
+    expect(iap.completeLocalizationCount).toBe(1);
+    expect(iap.hasAnyCompleteLocalization).toBe(true);
   });
 
   // ── Helpers ──
