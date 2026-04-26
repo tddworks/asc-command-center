@@ -12,8 +12,11 @@ import {
 } from '../SubscriptionOffers.ts';
 import { apiClient, type DataMode } from '../../../shared/api-client.tsx';
 import type {
+  CreateIntroductoryOfferInput,
+  CreatePromotionalOfferInput,
   CreateSubscriptionInput,
   CreateSubscriptionLocalizationInput,
+  CreateSubscriptionOfferCodeInput,
   SubscriptionRepository,
 } from '../SubscriptionRepository.ts';
 import type {
@@ -328,7 +331,7 @@ export class RestSubscriptionGroupRepository implements SubscriptionGroupReposit
 
   async createIntroductoryOffer(
     sub: Subscription,
-    input: Record<string, unknown>,
+    input: CreateIntroductoryOfferInput,
   ): Promise<SubscriptionIntroductoryOffer> {
     const url = sub.affordances.createIntroductoryOffer ?? `/api/v1/subscriptions/${sub.id}/introductory-offers`;
     const res = await fetch(url, {
@@ -355,7 +358,7 @@ export class RestSubscriptionGroupRepository implements SubscriptionGroupReposit
 
   async createPromotionalOffer(
     sub: Subscription,
-    input: Record<string, unknown>,
+    input: CreatePromotionalOfferInput,
   ): Promise<SubscriptionPromotionalOffer> {
     const url = sub.affordances.createPromotionalOffer ?? `/api/v1/subscriptions/${sub.id}/promotional-offers`;
     const res = await fetch(url, {
@@ -382,13 +385,7 @@ export class RestSubscriptionGroupRepository implements SubscriptionGroupReposit
 
   async createOfferCode(
     sub: Subscription,
-    input: {
-      name: string;
-      offerMode: string;
-      duration: string;
-      numberOfPeriods: number;
-      customerEligibilities: string[];
-    },
+    input: CreateSubscriptionOfferCodeInput,
   ): Promise<SubscriptionOfferCode> {
     const url = sub.affordances.createOfferCode ?? `/api/v1/subscriptions/${sub.id}/offer-codes`;
     const res = await fetch(url, {
