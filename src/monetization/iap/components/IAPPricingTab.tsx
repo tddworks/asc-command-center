@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import type { InAppPurchase } from '../InAppPurchase.ts';
+import { IAPSetPriceModal } from './IAPSetPriceModal.tsx';
 
 interface Props {
   iap: InAppPurchase;
