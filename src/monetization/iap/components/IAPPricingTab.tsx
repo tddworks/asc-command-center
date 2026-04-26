@@ -9,6 +9,7 @@ interface Props {
 
 function IAPPricingTabImpl({ iap }: Props) {
   const [query, setQuery] = useState('');
+  const [setPriceOpen, setSetPriceOpen] = useState(false);
 
   useEffect(() => {
     if (iap.isPriceScheduleLoaded) return;
@@ -27,14 +28,26 @@ function IAPPricingTabImpl({ iap }: Props) {
   const schedule = iap.priceSchedule;
   if (!schedule) {
     return (
-      <div className="card" style={{ textAlign: 'center', padding: 32 }}>
-        <div style={{ fontSize: 32, opacity: 0.4 }}>💰</div>
-        <h4 style={{ marginTop: 8 }}>No price set</h4>
-        <p className="muted" style={{ marginTop: 4 }}>
-          Apple auto-generates equalised prices once you set a base territory price.
-          The setup wizard ships in the next phase.
-        </p>
-      </div>
+      <>
+        <div className="card" style={{ textAlign: 'center', padding: 32 }}>
+          <div style={{ fontSize: 32, opacity: 0.4 }}>💰</div>
+          <h4 style={{ marginTop: 8 }}>No price set</h4>
+          <p className="muted" style={{ marginTop: 4 }}>
+            Apple auto-equalises every territory once a base price is configured.
+          </p>
+          {iap.canSetPrice && (
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              style={{ marginTop: 12 }}
+              onClick={() => setSetPriceOpen(true)}
+            >
+              Set Base Price
+            </button>
+          )}
+        </div>
+        <IAPSetPriceModal iap={iap} open={setPriceOpen} onClose={() => setSetPriceOpen(false)} />
+      </>
     );
   }
 
@@ -49,6 +62,17 @@ function IAPPricingTabImpl({ iap }: Props) {
             <span className="muted" style={{ marginLeft: 8 }}>
               {schedule.baseTerritoryName} · {schedule.basePrice} {schedule.baseCurrency}
             </span>
+          </div>
+          <div className="toolbar-right">
+            {iap.canSetPrice && (
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => setSetPriceOpen(true)}
+              >
+                Change Base
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -101,6 +125,8 @@ function IAPPricingTabImpl({ iap }: Props) {
           </table>
         </div>
       </div>
+
+      <IAPSetPriceModal iap={iap} open={setPriceOpen} onClose={() => setSetPriceOpen(false)} />
     </>
   );
 }
