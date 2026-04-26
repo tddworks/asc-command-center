@@ -1,5 +1,6 @@
 import type { InAppPurchase, InAppPurchaseType } from './InAppPurchase.ts';
 import type { InAppPurchaseLocalization } from './InAppPurchaseLocalization.ts';
+import type { ReviewScreenshot } from './ReviewScreenshot.ts';
 
 export interface CreateInAppPurchaseInput {
   appId: string;
@@ -33,4 +34,10 @@ export interface InAppPurchaseRepository {
   createLocalization(iap: InAppPurchase, input: CreateInAppPurchaseLocalizationInput): Promise<InAppPurchaseLocalization>;
   saveLocalization(loc: InAppPurchaseLocalization): Promise<void>;
   deleteLocalization(loc: InAppPurchaseLocalization): Promise<void>;
+
+  // ── Review screenshot ──
+  /** Returns null when the IAP has no review screenshot uploaded yet. */
+  reviewScreenshot(iap: InAppPurchase): Promise<ReviewScreenshot | null>;
+  uploadReviewScreenshot(iap: InAppPurchase, file: File): Promise<ReviewScreenshot>;
+  deleteReviewScreenshot(iap: InAppPurchase, screenshot: ReviewScreenshot): Promise<void>;
 }
