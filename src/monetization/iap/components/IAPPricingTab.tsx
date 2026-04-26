@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import type { InAppPurchase } from '../InAppPurchase.ts';
-import { IAPSetPriceModal } from './IAPSetPriceModal.tsx';
+import { IAPPricePointPickerModal } from './IAPPricePointPickerModal.tsx';
 
 interface Props {
   iap: InAppPurchase;
@@ -46,7 +46,7 @@ function IAPPricingTabImpl({ iap }: Props) {
             </button>
           )}
         </div>
-        <IAPSetPriceModal iap={iap} open={setPriceOpen} onClose={() => setSetPriceOpen(false)} />
+        <IAPPricePointPickerModal iap={iap} open={setPriceOpen} onClose={() => setSetPriceOpen(false)} />
       </>
     );
   }
@@ -126,7 +126,7 @@ function IAPPricingTabImpl({ iap }: Props) {
         </div>
       </div>
 
-      <IAPSetPriceModal iap={iap} open={setPriceOpen} onClose={() => setSetPriceOpen(false)} />
+      <IAPPricePointPickerModal iap={iap} open={setPriceOpen} onClose={() => setSetPriceOpen(false)} />
     </>
   );
 }

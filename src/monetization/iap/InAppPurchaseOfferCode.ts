@@ -1,6 +1,7 @@
 import { makeAutoObservable, runInAction } from 'mobx';
 import type { Affordances } from '../../shared/types.ts';
 import type { InAppPurchaseRepository } from './InAppPurchaseRepository.ts';
+import type { CodeEnvironment, IAPOneTimeUseCodeBatch } from './OneTimeUseCodeBatch.ts';
 
 /** Customer eligibility flags for IAP offer codes — Apple's three buckets:
  *  users who have never bought (`NonSpender` = "new"), users actively
@@ -47,6 +48,11 @@ export class InAppPurchaseOfferCode {
   readonly sandboxCodeCount: number | null;
   affordances: Affordances;
 
+  /** Generated one-time-use code batches loaded from
+   *  `loadOneTimeUseCodes`. Empty until loaded. */
+  oneTimeUseCodes: IAPOneTimeUseCodeBatch[] = [];
+  isOneTimeUseCodesLoaded = false;
+
   repository: InAppPurchaseRepository | null = null;
 
   constructor(init: InAppPurchaseOfferCodeInit) {
@@ -81,6 +87,12 @@ export class InAppPurchaseOfferCode {
     return (this.productionCodeCount ?? 0) + (this.sandboxCodeCount ?? 0);
   }
 
+  /** Sum of every loaded one-time-use code batch's `numberOfCodes`. The
+   *  list-card stat shows this once batches have been loaded. */
+  get totalOneTimeUseCodes(): number {
+    return this.oneTimeUseCodes.reduce((sum, b) => sum + b.numberOfCodes, 0);
+  }
+
   // ── Capability checks ──
 
   get canDeactivate(): boolean {
@@ -88,6 +100,30 @@ export class InAppPurchaseOfferCode {
   }
 
   // ── Mutators ──
+
+  async loadOneTimeUseCodes(): Promise<IAPOneTimeUseCodeBatch[]> {
+    if (!this.repository) {
+      throw new Error(`OfferCode ${this.id} has no repository attached`);
+    }
+    const list = await this.repository.oneTimeUseCodes(this);
+    runInAction(() => {
+      this.oneTimeUseCodes = list;
+      this.isOneTimeUseCodesLoaded = true;
+    });
+    return list;
+  }
+
+  async generateOneTimeUseCodes(input: { count: number; environment: CodeEnvironment | string }): Promise<IAPOneTimeUseCodeBatch> {
+    if (!this.repository) {
+      throw new Error(`OfferCode ${this.id} has no repository attached`);
+    }
+    const batch = await this.repository.generateOneTimeUseCodes(this, input);
+    runInAction(() => {
+      this.oneTimeUseCodes = [...this.oneTimeUseCodes, batch];
+      this.isOneTimeUseCodesLoaded = true;
+    });
+    return batch;
+  }
 
   async deactivate(): Promise<void> {
     if (!this.canDeactivate) {

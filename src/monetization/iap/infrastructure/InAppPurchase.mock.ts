@@ -2,7 +2,9 @@ import { InAppPurchase, InAppPurchaseState, InAppPurchaseType } from '../InAppPu
 import { InAppPurchaseLocalization } from '../InAppPurchaseLocalization.ts';
 import { IAPAvailability, TerritoryAvailability } from '../IAPAvailability.ts';
 import { IAPPriceSchedule, TerritoryPrice } from '../IAPPriceSchedule.ts';
+import { IAPPricePoint, type IAPPricePointPage } from '../IAPPricePoint.ts';
 import { IAPCustomerEligibility, InAppPurchaseOfferCode } from '../InAppPurchaseOfferCode.ts';
+import { CodeEnvironment, IAPOneTimeUseCodeBatch } from '../OneTimeUseCodeBatch.ts';
 import { ReviewScreenshot } from '../ReviewScreenshot.ts';
 import type {
   CreateInAppPurchaseInput,
@@ -24,6 +26,7 @@ export class MockInAppPurchaseRepository implements InAppPurchaseRepository {
   private screenshotByIap = new Map<string, ReviewScreenshot | null>();
   private availabilityByIap = new Map<string, IAPAvailability>();
   private offerCodesByIap = new Map<string, InAppPurchaseOfferCode[]>();
+  private batchesByCode = new Map<string, IAPOneTimeUseCodeBatch[]>();
   /** Holds null for IAPs whose schedule we know is "no schedule yet". */
   private priceScheduleByIap = new Map<string, IAPPriceSchedule | null>();
   private nextLocId = 100;
@@ -148,6 +151,35 @@ export class MockInAppPurchaseRepository implements InAppPurchaseRepository {
     this.priceScheduleByIap.set(iap.id, mockSetPriceScheduleFor(iap, input));
   }
 
+  async pricePoints(
+    iap: InAppPurchase,
+    input: { territoryId: string; cursor: string | null; limit?: number },
+  ): Promise<IAPPricePointPage> {
+    return mockPricePointsPage(iap, input);
+  }
+
+  async equalizations(
+    iap: InAppPurchase,
+    input: { pricePointId: string; cursor: string | null; limit?: number },
+  ): Promise<IAPPricePointPage> {
+    // Equalisations: convert the picked tier into a multi-territory list.
+    // For mock simplicity we return one row per SAMPLE_TERRITORY at the
+    // equivalent price tier, paginated 5 per page.
+    void iap;
+    const limit = input.limit ?? 5;
+    const start = input.cursor ? Number(input.cursor) || 0 : 0;
+    const all = SAMPLE_TERRITORIES.map((t) => new IAPPricePoint({
+      id: `${input.pricePointId}-${t.id}`,
+      territoryId: t.id,
+      formattedPrice: formatPrice(9.99 * t.rate, t.currency, t.symbol),
+      currency: t.currency,
+      proceeds: formatPrice(9.99 * t.rate * 0.7, t.currency, t.symbol),
+    }));
+    const slice = all.slice(start, start + limit);
+    const next = start + limit < all.length ? String(start + limit) : null;
+    return { items: slice, nextCursor: next };
+  }
+
   // ── Availability ──
 
   async availability(iap: InAppPurchase): Promise<IAPAvailability | null> {
@@ -183,6 +215,28 @@ export class MockInAppPurchaseRepository implements InAppPurchaseRepository {
   async deactivateOfferCode(_code: InAppPurchaseOfferCode): Promise<void> {
     // Domain flips `isActive` in place after the awaited call returns; the
     // map references the same instance.
+  }
+
+  async oneTimeUseCodes(code: InAppPurchaseOfferCode): Promise<IAPOneTimeUseCodeBatch[]> {
+    return this.batchesByCode.get(code.id) ?? [];
+  }
+
+  async generateOneTimeUseCodes(
+    code: InAppPurchaseOfferCode,
+    input: { count: number; environment: CodeEnvironment | string },
+  ): Promise<IAPOneTimeUseCodeBatch> {
+    const id = `batch-${Date.now()}`;
+    const batch = new IAPOneTimeUseCodeBatch({
+      id,
+      numberOfCodes: input.count,
+      environment: input.environment,
+      isActive: true,
+      createdDate: new Date().toISOString(),
+    });
+    const list = this.batchesByCode.get(code.id) ?? [];
+    list.push(batch);
+    this.batchesByCode.set(code.id, list);
+    return batch;
   }
 
   async createOfferCode(
@@ -393,6 +447,43 @@ function mockAvailabilityFor(iap: InAppPurchase): IAPAvailability {
     availableInNewTerritories: usd !== null,
     territories,
   });
+}
+
+/** Apple's standard StoreKit price tiers, abbreviated. The picker
+ *  paginates these with a 25-per-page window and a numeric cursor that's
+ *  just the next start index. */
+const STANDARD_USD_TIERS: number[] = [
+  0.49, 0.99, 1.49, 1.99, 2.49, 2.99, 3.49, 3.99, 4.49, 4.99,
+  5.99, 6.99, 7.99, 8.99, 9.99,
+  14.99, 19.99, 24.99, 29.99, 39.99,
+  49.99, 59.99, 69.99, 79.99, 89.99, 99.99,
+  149.99, 199.99, 249.99, 299.99, 499.99, 999.99,
+];
+
+function mockPricePointsPage(
+  iap: InAppPurchase,
+  input: { territoryId: string; cursor: string | null; limit?: number },
+): IAPPricePointPage {
+  const territory = SAMPLE_TERRITORIES.find((t) => t.id === input.territoryId)
+    ?? SAMPLE_TERRITORIES[0];
+  const limit = input.limit ?? 25;
+  const start = input.cursor ? Number(input.cursor) || 0 : 0;
+
+  const all = STANDARD_USD_TIERS.map((usd) => {
+    const local = usd * territory.rate;
+    const id = `pp-${iap.id}-${territory.id}-${usd}`;
+    return new IAPPricePoint({
+      id,
+      territoryId: territory.id,
+      formattedPrice: formatPrice(local, territory.currency, territory.symbol),
+      currency: territory.currency,
+      proceeds: formatPrice(local * 0.7, territory.currency, territory.symbol),
+    });
+  });
+
+  const slice = all.slice(start, start + limit);
+  const next = start + limit < all.length ? String(start + limit) : null;
+  return { items: slice, nextCursor: next };
 }
 
 function mockOfferCodesFor(iap: InAppPurchase): InAppPurchaseOfferCode[] {
