@@ -48,6 +48,17 @@ function SubscriptionOffersTabImpl({ sub }: Props) {
               {sub.introductoryOffers.length}
             </span>
           </div>
+          <div className="toolbar-right">
+            {sub.canCreateIntroductoryOffer && (
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={() => setCreateIntroOpen(true)}
+              >
+                + Add Intro Offer
+              </button>
+            )}
+          </div>
         </div>
         {!sub.canViewIntroductoryOffers ? (
           <div className="card-body"><span className="muted">Backend does not expose introductory offers.</span></div>
@@ -66,6 +77,7 @@ function SubscriptionOffersTabImpl({ sub }: Props) {
                   <th>Territory</th>
                   <th>Starts</th>
                   <th>Ends</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -75,6 +87,15 @@ function SubscriptionOffersTabImpl({ sub }: Props) {
                     <td className="cell-mono">{o.territory ?? '—'}</td>
                     <td>{o.startDate ?? '—'}</td>
                     <td>{o.endDate ?? '—'}</td>
+                    <td>
+                      <button
+                        type="button"
+                        className="btn btn-secondary btn-sm"
+                        onClick={() => deleteIntro(o)}
+                      >
+                        Delete
+                      </button>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -91,6 +112,17 @@ function SubscriptionOffersTabImpl({ sub }: Props) {
             <span className="muted" style={{ marginLeft: 8 }}>
               {sub.promotionalOffers.length}
             </span>
+          </div>
+          <div className="toolbar-right">
+            {sub.canCreatePromotionalOffer && (
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={() => setCreatePromoOpen(true)}
+              >
+                + Add Promo Offer
+              </button>
+            )}
           </div>
         </div>
         {!sub.canViewPromotionalOffers ? (
