@@ -1,8 +1,11 @@
+import { useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { subscriptionGroups } from '../subscriptionGroupsInstance.ts';
 import { workspace } from '../../../workspace/workspaceInstance.ts';
 import type { Subscription } from '../Subscription.ts';
 import type { SubscriptionGroup } from '../SubscriptionGroup.ts';
+import { CreateSubscriptionGroupModal } from '../components/CreateSubscriptionGroupModal.tsx';
+import { CreateSubscriptionModal } from '../components/CreateSubscriptionModal.tsx';
 
 const STATUS_CLASS: Record<string, string> = {
   success: 'live',
@@ -51,7 +54,13 @@ function TierRow({ sub, group }: { sub: Subscription; group: SubscriptionGroup }
 
 const ObservedTierRow = observer(TierRow);
 
-function GroupCard({ group }: { group: SubscriptionGroup }) {
+function GroupCard({
+  group,
+  onAddTier,
+}: {
+  group: SubscriptionGroup;
+  onAddTier: (group: SubscriptionGroup) => void;
+}) {
   const remove = async () => {
     if (!group.canDelete) return;
     if (!window.confirm(`Delete group "${group.referenceName}"?`)) return;
@@ -66,7 +75,16 @@ function GroupCard({ group }: { group: SubscriptionGroup }) {
           <h3>{group.referenceName}</h3>
           <span className="muted" style={{ marginLeft: 8 }}>{group.tierCount} tier(s)</span>
         </div>
-        <div className="toolbar-right">
+        <div className="toolbar-right" style={{ display: 'flex', gap: 6 }}>
+          <button
+            type="button"
+            className="btn btn-primary btn-sm"
+            onClick={() => onAddTier(group)}
+            disabled={!group.canCreateSubscription}
+            title={group.canCreateSubscription ? 'Add a subscription tier' : 'Backend does not allow adding tiers'}
+          >
+            + Add Subscription
+          </button>
           {group.canDelete && (
             <button className="btn btn-secondary btn-sm" onClick={remove}>Delete Group</button>
           )}
@@ -103,6 +121,9 @@ function GroupCard({ group }: { group: SubscriptionGroup }) {
 const ObservedGroupCard = observer(GroupCard);
 
 function SubscriptionPage() {
+  const [createGroupOpen, setCreateGroupOpen] = useState(false);
+  const [tierTarget, setTierTarget] = useState<SubscriptionGroup | null>(null);
+
   if (!workspace.hydrated || !subscriptionGroups.loaded) {
     return <div className="loading"><span className="spinner" /><span>Loading subscriptions...</span></div>;
   }
@@ -110,8 +131,10 @@ function SubscriptionPage() {
     return <div className="error">Error: {subscriptionGroups.error.message}</div>;
   }
 
+  const canCreateGroup = !!workspace.currentApp;
+
   return (
-    <div>
+    <>
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="toolbar">
           <div className="toolbar-left">
@@ -120,15 +143,42 @@ function SubscriptionPage() {
               {subscriptionGroups.count} group(s) · {subscriptionGroups.totalTierCount} tier(s)
             </span>
           </div>
+          <div className="toolbar-right">
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={() => setCreateGroupOpen(true)}
+              disabled={!canCreateGroup}
+              title={canCreateGroup ? 'Create a new subscription group' : 'Pick an app first'}
+            >
+              + New Group
+            </button>
+          </div>
         </div>
       </div>
 
       {subscriptionGroups.list.length === 0 ? (
         <div className="card"><div className="card-body"><span className="muted">No subscription groups for this app.</span></div></div>
       ) : (
-        subscriptionGroups.list.map((g) => <ObservedGroupCard key={g.id} group={g} />)
+        subscriptionGroups.list.map((g) => (
+          <ObservedGroupCard
+            key={g.id}
+            group={g}
+            onAddTier={(group) => setTierTarget(group)}
+          />
+        ))
       )}
-    </div>
+
+      <CreateSubscriptionGroupModal
+        open={createGroupOpen}
+        onClose={() => setCreateGroupOpen(false)}
+      />
+      <CreateSubscriptionModal
+        open={tierTarget !== null}
+        group={tierTarget}
+        onClose={() => setTierTarget(null)}
+      />
+    </>
   );
 }
 
