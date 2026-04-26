@@ -2,6 +2,7 @@ import type { InAppPurchase, InAppPurchaseType } from './InAppPurchase.ts';
 import type { InAppPurchaseLocalization } from './InAppPurchaseLocalization.ts';
 import type { IAPAvailability } from './IAPAvailability.ts';
 import type { IAPPriceSchedule } from './IAPPriceSchedule.ts';
+import type { InAppPurchaseOfferCode } from './InAppPurchaseOfferCode.ts';
 import type { ReviewScreenshot } from './ReviewScreenshot.ts';
 
 export interface CreateInAppPurchaseInput {
@@ -54,4 +55,8 @@ export interface InAppPurchaseRepository {
   reviewScreenshot(iap: InAppPurchase): Promise<ReviewScreenshot | null>;
   uploadReviewScreenshot(iap: InAppPurchase, file: File): Promise<ReviewScreenshot>;
   deleteReviewScreenshot(iap: InAppPurchase, screenshot: ReviewScreenshot): Promise<void>;
+
+  // ── Offer codes ──
+  offerCodes(iap: InAppPurchase): Promise<InAppPurchaseOfferCode[]>;
+  deactivateOfferCode(code: InAppPurchaseOfferCode): Promise<void>;
 }

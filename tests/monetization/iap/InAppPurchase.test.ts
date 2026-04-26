@@ -9,6 +9,7 @@ import { InAppPurchaseLocalization } from '../../../src/monetization/iap/InAppPu
 import { ReviewScreenshot } from '../../../src/monetization/iap/ReviewScreenshot.ts';
 import { IAPPriceSchedule } from '../../../src/monetization/iap/IAPPriceSchedule.ts';
 import { IAPAvailability, TerritoryAvailability } from '../../../src/monetization/iap/IAPAvailability.ts';
+import { IAPCustomerEligibility, InAppPurchaseOfferCode } from '../../../src/monetization/iap/InAppPurchaseOfferCode.ts';
 import type { InAppPurchaseRepository } from '../../../src/monetization/iap/InAppPurchaseRepository.ts';
 
 function stubRepo(overrides: Partial<InAppPurchaseRepository> = {}): InAppPurchaseRepository {
@@ -30,6 +31,8 @@ function stubRepo(overrides: Partial<InAppPurchaseRepository> = {}): InAppPurcha
     priceSchedule: vi.fn().mockResolvedValue(null),
     availability: vi.fn().mockResolvedValue(null),
     setAvailability: vi.fn().mockResolvedValue(undefined),
+    offerCodes: vi.fn().mockResolvedValue([]),
+    deactivateOfferCode: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
@@ -530,6 +533,57 @@ describe('InAppPurchase', () => {
     await iap.loadAvailability();
 
     await expect(iap.saveAvailability()).rejects.toThrow(/cannot set availability/);
+  });
+
+  // ── Offer codes ──
+
+  it('loadOfferCodes short-circuits to [] when affordance is missing', async () => {
+    const repo = stubRepo();
+    const iap = new InAppPurchase(iapInit({ affordances: {} }), repo);
+
+    const result = await iap.loadOfferCodes();
+
+    expect(result).toEqual([]);
+    expect(iap.isOfferCodesLoaded).toBe(true);
+    expect(repo.offerCodes).not.toHaveBeenCalled();
+  });
+
+  it('loadOfferCodes populates offerCodes and attaches the repo to each', async () => {
+    const a = new InAppPurchaseOfferCode({
+      id: 'oc-1', iapId: 'iap-1', name: 'WELCOME',
+      customerEligibilities: [IAPCustomerEligibility.NonSpender],
+      isActive: true,
+    });
+    const b = new InAppPurchaseOfferCode({
+      id: 'oc-2', iapId: 'iap-1', name: 'CHURN',
+      customerEligibilities: [IAPCustomerEligibility.ChurnedSpender],
+      isActive: false,
+    });
+    const repo = stubRepo({ offerCodes: vi.fn().mockResolvedValue([a, b]) });
+    const iap = new InAppPurchase(iapInit({ affordances: { listOfferCodes: '/x' } }), repo);
+
+    await iap.loadOfferCodes();
+
+    expect(iap.offerCodes).toEqual([a, b]);
+    expect(iap.isOfferCodesLoaded).toBe(true);
+    expect(a.repository).toBe(repo);
+    expect(b.repository).toBe(repo);
+  });
+
+  it('activeOfferCodeCount counts active codes only', async () => {
+    const a = new InAppPurchaseOfferCode({
+      id: 'oc-1', iapId: 'iap-1', name: 'A',
+      customerEligibilities: [], isActive: true,
+    });
+    const b = new InAppPurchaseOfferCode({
+      id: 'oc-2', iapId: 'iap-1', name: 'B',
+      customerEligibilities: [], isActive: false,
+    });
+    const repo = stubRepo({ offerCodes: vi.fn().mockResolvedValue([a, b]) });
+    const iap = new InAppPurchase(iapInit({ affordances: { listOfferCodes: '/x' } }), repo);
+    await iap.loadOfferCodes();
+
+    expect(iap.activeOfferCodeCount).toBe(1);
   });
 
   // ── Helpers ──

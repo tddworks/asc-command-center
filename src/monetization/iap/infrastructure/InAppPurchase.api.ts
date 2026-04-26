@@ -2,6 +2,7 @@ import { InAppPurchase } from '../InAppPurchase.ts';
 import { InAppPurchaseLocalization } from '../InAppPurchaseLocalization.ts';
 import { IAPAvailability } from '../IAPAvailability.ts';
 import { IAPPriceSchedule } from '../IAPPriceSchedule.ts';
+import { InAppPurchaseOfferCode } from '../InAppPurchaseOfferCode.ts';
 import { ReviewScreenshot } from '../ReviewScreenshot.ts';
 import { apiClient, type DataMode } from '../../../shared/api-client.tsx';
 import type {
@@ -216,6 +217,26 @@ export class RestInAppPurchaseRepository implements InAppPurchaseRepository {
     const res = await fetch(url, { method: 'DELETE' });
     if (!res.ok) {
       throw new Error(`DELETE ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
+    }
+  }
+
+  // ── Offer codes ──
+
+  async offerCodes(iap: InAppPurchase): Promise<InAppPurchaseOfferCode[]> {
+    const url = iap.affordances.listOfferCodes ?? `/api/v1/iap/${iap.id}/offer-codes`;
+    const json = await apiClient.get<{ data: Record<string, unknown>[] }>(url);
+    return json.data.map((row) => InAppPurchaseOfferCode.fromJSON({ ...row, iapId: iap.id }));
+  }
+
+  async deactivateOfferCode(code: InAppPurchaseOfferCode): Promise<void> {
+    const url = code.affordances.deactivate ?? `/api/v1/iap-offer-codes/${code.id}`;
+    const res = await fetch(url, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ isActive: false }),
+    });
+    if (!res.ok) {
+      throw new Error(`PATCH ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
     }
   }
 }

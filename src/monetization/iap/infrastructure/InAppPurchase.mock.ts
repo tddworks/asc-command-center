@@ -2,6 +2,7 @@ import { InAppPurchase, InAppPurchaseState, InAppPurchaseType } from '../InAppPu
 import { InAppPurchaseLocalization } from '../InAppPurchaseLocalization.ts';
 import { IAPAvailability, TerritoryAvailability } from '../IAPAvailability.ts';
 import { IAPPriceSchedule, TerritoryPrice } from '../IAPPriceSchedule.ts';
+import { IAPCustomerEligibility, InAppPurchaseOfferCode } from '../InAppPurchaseOfferCode.ts';
 import { ReviewScreenshot } from '../ReviewScreenshot.ts';
 import type {
   CreateInAppPurchaseInput,
@@ -22,6 +23,7 @@ export class MockInAppPurchaseRepository implements InAppPurchaseRepository {
   private localizationsByIap = new Map<string, InAppPurchaseLocalization[]>();
   private screenshotByIap = new Map<string, ReviewScreenshot | null>();
   private availabilityByIap = new Map<string, IAPAvailability>();
+  private offerCodesByIap = new Map<string, InAppPurchaseOfferCode[]>();
   private nextLocId = 100;
   private nextShotId = 200;
 
@@ -153,6 +155,22 @@ export class MockInAppPurchaseRepository implements InAppPurchaseRepository {
     void _input;
     // Domain mutates `availability` in place + calls markSaved after the
     // awaited call returns; the mock holds the same instance.
+  }
+
+  // ── Offer codes ──
+
+  async offerCodes(iap: InAppPurchase): Promise<InAppPurchaseOfferCode[]> {
+    let codes = this.offerCodesByIap.get(iap.id);
+    if (!codes) {
+      codes = mockOfferCodesFor(iap);
+      this.offerCodesByIap.set(iap.id, codes);
+    }
+    return codes.map((c) => c);
+  }
+
+  async deactivateOfferCode(_code: InAppPurchaseOfferCode): Promise<void> {
+    // Domain flips `isActive` in place after the awaited call returns; the
+    // map references the same instance.
   }
 
   // ── Review screenshot ──
@@ -340,4 +358,30 @@ function mockAvailabilityFor(iap: InAppPurchase): IAPAvailability {
     availableInNewTerritories: usd !== null,
     territories,
   });
+}
+
+function mockOfferCodesFor(iap: InAppPurchase): InAppPurchaseOfferCode[] {
+  // Approved IAPs ship with one active offer code as a fixture so the page
+  // renders something on first paint. Other IAPs start empty.
+  if (iap.id !== 'iap-1') return [];
+  return [
+    new InAppPurchaseOfferCode({
+      id: `oc-${iap.id}-welcome`,
+      iapId: iap.id,
+      name: 'WELCOME20',
+      customerEligibilities: [IAPCustomerEligibility.NonSpender],
+      isActive: true,
+      productionCodeCount: 100,
+      sandboxCodeCount: 25,
+      affordances: { deactivate: `/api/v1/iap-offer-codes/oc-${iap.id}-welcome` },
+    }),
+    new InAppPurchaseOfferCode({
+      id: `oc-${iap.id}-winback`,
+      iapId: iap.id,
+      name: 'WINBACK',
+      customerEligibilities: [IAPCustomerEligibility.ChurnedSpender],
+      isActive: false,
+      productionCodeCount: 50,
+    }),
+  ];
 }

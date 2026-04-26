@@ -26,6 +26,8 @@ function stubRepo(overrides: Partial<InAppPurchaseRepository> = {}): InAppPurcha
     priceSchedule: vi.fn().mockResolvedValue(null),
     availability: vi.fn().mockResolvedValue(null),
     setAvailability: vi.fn().mockResolvedValue(undefined),
+    offerCodes: vi.fn().mockResolvedValue([]),
+    deactivateOfferCode: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
