@@ -2,6 +2,21 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## TDD is non-negotiable (read this first)
+
+**You MUST write a failing test before writing any production code.** This rule overrides every other instinct, including "the change is small", "it's just a one-liner", "I'll add the test after". If you catch yourself opening a file under `src/` before a test under `tests/` exists and fails, stop and reverse course.
+
+**Pre-implementation gate** — before editing anything in `src/` (domain class, hook, repository, page, or component), you must have done all of the following in order:
+
+1. Stated the user-facing behaviour in one sentence using **domain language**, not implementation language. Good: "a build is usable when its processing state is `VALID` and it isn't expired", "the version page shows a `Submit for Review` button only when `canSubmit` is true". Bad: "loadVersions calls repo.versions" — that's an interaction, not a behaviour.
+2. Written a test in `tests/<context>/<feature>/<Feature>.test.ts` that asserts the exact expected output for that behaviour. Prefer state assertions on the domain (`expect(build.isUsable).toBe(true)`, `expect(app.versions).toHaveLength(2)`) over interaction assertions. Use `vi.fn().mockResolvedValue(...)` plain-object stubs for repositories — never mock the domain class itself.
+3. Run the test and **observed it fail** — `npx vitest run tests/<context>/<feature>/<Feature>.test.ts -t "<name>"` for the fastest loop. A TS compile error counts as red only when the failing symbol is the one the test names (e.g., `build.isUsable` doesn't exist yet); a generic type error somewhere else doesn't.
+4. Reported the red result back to the user (one line is fine: "test `is usable when state is VALID` fails: `build.isUsable is not a function`").
+
+Only after step 4 may you write code under `src/`. UI-only work (CSS tweaks, layout-only JSX, copy changes) is exempt — but the moment a domain class, hook, or repository is touched, the gate applies. Hooks and infrastructure are integration-covered (see [TDD & rich domain design](#tdd--rich-domain-design)) — exercise them through page-level tests rather than mocking React.
+
+**If you skip the gate, you are violating the project's primary rule.** The full Chicago-school workflow, repository-port pattern, and rich-domain conventions are in the [TDD & rich domain design](#tdd--rich-domain-design) section.
+
 ## Commands
 
 - `npm run dev` — start Vite dev server on port 5173. Proxies `/api/*` to `http://localhost:8420` (the `asc` backend).
