@@ -3,7 +3,10 @@ import type { Affordances } from '../../shared/types.ts';
 import { InAppPurchaseLocalization } from './InAppPurchaseLocalization.ts';
 import type { IAPAvailability } from './IAPAvailability.ts';
 import type { IAPPriceSchedule } from './IAPPriceSchedule.ts';
-import type { InAppPurchaseOfferCode } from './InAppPurchaseOfferCode.ts';
+import type {
+  IAPCustomerEligibility,
+  InAppPurchaseOfferCode,
+} from './InAppPurchaseOfferCode.ts';
 import type { ReviewScreenshot } from './ReviewScreenshot.ts';
 import type { InAppPurchaseRepository } from './InAppPurchaseRepository.ts';
 
@@ -148,6 +151,7 @@ export class InAppPurchase {
   get canViewAvailability(): boolean { return 'getAvailability' in this.affordances; }
   get canSetAvailability(): boolean { return 'setAvailability' in this.affordances; }
   get canViewOfferCodes(): boolean { return 'listOfferCodes' in this.affordances; }
+  get canCreateOfferCode(): boolean { return 'createOfferCode' in this.affordances; }
   get canViewReviewScreenshot(): boolean { return 'getReviewScreenshot' in this.affordances; }
   get canUploadReviewScreenshot(): boolean { return 'uploadReviewScreenshot' in this.affordances; }
 
@@ -358,6 +362,19 @@ export class InAppPurchase {
   }
 
   // ── Offer codes ──
+
+  async createOfferCode(input: { name: string; customerEligibilities: IAPCustomerEligibility[] }): Promise<InAppPurchaseOfferCode> {
+    if (!this.canCreateOfferCode) {
+      throw new Error(`IAP ${this.id} cannot create offer code (no createOfferCode affordance)`);
+    }
+    const repo = this.requireRepo();
+    const created = await repo.createOfferCode(this, input);
+    runInAction(() => {
+      created.setRepository(repo);
+      this.offerCodes = [...this.offerCodes, created];
+    });
+    return created;
+  }
 
   async loadOfferCodes(): Promise<InAppPurchaseOfferCode[]> {
     if (!this.canViewOfferCodes) {

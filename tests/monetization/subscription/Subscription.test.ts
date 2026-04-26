@@ -38,6 +38,7 @@ function stubRepo(overrides: Partial<SubscriptionRepository> = {}): Subscription
     introductoryOffers: vi.fn().mockResolvedValue([]),
     promotionalOffers: vi.fn().mockResolvedValue([]),
     offerCodes: vi.fn().mockResolvedValue([]),
+    createOfferCode: vi.fn(),
     setPrices: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
@@ -509,6 +510,52 @@ describe('Subscription', () => {
     await sub.loadOfferCodes();
     expect(sub.offerCodes).toEqual([code]);
     expect(sub.isOfferCodesLoaded).toBe(true);
+  });
+
+  // ── createOfferCode ──
+
+  it('canCreateOfferCode maps to the createOfferCode affordance', () => {
+    expect(new Subscription(subInit({ affordances: { createOfferCode: '/x' } })).canCreateOfferCode).toBe(true);
+    expect(new Subscription(subInit({ affordances: {} })).canCreateOfferCode).toBe(false);
+  });
+
+  it('createOfferCode appends the created code to the list', async () => {
+    const created = new SubscriptionOfferCode({
+      id: 'sc-new', name: 'WIN',
+      offerMode: OfferMode.FreeTrial,
+      duration: SubscriptionDuration.OneMonth,
+      numberOfPeriods: 1,
+      customerEligibilities: [SubscriptionCustomerEligibility.New],
+      isActive: true,
+    });
+    const createOfferCode = vi.fn().mockResolvedValue(created);
+    const repo = stubRepo({ createOfferCode });
+    const sub = new Subscription(subInit({ affordances: { createOfferCode: '/x' } }), repo);
+
+    const result = await sub.createOfferCode({
+      name: 'WIN',
+      offerMode: OfferMode.FreeTrial,
+      duration: SubscriptionDuration.OneMonth,
+      numberOfPeriods: 1,
+      customerEligibilities: [SubscriptionCustomerEligibility.New],
+    });
+
+    expect(result).toBe(created);
+    expect(sub.offerCodes).toContain(created);
+  });
+
+  it('createOfferCode throws when affordance missing', async () => {
+    const repo = stubRepo();
+    const sub = new Subscription(subInit({ affordances: {} }), repo);
+
+    await expect(sub.createOfferCode({
+      name: 'X',
+      offerMode: OfferMode.FreeTrial,
+      duration: SubscriptionDuration.OneMonth,
+      numberOfPeriods: 1,
+      customerEligibilities: [],
+    })).rejects.toThrow(/cannot create offer code/);
+    expect(repo.createOfferCode).not.toHaveBeenCalled();
   });
 
   // ── setPrices ──

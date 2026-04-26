@@ -2,7 +2,15 @@ import type { InAppPurchase, InAppPurchaseType } from './InAppPurchase.ts';
 import type { InAppPurchaseLocalization } from './InAppPurchaseLocalization.ts';
 import type { IAPAvailability } from './IAPAvailability.ts';
 import type { IAPPriceSchedule } from './IAPPriceSchedule.ts';
-import type { InAppPurchaseOfferCode } from './InAppPurchaseOfferCode.ts';
+import type {
+  IAPCustomerEligibility,
+  InAppPurchaseOfferCode,
+} from './InAppPurchaseOfferCode.ts';
+
+export interface CreateInAppPurchaseOfferCodeInput {
+  name: string;
+  customerEligibilities: IAPCustomerEligibility[];
+}
 import type { ReviewScreenshot } from './ReviewScreenshot.ts';
 
 export interface CreateInAppPurchaseInput {
@@ -59,5 +67,6 @@ export interface InAppPurchaseRepository {
 
   // ── Offer codes ──
   offerCodes(iap: InAppPurchase): Promise<InAppPurchaseOfferCode[]>;
+  createOfferCode(iap: InAppPurchase, input: CreateInAppPurchaseOfferCodeInput): Promise<InAppPurchaseOfferCode>;
   deactivateOfferCode(code: InAppPurchaseOfferCode): Promise<void>;
 }

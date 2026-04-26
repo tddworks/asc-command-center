@@ -337,6 +337,28 @@ export class RestSubscriptionGroupRepository implements SubscriptionGroupReposit
     const json = await apiClient.get<{ data: Record<string, unknown>[] }>(url);
     return json.data.map(SubscriptionOfferCode.fromJSON);
   }
+
+  async createOfferCode(
+    sub: Subscription,
+    input: {
+      name: string;
+      offerMode: string;
+      duration: string;
+      numberOfPeriods: number;
+      customerEligibilities: string[];
+    },
+  ): Promise<SubscriptionOfferCode> {
+    const url = sub.affordances.createOfferCode ?? `/api/v1/subscriptions/${sub.id}/offer-codes`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) throw new Error(`POST ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
+    const body = await res.json().catch(() => ({}));
+    const data = (body.data ?? body) as Record<string, unknown>;
+    return SubscriptionOfferCode.fromJSON(data);
+  }
 }
 
 export async function repositoryFor(mode: DataMode): Promise<SubscriptionGroupRepository & SubscriptionRepository> {

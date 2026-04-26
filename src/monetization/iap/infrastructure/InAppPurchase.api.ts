@@ -243,6 +243,25 @@ export class RestInAppPurchaseRepository implements InAppPurchaseRepository {
     return json.data.map((row) => InAppPurchaseOfferCode.fromJSON({ ...row, iapId: iap.id }));
   }
 
+  async createOfferCode(
+    iap: InAppPurchase,
+    input: { name: string; customerEligibilities: string[] },
+  ): Promise<InAppPurchaseOfferCode> {
+    const url = iap.affordances.createOfferCode ?? `/api/v1/iap/${iap.id}/offer-codes`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: input.name,
+        customerEligibilities: input.customerEligibilities,
+      }),
+    });
+    if (!res.ok) throw new Error(`POST ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
+    const body = await res.json().catch(() => ({}));
+    const data = (body.data ?? body) as Record<string, unknown>;
+    return InAppPurchaseOfferCode.fromJSON({ ...data, iapId: iap.id });
+  }
+
   async deactivateOfferCode(code: InAppPurchaseOfferCode): Promise<void> {
     const url = code.affordances.deactivate ?? `/api/v1/iap-offer-codes/${code.id}`;
     const res = await fetch(url, {
