@@ -14,6 +14,7 @@ import {
   SubscriptionOfferCode,
   SubscriptionPromotionalOffer,
 } from '../SubscriptionOffers.ts';
+import { WinBackOffer, WinBackPriority } from '../WinBackOffer.ts';
 import type {
   CreateSubscriptionInput,
   CreateSubscriptionLocalizationInput,
@@ -341,6 +342,10 @@ export class MockSubscriptionGroupRepository implements SubscriptionGroupReposit
     return mockOfferCodesFor(sub);
   }
 
+  async winBackOffers(sub: Subscription): Promise<WinBackOffer[]> {
+    return mockWinBackOffersFor(sub);
+  }
+
   async createOfferCode(
     sub: Subscription,
     input: {
@@ -457,6 +462,7 @@ export class MockSubscriptionGroupRepository implements SubscriptionGroupReposit
       setAvailability: `/api/v1/subscriptions/${id}/availability`,
       listIntroductoryOffers: `/api/v1/subscriptions/${id}/introductory-offers`,
       createIntroductoryOffer: `/api/v1/subscriptions/${id}/introductory-offers`,
+      listWinBackOffers: `/api/v1/subscriptions/${id}/win-back-offers`,
       listPromotionalOffers: `/api/v1/subscriptions/${id}/promotional-offers`,
       createPromotionalOffer: `/api/v1/subscriptions/${id}/promotional-offers`,
       listOfferCodes: `/api/v1/subscriptions/${id}/offer-codes`,
@@ -666,6 +672,22 @@ function mockOfferCodesFor(sub: Subscription): SubscriptionOfferCode[] {
       customerEligibilities: [SubscriptionCustomerEligibility.New],
       isActive: true,
       totalNumberOfCodes: 500,
+    }),
+  ];
+}
+
+function mockWinBackOffersFor(sub: Subscription): WinBackOffer[] {
+  // Only Approved tiers have win-back offers in the iOS prototype.
+  if (!sub.isApproved) return [];
+  if (sub.id !== 'sub-1' && sub.id !== 'sub-2') return [];
+  return [
+    new WinBackOffer({
+      id: `wb-${sub.id}`,
+      referenceName: 'Q1 Win-back',
+      offerMode: OfferMode.PayAsYouGo,
+      duration: SubscriptionDuration.OneMonth,
+      numberOfPeriods: 3,
+      priority: WinBackPriority.High,
     }),
   ];
 }

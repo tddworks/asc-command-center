@@ -7,6 +7,7 @@ import { IAPLocalizationsTab } from './IAPLocalizationsTab.tsx';
 import { IAPOffersTab } from './IAPOffersTab.tsx';
 import { IAPPricingTab } from './IAPPricingTab.tsx';
 import { IAPReviewTab } from './IAPReviewTab.tsx';
+import { InlineRename } from '../../../shared/components/InlineRename.tsx';
 
 const STATUS_CLASS: Record<string, string> = {
   success: 'live',
@@ -67,7 +68,12 @@ function IAPDetailImpl({ iap }: Props) {
             <button type="button" className="btn btn-secondary btn-sm" onClick={back} style={{ marginBottom: 4 }}>
               ← Back to list
             </button>
-            <h3 style={{ margin: 0 }}>{iap.referenceName}</h3>
+            <InlineRename
+              value={iap.referenceName}
+              canEdit={iap.canUpdate}
+              onSave={(next) => iap.update({ referenceName: next })}
+              placeholder="Internal reference name"
+            />
             <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
               <span className="cell-mono">{iap.productId}</span>
               <span className="platform-badge">{iap.displayType}</span>
@@ -96,6 +102,25 @@ function IAPDetailImpl({ iap }: Props) {
           </div>
         )}
       </div>
+
+      {/* Needs-action banner — only when the IAP is in an editable state
+          and missing one of the submit-readiness inputs the user can fix here. */}
+      {(iap.isEditable || iap.isRejected) && (
+        <div
+          className="card"
+          style={{
+            marginBottom: 12,
+            borderLeft: '3px solid var(--warning-bg, #f59e0b)',
+          }}
+        >
+          <div className="card-body">
+            <strong>{iap.statusLabel}</strong>
+            <span className="muted" style={{ marginLeft: 8 }}>
+              Add a localization with a display name and set a base price before submitting for review.
+            </span>
+          </div>
+        </div>
+      )}
 
       {/* Tab nav */}
       <div className="card" style={{ marginBottom: 12, padding: 0 }}>

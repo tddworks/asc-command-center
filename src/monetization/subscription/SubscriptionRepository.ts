@@ -12,6 +12,7 @@ import type {
   SubscriptionOfferCode,
   SubscriptionPromotionalOffer,
 } from './SubscriptionOffers.ts';
+import type { WinBackOffer } from './WinBackOffer.ts';
 
 export interface CreateSubscriptionOfferCodeInput {
   name: string;
@@ -116,4 +117,7 @@ export interface SubscriptionRepository {
 
   offerCodes(sub: Subscription): Promise<SubscriptionOfferCode[]>;
   createOfferCode(sub: Subscription, input: CreateSubscriptionOfferCodeInput): Promise<SubscriptionOfferCode>;
+
+  // ── Win-back offers ──
+  winBackOffers(sub: Subscription): Promise<WinBackOffer[]>;
 }

@@ -35,6 +35,9 @@ function SubscriptionOffersTabImpl({ sub }: Props) {
     if (!sub.isOfferCodesLoaded) {
       void sub.loadOfferCodes().catch((err) => console.warn('[subscription] offer codes failed:', err));
     }
+    if (!sub.isWinBackOffersLoaded) {
+      void sub.loadWinBackOffers().catch((err) => console.warn('[subscription] win-back offers failed:', err));
+    }
   }, [sub]);
 
   return (
@@ -159,6 +162,57 @@ function SubscriptionOffersTabImpl({ sub }: Props) {
                         Delete
                       </button>
                     </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      {/* Win-back Offers */}
+      <div className="card" style={{ marginBottom: 12 }}>
+        <div className="toolbar">
+          <div className="toolbar-left">
+            <strong>Win-back Offers</strong>
+            <span className="muted" style={{ marginLeft: 8 }}>
+              {sub.winBackOffers.length}
+            </span>
+          </div>
+          <div className="toolbar-right">
+            <span className="muted" style={{ fontSize: 12 }}>
+              Read-only · create wizard ships in a later phase.
+            </span>
+          </div>
+        </div>
+        {!sub.isApproved ? (
+          <div className="card-body" style={{ textAlign: 'center', padding: 16 }}>
+            <span className="muted">Win-back offers require an approved subscription.</span>
+          </div>
+        ) : !sub.canViewWinBackOffers ? (
+          <div className="card-body"><span className="muted">Backend does not expose win-back offers.</span></div>
+        ) : !sub.isWinBackOffersLoaded ? (
+          <div className="card-body"><div className="loading"><span className="spinner" /><span>Loading…</span></div></div>
+        ) : sub.winBackOffers.length === 0 ? (
+          <div className="card-body" style={{ textAlign: 'center', padding: 16 }}>
+            <span className="muted">No win-back offers yet.</span>
+          </div>
+        ) : (
+          <div className="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>Reference Name</th>
+                  <th>Summary</th>
+                  <th>Priority</th>
+                </tr>
+              </thead>
+              <tbody>
+                {sub.winBackOffers.map((o) => (
+                  <tr key={o.id}>
+                    <td className="cell-primary">{o.referenceName}</td>
+                    <td>{o.summaryLabel}</td>
+                    <td><span className="platform-badge">{o.priorityLabel}</span></td>
                   </tr>
                 ))}
               </tbody>
