@@ -38,6 +38,7 @@ function stubRepo(overrides: Partial<SubscriptionRepository> = {}): Subscription
     introductoryOffers: vi.fn().mockResolvedValue([]),
     promotionalOffers: vi.fn().mockResolvedValue([]),
     offerCodes: vi.fn().mockResolvedValue([]),
+    setPrices: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
@@ -508,6 +509,39 @@ describe('Subscription', () => {
     await sub.loadOfferCodes();
     expect(sub.offerCodes).toEqual([code]);
     expect(sub.isOfferCodesLoaded).toBe(true);
+  });
+
+  // ── setPrices ──
+
+  it('canSetPrices maps to the setPrices affordance', () => {
+    expect(new Subscription(subInit({ affordances: { setPrices: '/x' } })).canSetPrices).toBe(true);
+    expect(new Subscription(subInit({ affordances: {} })).canSetPrices).toBe(false);
+  });
+
+  it('setPrices calls repo.setPrices with the input list then refetches the schedule', async () => {
+    const sched = SubscriptionPriceSchedule.fromJSON({ territoryPrices: [] });
+    const setPrices = vi.fn().mockResolvedValue(undefined);
+    const priceSchedule = vi.fn().mockResolvedValue(sched);
+    const repo = stubRepo({ setPrices, priceSchedule });
+    const sub = new Subscription(subInit({
+      affordances: { setPrices: '/x', getPriceSchedule: '/y' },
+    }), repo);
+
+    const input = [{ territoryId: 'USA', pricePointId: 'pp-usa-9-99' }];
+    await sub.setPrices(input);
+
+    expect(setPrices).toHaveBeenCalledWith(sub, input);
+    expect(priceSchedule).toHaveBeenCalledWith(sub);
+    expect(sub.priceSchedule).toBe(sched);
+    expect(sub.isPriceScheduleLoaded).toBe(true);
+  });
+
+  it('setPrices throws when canSetPrices is false', async () => {
+    const repo = stubRepo();
+    const sub = new Subscription(subInit({ affordances: {} }), repo);
+
+    await expect(sub.setPrices([{ territoryId: 'USA', pricePointId: 'p' }])).rejects.toThrow(/cannot set prices/);
+    expect(repo.setPrices).not.toHaveBeenCalled();
   });
 
   it('suggestedProductId derives a com.bundle.<slug> shape', () => {
