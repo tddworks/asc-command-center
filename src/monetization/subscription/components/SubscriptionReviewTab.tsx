@@ -66,19 +66,51 @@ function SubscriptionReviewTabImpl({ sub }: Props) {
   const screenshot = sub.reviewScreenshot;
 
   return (
-    <div>
-      {/* Review screenshot */}
-      <div className="card" style={{ marginBottom: 12 }}>
-        <div className="toolbar">
-          <div className="toolbar-left">
-            <h3>Review Screenshot</h3>
-            <span className="muted" style={{ marginLeft: 8 }}>
-              {screenshot ? screenshot.fileName : 'Optional · helps reviewers verify the subscription'}
-            </span>
+    <div className="card">
+      <div className="toolbar">
+        <div className="toolbar-left"><h3>Review Information</h3></div>
+      </div>
+
+      <div className="card-body padded" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
+            <label className="form-label" style={{ marginBottom: 0 }}>Review Screenshot</label>
+            <span className="form-hint">Optional · helps reviewers verify the subscription</span>
           </div>
-          <div className="toolbar-right" style={{ display: 'flex', gap: 6 }}>
-            {sub.canUploadReviewScreenshot && (
-              <>
+
+          {!sub.canViewReviewScreenshot ? (
+            <span className="muted">Backend does not expose review screenshots for this tier.</span>
+          ) : !sub.isReviewScreenshotLoaded ? (
+            <div className="loading"><span className="spinner" /><span>Loading screenshot…</span></div>
+          ) : screenshot ? (
+            <div
+              style={{
+                display: 'flex',
+                gap: 12,
+                alignItems: 'center',
+                padding: 12,
+                border: '1px solid var(--border)',
+                borderRadius: 6,
+              }}
+            >
+              {screenshot.previewUrl ? (
+                <img
+                  src={screenshot.previewUrl}
+                  alt="Review screenshot"
+                  style={{
+                    maxWidth: 120, maxHeight: 160,
+                    border: '1px solid var(--border)',
+                    borderRadius: 6,
+                  }}
+                />
+              ) : (
+                <div className="muted" style={{ width: 120, textAlign: 'center' }}>No preview</div>
+              )}
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span className="cell-mono">{screenshot.fileName}</span>
+                <span className="muted">Reviewers see this attached to your submission.</span>
+              </div>
+              <div style={{ display: 'flex', gap: 6 }}>
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -86,106 +118,68 @@ function SubscriptionReviewTabImpl({ sub }: Props) {
                   style={{ display: 'none' }}
                   onChange={onPickFile}
                 />
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-sm"
-                  onClick={triggerUpload}
-                  disabled={uploading}
-                >
-                  {uploading ? 'Uploading…' : screenshot ? 'Replace' : 'Upload'}
-                </button>
-              </>
-            )}
-            {screenshot?.canDelete && (
-              <button type="button" className="btn btn-secondary btn-sm" onClick={removeShot} disabled={uploading}>
-                Remove
-              </button>
-            )}
-          </div>
-        </div>
-
-        {!sub.canViewReviewScreenshot ? (
-          <div className="card-body"><span className="muted">Backend does not expose review screenshots for this tier.</span></div>
-        ) : !sub.isReviewScreenshotLoaded ? (
-          <div className="card-body">
-            <div className="loading"><span className="spinner" /><span>Loading screenshot…</span></div>
-          </div>
-        ) : screenshot ? (
-          <div className="card-body" style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-            {screenshot.previewUrl ? (
-              <img
-                src={screenshot.previewUrl}
-                alt="Review screenshot"
-                style={{
-                  maxWidth: 240, maxHeight: 320,
-                  border: '1px solid var(--border)',
-                  borderRadius: 6,
-                }}
-              />
-            ) : (
-              <div className="muted">No preview available.</div>
-            )}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-              <span className="cell-mono">{screenshot.fileName}</span>
-              <span className="muted">Reviewers see this attached to your submission.</span>
+                {sub.canUploadReviewScreenshot && (
+                  <button type="button" className="btn btn-secondary btn-sm" onClick={triggerUpload} disabled={uploading}>
+                    {uploading ? 'Uploading…' : 'Replace'}
+                  </button>
+                )}
+                {screenshot.canDelete && (
+                  <button type="button" className="btn btn-secondary btn-sm" onClick={removeShot} disabled={uploading}>
+                    Remove
+                  </button>
+                )}
+              </div>
             </div>
-          </div>
-        ) : (
-          <div className="card-body" style={{ textAlign: 'center', padding: 24 }}>
-            <div style={{ fontSize: 28, opacity: 0.4 }}>📷</div>
-            <p className="muted" style={{ marginTop: 4, marginBottom: 8 }}>
-              No screenshot uploaded yet.
-            </p>
-            {sub.canUploadReviewScreenshot && (
-              <button
-                type="button"
-                className="btn btn-primary btn-sm"
-                onClick={triggerUpload}
-                disabled={uploading}
-              >
-                {uploading ? 'Uploading…' : 'Upload Screenshot'}
-              </button>
-            )}
-          </div>
-        )}
-        {shotError && (
-          <div className="card-body" style={{ paddingTop: 0 }}>
-            <span className="form-hint" style={{ color: 'var(--danger-text)' }}>{shotError}</span>
-          </div>
-        )}
-      </div>
-
-      {/* Review notes */}
-      <div className="card">
-        <div className="toolbar">
-          <div className="toolbar-left">
-            <h3>Review Notes</h3>
-            <span className="muted" style={{ marginLeft: 8 }}>
-              Optional · explain how to test this subscription
-            </span>
-          </div>
-          <div className="toolbar-right" style={{ display: 'flex', gap: 6 }}>
-            {noteDirty && !savingNote && (
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={() => setNote(sub.reviewNote ?? '')}
-              >
-                Discard
-              </button>
-            )}
-            <button
-              type="button"
-              className="btn btn-primary btn-sm"
-              onClick={saveNote}
-              disabled={!canSaveNote}
+          ) : (
+            <div
+              style={{
+                display: 'flex',
+                gap: 12,
+                alignItems: 'center',
+                padding: 16,
+                border: '2px dashed var(--border)',
+                borderRadius: 6,
+              }}
             >
-              {savingNote ? 'Saving…' : 'Save'}
-            </button>
-          </div>
+              <div style={{ fontSize: 24, opacity: 0.5 }}>📷</div>
+              <span className="muted" style={{ flex: 1 }}>No screenshot uploaded yet.</span>
+              {sub.canUploadReviewScreenshot && (
+                <>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    style={{ display: 'none' }}
+                    onChange={onPickFile}
+                  />
+                  <button
+                    type="button"
+                    className="btn btn-primary btn-sm"
+                    onClick={triggerUpload}
+                    disabled={uploading}
+                  >
+                    {uploading ? 'Uploading…' : 'Upload'}
+                  </button>
+                </>
+              )}
+            </div>
+          )}
+          {shotError && (
+            <div className="form-hint" style={{ color: 'var(--danger-text)', marginTop: 6 }}>
+              {shotError}
+            </div>
+          )}
         </div>
-        <div className="card-body">
+
+        <div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
+            <label className="form-label" htmlFor="sub-review-notes" style={{ marginBottom: 0 }}>
+              Review Notes
+            </label>
+            <span className="form-hint">Optional · explain how to test this subscription</span>
+          </div>
           <textarea
+            id="sub-review-notes"
             className="form-input"
             rows={4}
             value={note}
@@ -193,8 +187,29 @@ function SubscriptionReviewTabImpl({ sub }: Props) {
             placeholder="e.g. Use sandbox account reviewer@example.com to test this subscription."
           />
           {noteError && (
-            <div className="form-hint" style={{ color: 'var(--danger-text)', marginTop: 8 }}>
+            <div className="form-hint" style={{ color: 'var(--danger-text)', marginTop: 6 }}>
               {noteError}
+            </div>
+          )}
+          {(noteDirty || savingNote) && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6, marginTop: 8 }}>
+              {noteDirty && !savingNote && (
+                <button
+                  type="button"
+                  className="btn btn-secondary btn-sm"
+                  onClick={() => setNote(sub.reviewNote ?? '')}
+                >
+                  Discard
+                </button>
+              )}
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={saveNote}
+                disabled={!canSaveNote}
+              >
+                {savingNote ? 'Saving…' : 'Save'}
+              </button>
             </div>
           )}
         </div>

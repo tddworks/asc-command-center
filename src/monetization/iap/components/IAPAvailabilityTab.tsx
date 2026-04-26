@@ -52,6 +52,7 @@ function IAPAvailabilityTabImpl({ iap }: Props) {
 
   return (
     <div className="card">
+      {/* Title row — clean, no overflow risk */}
       <div className="toolbar">
         <div className="toolbar-left">
           <h3>Availability</h3>
@@ -59,51 +60,79 @@ function IAPAvailabilityTabImpl({ iap }: Props) {
             <strong>{avail.availableCount}</strong> of {avail.totalCount} territories available
           </span>
         </div>
-        <div className="toolbar-right" style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', fontSize: 12 }}>
-            <input
-              type="checkbox"
-              checked={avail.availableInNewTerritories}
-              onChange={(e) => avail.setAvailableInNewTerritories(e.target.checked)}
-            />
-            <span>Auto-include new territories</span>
-          </label>
-          {avail.isDirty && !saving && (
-            <button type="button" className="btn btn-secondary btn-sm" onClick={() => avail.discard()}>
-              Discard
-            </button>
-          )}
-          <button
-            type="button"
-            className="btn btn-primary btn-sm"
-            onClick={save}
-            disabled={!avail.isDirty || saving || !iap.canSetAvailability}
-            title={!iap.canSetAvailability ? 'Backend does not allow saving availability' : undefined}
-          >
-            {saving ? 'Saving…' : 'Save'}
-          </button>
-        </div>
       </div>
 
-      <div className="card-body" style={{ display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
+      {/* Settings row — auto-include + save (always visible, doesn't share space with search/filters) */}
+      <div
+        className="card-body"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 12,
+          flexWrap: 'wrap',
+          borderBottom: '1px solid var(--border)',
+        }}
+      >
+        <label
+          style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
+        >
+          <input
+            type="checkbox"
+            checked={avail.availableInNewTerritories}
+            onChange={(e) => avail.setAvailableInNewTerritories(e.target.checked)}
+          />
+          <span>Auto-include new territories</span>
+        </label>
+        <span style={{ flex: 1 }} />
+        {avail.isDirty && (
+          <span className="muted" style={{ fontSize: 12 }}>Pending changes</span>
+        )}
+        {avail.isDirty && !saving && (
+          <button type="button" className="btn btn-secondary btn-sm" onClick={() => avail.discard()}>
+            Discard
+          </button>
+        )}
+        <button
+          type="button"
+          className="btn btn-primary btn-sm"
+          onClick={save}
+          disabled={!avail.isDirty || saving || !iap.canSetAvailability}
+          title={!iap.canSetAvailability ? 'Backend does not allow saving availability' : undefined}
+        >
+          {saving ? 'Saving…' : 'Save'}
+        </button>
+      </div>
+
+      {/* Filter row — search + pills + bulk actions */}
+      <div
+        className="card-body"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 6,
+          flexWrap: 'wrap',
+        }}
+      >
         <input
           type="search"
           className="form-input"
-          style={{ minWidth: 240, flex: '0 1 280px' }}
+          style={{ minWidth: 200, flex: '0 1 280px' }}
           placeholder="Search territories…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
         />
-        {(['all', 'available', 'unavailable'] as const).map((k) => (
-          <button
-            key={k}
-            type="button"
-            className={`btn btn-sm ${filter === k ? 'btn-primary' : 'btn-secondary'}`}
-            onClick={() => setFilter(k)}
-          >
-            {k === 'all' ? 'All' : k === 'available' ? 'Available' : 'Unavailable'}
-          </button>
-        ))}
+        <div style={{ display: 'inline-flex', gap: 6 }}>
+          {(['all', 'available', 'unavailable'] as const).map((k) => (
+            <button
+              key={k}
+              type="button"
+              className={`btn btn-sm ${filter === k ? 'btn-primary' : 'btn-secondary'}`}
+              onClick={() => setFilter(k)}
+            >
+              {k === 'all' ? 'All' : k === 'available' ? 'Available' : 'Unavailable'}
+            </button>
+          ))}
+        </div>
         <span style={{ flex: 1 }} />
         <button
           type="button"
