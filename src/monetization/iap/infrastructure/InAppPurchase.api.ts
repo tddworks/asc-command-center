@@ -2,6 +2,7 @@ import { InAppPurchase } from '../InAppPurchase.ts';
 import { InAppPurchaseLocalization } from '../InAppPurchaseLocalization.ts';
 import { IAPAvailability } from '../IAPAvailability.ts';
 import { IAPPriceSchedule } from '../IAPPriceSchedule.ts';
+import { IAPPricePoint, type IAPPricePointPage } from '../IAPPricePoint.ts';
 import { InAppPurchaseOfferCode } from '../InAppPurchaseOfferCode.ts';
 import { ReviewScreenshot } from '../ReviewScreenshot.ts';
 import { apiClient, type DataMode } from '../../../shared/api-client.tsx';
@@ -167,6 +168,38 @@ export class RestInAppPurchaseRepository implements InAppPurchaseRepository {
   }
 
   // ── Pricing ──
+
+  async pricePoints(
+    iap: InAppPurchase,
+    input: { territoryId: string; cursor: string | null; limit?: number },
+  ): Promise<IAPPricePointPage> {
+    const params = new URLSearchParams();
+    params.set('territory', input.territoryId);
+    if (input.cursor) params.set('cursor', input.cursor);
+    if (input.limit) params.set('limit', String(input.limit));
+    const url = `/api/v1/iap/${iap.id}/price-points?${params.toString()}`;
+    const json = await apiClient.get<{ data: Record<string, unknown>[]; links?: { next?: string } }>(url);
+    return {
+      items: json.data.map(IAPPricePoint.fromJSON),
+      nextCursor: json.links?.next ?? null,
+    };
+  }
+
+  async equalizations(
+    iap: InAppPurchase,
+    input: { pricePointId: string; cursor: string | null; limit?: number },
+  ): Promise<IAPPricePointPage> {
+    const params = new URLSearchParams();
+    params.set('pricePointId', input.pricePointId);
+    if (input.cursor) params.set('cursor', input.cursor);
+    if (input.limit) params.set('limit', String(input.limit));
+    const url = `/api/v1/iap/${iap.id}/price-points/equalizations?${params.toString()}`;
+    const json = await apiClient.get<{ data: Record<string, unknown>[]; links?: { next?: string } }>(url);
+    return {
+      items: json.data.map(IAPPricePoint.fromJSON),
+      nextCursor: json.links?.next ?? null,
+    };
+  }
 
   async setPrice(iap: InAppPurchase, input: { territoryId: string; pricePointId: string }): Promise<void> {
     const url = iap.affordances.setPrice ?? `/api/v1/iap/${iap.id}/price-schedule`;
