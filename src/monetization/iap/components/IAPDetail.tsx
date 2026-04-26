@@ -108,17 +108,25 @@ function IAPDetailImpl({ iap }: Props) {
           state, not a "fix something" state, so the banner stays hidden. */}
       {iap.needsAttention && (
         <div
-          className="card"
+          role="status"
           style={{
+            display: 'flex',
+            alignItems: 'flex-start',
+            gap: 12,
             marginBottom: 12,
-            borderLeft: '3px solid var(--warning-bg, #f59e0b)',
+            padding: '12px 16px',
+            background: 'var(--warning-bg)',
+            border: '1px solid var(--warning-text)',
+            borderRadius: 8,
+            color: 'var(--warning-text)',
           }}
         >
-          <div className="card-body">
-            <strong>{iap.statusLabel}</strong>
-            <span className="muted" style={{ marginLeft: 8 }}>
+          <span aria-hidden style={{ fontSize: 16, lineHeight: '20px' }}>⚠️</span>
+          <div style={{ flex: 1, lineHeight: 1.5 }}>
+            <div style={{ fontWeight: 600, marginBottom: 2 }}>{iap.statusLabel}</div>
+            <div style={{ fontSize: 13, opacity: 0.9 }}>
               Add a localization with a display name and set a base price before submitting for review.
-            </span>
+            </div>
           </div>
         </div>
       )}
