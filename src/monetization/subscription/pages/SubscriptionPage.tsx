@@ -1,45 +1,135 @@
-import { useSubscriptionGroups } from '../Subscription.hooks.ts';
-import { AffordanceBar } from '../../../shared/components/AffordanceBar.tsx';
+import { observer } from 'mobx-react-lite';
+import { subscriptionGroups } from '../subscriptionGroupsInstance.ts';
+import { workspace } from '../../../workspace/workspaceInstance.ts';
+import type { Subscription } from '../Subscription.ts';
+import type { SubscriptionGroup } from '../SubscriptionGroup.ts';
 
-export default function SubscriptionPage({ appId = 'app-1' }: { appId?: string }) {
-  const { groups, loading, error } = useSubscriptionGroups(appId);
+const STATUS_CLASS: Record<string, string> = {
+  success: 'live',
+  info: 'pending',
+  warning: 'pending',
+  danger: 'rejected',
+  neutral: '',
+};
 
-  if (loading) return <div className="loading"><span className="spinner" /><span>Loading subscriptions...</span></div>;
-  if (error) return <div className="error">Error: {error.message}</div>;
+function TierRow({ sub, group }: { sub: Subscription; group: SubscriptionGroup }) {
+  const submit = async () => {
+    try { await sub.submit(); }
+    catch (err) { console.warn('[subscription] submit failed:', err); }
+  };
+  const unsubmit = async () => {
+    try { await sub.unsubmit(); }
+    catch (err) { console.warn('[subscription] unsubmit failed:', err); }
+  };
+  const remove = async () => {
+    if (!sub.canDelete) return;
+    if (!window.confirm(`Delete tier "${sub.name}"?`)) return;
+    try { await group.removeSubscription(sub); }
+    catch (err) { console.warn('[subscription] delete failed:', err); }
+  };
+
+  return (
+    <tr>
+      <td className="cell-primary">{sub.name}</td>
+      <td className="cell-mono">{sub.productId}</td>
+      <td>{sub.periodLabel}</td>
+      <td>{sub.groupLevel ?? '—'}</td>
+      <td>{sub.isFamilySharable ? 'Yes' : 'No'}</td>
+      <td>
+        <span className={`status ${STATUS_CLASS[sub.statusTone]}`}>{sub.statusLabel}</span>
+      </td>
+      <td>
+        <div style={{ display: 'flex', gap: 6 }}>
+          {sub.canSubmit && <button className="btn btn-primary btn-sm" onClick={submit}>Submit</button>}
+          {sub.canUnsubmit && <button className="btn btn-secondary btn-sm" onClick={unsubmit}>Cancel</button>}
+          {sub.canDelete && <button className="btn btn-secondary btn-sm" onClick={remove}>Delete</button>}
+        </div>
+      </td>
+    </tr>
+  );
+}
+
+const ObservedTierRow = observer(TierRow);
+
+function GroupCard({ group }: { group: SubscriptionGroup }) {
+  const remove = async () => {
+    if (!group.canDelete) return;
+    if (!window.confirm(`Delete group "${group.referenceName}"?`)) return;
+    try { await subscriptionGroups.remove(group); }
+    catch (err) { console.warn('[subscription-group] delete failed:', err); }
+  };
+
+  return (
+    <div className="card" style={{ marginBottom: 16 }}>
+      <div className="toolbar">
+        <div className="toolbar-left">
+          <h3>{group.referenceName}</h3>
+          <span className="muted" style={{ marginLeft: 8 }}>{group.tierCount} tier(s)</span>
+        </div>
+        <div className="toolbar-right">
+          {group.canDelete && (
+            <button className="btn btn-secondary btn-sm" onClick={remove}>Delete Group</button>
+          )}
+        </div>
+      </div>
+      {group.subscriptions.length === 0 ? (
+        <div className="card-body"><span className="muted">No tiers yet.</span></div>
+      ) : (
+        <div className="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Tier</th>
+                <th>Product ID</th>
+                <th>Period</th>
+                <th>Level</th>
+                <th>Family</th>
+                <th>State</th>
+                <th>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {group.subscriptions.map((sub) => (
+                <ObservedTierRow key={sub.id} sub={sub} group={group} />
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+const ObservedGroupCard = observer(GroupCard);
+
+function SubscriptionPage() {
+  if (!workspace.hydrated || !subscriptionGroups.loaded) {
+    return <div className="loading"><span className="spinner" /><span>Loading subscriptions...</span></div>;
+  }
+  if (subscriptionGroups.error) {
+    return <div className="error">Error: {subscriptionGroups.error.message}</div>;
+  }
 
   return (
     <div>
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="toolbar">
-          <div className="toolbar-left"><h3>Subscription Groups</h3></div>
-        </div>
-        <div className="table-wrapper">
-          <table>
-            <thead>
-              <tr><th>Group</th><th>App ID</th><th>Actions</th></tr>
-            </thead>
-            <tbody>
-              {groups.map((g) => (
-                <tr key={g.id}>
-                  <td className="cell-primary">{g.referenceName}</td>
-                  <td className="cell-mono">{g.appId}</td>
-                  <td><AffordanceBar affordances={g.affordances} /></td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <div className="toolbar-left">
+            <h3>Subscription Groups</h3>
+            <span className="muted" style={{ marginLeft: 8 }}>
+              {subscriptionGroups.count} group(s) · {subscriptionGroups.totalTierCount} tier(s)
+            </span>
+          </div>
         </div>
       </div>
 
-      <div className="card">
-        <div className="toolbar">
-          <div className="toolbar-left"><h3>Offer Codes</h3></div>
-        </div>
-        <div className="card-body" style={{ display: 'flex', gap: 8 }}>
-          <button className="btn btn-secondary btn-sm">Create Offer Code</button>
-          <button className="btn btn-secondary btn-sm">View Active Offers</button>
-        </div>
-      </div>
+      {subscriptionGroups.list.length === 0 ? (
+        <div className="card"><div className="card-body"><span className="muted">No subscription groups for this app.</span></div></div>
+      ) : (
+        subscriptionGroups.list.map((g) => <ObservedGroupCard key={g.id} group={g} />)
+      )}
     </div>
   );
 }
+
+export default observer(SubscriptionPage);
