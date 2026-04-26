@@ -25,6 +25,7 @@ interface RowProps {
 }
 
 function LocaleRow({ iap, loc, source, isSource, editing, onEdit, onDone }: RowProps) {
+  void iap; // reserved for future per-row actions
   const [busy, setBusy] = useState<'save' | 'ai' | null>(null);
   const [error, setError] = useState<string | null>(null);
 

@@ -15,13 +15,10 @@ function IAPReviewTabImpl({ iap }: Props) {
   const [shotError, setShotError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Keep the local input in sync if the IAP's reviewNote is mutated from
-  // elsewhere (e.g. another tab refreshing).
   useEffect(() => {
     setNote(iap.reviewNote ?? '');
   }, [iap.reviewNote]);
 
-  // Lazy-load the screenshot the first time the tab mounts on this IAP.
   useEffect(() => {
     if (iap.isReviewScreenshotLoaded) return;
     void iap.loadReviewScreenshot().catch((err) => {
@@ -70,12 +67,20 @@ function IAPReviewTabImpl({ iap }: Props) {
     }
   };
 
+  const triggerUpload = () => fileInputRef.current?.click();
+  const screenshot = iap.reviewScreenshot;
+
   return (
     <div>
       {/* Review screenshot */}
       <div className="card" style={{ marginBottom: 12 }}>
         <div className="toolbar">
-          <div className="toolbar-left"><strong>Review Screenshot</strong></div>
+          <div className="toolbar-left">
+            <h3>Review Screenshot</h3>
+            <span className="muted" style={{ marginLeft: 8 }}>
+              {screenshot ? screenshot.fileName : 'Optional · helps reviewers verify the IAP'}
+            </span>
+          </div>
           <div className="toolbar-right" style={{ display: 'flex', gap: 6 }}>
             {iap.canUploadReviewScreenshot && (
               <>
@@ -89,70 +94,81 @@ function IAPReviewTabImpl({ iap }: Props) {
                 <button
                   type="button"
                   className="btn btn-secondary btn-sm"
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={triggerUpload}
                   disabled={uploading}
                 >
-                  {uploading ? 'Uploading…' : iap.reviewScreenshot ? 'Replace' : 'Upload'}
+                  {uploading ? 'Uploading…' : screenshot ? 'Replace' : 'Upload'}
                 </button>
               </>
             )}
-            {iap.reviewScreenshot?.canDelete && (
+            {screenshot?.canDelete && (
               <button type="button" className="btn btn-secondary btn-sm" onClick={removeShot} disabled={uploading}>
                 Remove
               </button>
             )}
           </div>
         </div>
-        <div className="card-body">
-          {!iap.canViewReviewScreenshot ? (
-            <span className="muted">Backend does not expose review screenshots for this IAP.</span>
-          ) : !iap.isReviewScreenshotLoaded ? (
+
+        {!iap.canViewReviewScreenshot ? (
+          <div className="card-body"><span className="muted">Backend does not expose review screenshots for this IAP.</span></div>
+        ) : !iap.isReviewScreenshotLoaded ? (
+          <div className="card-body">
             <div className="loading"><span className="spinner" /><span>Loading screenshot…</span></div>
-          ) : iap.reviewScreenshot ? (
-            <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-              {iap.reviewScreenshot.previewUrl ? (
-                <img
-                  src={iap.reviewScreenshot.previewUrl}
-                  alt="Review screenshot"
-                  style={{
-                    maxWidth: 240,
-                    maxHeight: 320,
-                    border: '1px solid var(--border)',
-                    borderRadius: 6,
-                  }}
-                />
-              ) : (
-                <div className="muted">No preview available.</div>
-              )}
-              <div className="cell-mono" style={{ alignSelf: 'center' }}>
-                {iap.reviewScreenshot.fileName}
-              </div>
+          </div>
+        ) : screenshot ? (
+          <div className="card-body" style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+            {screenshot.previewUrl ? (
+              <img
+                src={screenshot.previewUrl}
+                alt="Review screenshot"
+                style={{
+                  maxWidth: 240, maxHeight: 320,
+                  border: '1px solid var(--border)',
+                  borderRadius: 6,
+                }}
+              />
+            ) : (
+              <div className="muted">No preview available.</div>
+            )}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              <span className="cell-mono">{screenshot.fileName}</span>
+              <span className="muted">Reviewers see this attached to your submission.</span>
             </div>
-          ) : (
-            <div
-              style={{
-                padding: 24, textAlign: 'center',
-                border: '2px dashed var(--border)', borderRadius: 8,
-              }}
-            >
-              <div style={{ opacity: 0.5, fontSize: 28 }}>📷</div>
-              <div className="muted" style={{ marginTop: 4 }}>
-                No screenshot uploaded. Click <strong>Upload</strong> above to add one.
-              </div>
-            </div>
-          )}
-          {shotError && (
-            <div className="form-hint" style={{ color: 'var(--danger-text)', marginTop: 8 }}>
-              {shotError}
-            </div>
-          )}
-        </div>
+          </div>
+        ) : (
+          <div className="card-body" style={{ textAlign: 'center', padding: 24 }}>
+            <div style={{ fontSize: 28, opacity: 0.4 }}>📷</div>
+            <p className="muted" style={{ marginTop: 4, marginBottom: 8 }}>
+              No screenshot uploaded yet.
+            </p>
+            {iap.canUploadReviewScreenshot && (
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={triggerUpload}
+                disabled={uploading}
+              >
+                {uploading ? 'Uploading…' : 'Upload Screenshot'}
+              </button>
+            )}
+          </div>
+        )}
+        {shotError && (
+          <div className="card-body" style={{ paddingTop: 0 }}>
+            <span className="form-hint" style={{ color: 'var(--danger-text)' }}>{shotError}</span>
+          </div>
+        )}
       </div>
 
       {/* Review notes */}
       <div className="card">
         <div className="toolbar">
-          <div className="toolbar-left"><strong>Review Notes</strong></div>
+          <div className="toolbar-left">
+            <h3>Review Notes</h3>
+            <span className="muted" style={{ marginLeft: 8 }}>
+              Optional · explain how to test this IAP
+            </span>
+          </div>
           <div className="toolbar-right" style={{ display: 'flex', gap: 6 }}>
             {noteDirty && !savingNote && (
               <button
@@ -176,10 +192,10 @@ function IAPReviewTabImpl({ iap }: Props) {
         <div className="card-body">
           <textarea
             className="form-input"
-            rows={5}
+            rows={4}
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="Explain how to test this IAP for the App Review team."
+            placeholder="e.g. Use sandbox account reviewer@example.com to test this IAP."
           />
           {noteError && (
             <div className="form-hint" style={{ color: 'var(--danger-text)', marginTop: 8 }}>
