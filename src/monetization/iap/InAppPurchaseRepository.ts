@@ -2,6 +2,7 @@ import type { InAppPurchase, InAppPurchaseType } from './InAppPurchase.ts';
 import type { InAppPurchaseLocalization } from './InAppPurchaseLocalization.ts';
 import type { IAPAvailability } from './IAPAvailability.ts';
 import type { IAPPriceSchedule } from './IAPPriceSchedule.ts';
+import type { IAPPricePointPage } from './IAPPricePoint.ts';
 import type {
   IAPCustomerEligibility,
   InAppPurchaseOfferCode,
@@ -50,6 +51,14 @@ export interface InAppPurchaseRepository {
   /** Returns null when the IAP has no price schedule yet (newly created). */
   priceSchedule(iap: InAppPurchase): Promise<IAPPriceSchedule | null>;
   setPrice(iap: InAppPurchase, input: { territoryId: string; pricePointId: string }): Promise<void>;
+  pricePoints(
+    iap: InAppPurchase,
+    input: { territoryId: string; cursor: string | null; limit?: number },
+  ): Promise<IAPPricePointPage>;
+  equalizations(
+    iap: InAppPurchase,
+    input: { pricePointId: string; cursor: string | null; limit?: number },
+  ): Promise<IAPPricePointPage>;
 
   // ── Availability ──
   /** Returns null when the IAP has no availability resource yet. */
