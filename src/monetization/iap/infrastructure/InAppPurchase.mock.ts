@@ -218,7 +218,12 @@ export class MockInAppPurchaseRepository implements InAppPurchaseRepository {
   }
 
   async oneTimeUseCodes(code: InAppPurchaseOfferCode): Promise<IAPOneTimeUseCodeBatch[]> {
-    return this.batchesByCode.get(code.id) ?? [];
+    let cached = this.batchesByCode.get(code.id);
+    if (!cached) {
+      cached = mockSeedBatchesFor(code.id);
+      this.batchesByCode.set(code.id, cached);
+    }
+    return [...cached];
   }
 
   async generateOneTimeUseCodes(
@@ -508,6 +513,20 @@ function mockOfferCodesFor(iap: InAppPurchase): InAppPurchaseOfferCode[] {
       customerEligibilities: [IAPCustomerEligibility.ChurnedSpender],
       isActive: false,
       productionCodeCount: 50,
+    }),
+  ];
+}
+
+export function mockSeedBatchesFor(offerCodeId: string): IAPOneTimeUseCodeBatch[] {
+  // Default fixture: one 100-code production batch on the WELCOME20 fixture.
+  if (!offerCodeId.endsWith('-welcome')) return [];
+  return [
+    new IAPOneTimeUseCodeBatch({
+      id: `${offerCodeId}-batch-1`,
+      numberOfCodes: 100,
+      environment: CodeEnvironment.Production,
+      isActive: true,
+      createdDate: '2026-01-15',
     }),
   ];
 }
