@@ -107,9 +107,9 @@ function IAPPage() {
 
       <div className="card">
         <div className="toolbar">
-          <div className="toolbar-left">
+          <div className="toolbar-left" style={{ gap: 12 }}>
             <h3>In-App Purchases</h3>
-            <div style={{ display: 'inline-flex', gap: 6, marginLeft: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+            <div style={{ display: 'inline-flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
               <StatPill tone="neutral" count={iaps.count} label={iaps.count === 1 ? 'IAP' : 'IAPs'} />
               {iaps.pendingCount > 0 && (
                 <StatPill tone="info" count={iaps.pendingCount} label="In Review" />

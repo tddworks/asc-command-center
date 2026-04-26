@@ -8,6 +8,7 @@ import { CreateSubscriptionGroupModal } from '../components/CreateSubscriptionGr
 import { CreateSubscriptionModal } from '../components/CreateSubscriptionModal.tsx';
 import { GroupLocalizationsPanel } from '../components/GroupLocalizationsPanel.tsx';
 import { SubscriptionDetail } from '../components/SubscriptionDetail.tsx';
+import { StatPill } from '../../../shared/components/StatPill.tsx';
 
 const STATUS_CLASS: Record<string, string> = {
   success: 'live',
@@ -116,9 +117,13 @@ function GroupCard({
   return (
     <div className="card" style={{ marginBottom: 16 }}>
       <div className="toolbar">
-        <div className="toolbar-left">
+        <div className="toolbar-left" style={{ gap: 12 }}>
           <h3>{group.referenceName}</h3>
-          <span className="muted" style={{ marginLeft: 8 }}>{group.tierCount} tier(s)</span>
+          <StatPill
+            tone="neutral"
+            count={group.tierCount}
+            label={group.tierCount === 1 ? 'tier' : 'tiers'}
+          />
         </div>
         <div className="toolbar-right" style={{ display: 'flex', gap: 6 }}>
           <button
@@ -203,11 +208,20 @@ function SubscriptionPage() {
     <>
       <div className="card" style={{ marginBottom: 16 }}>
         <div className="toolbar">
-          <div className="toolbar-left">
+          <div className="toolbar-left" style={{ gap: 12 }}>
             <h3>Subscription Groups</h3>
-            <span className="muted" style={{ marginLeft: 8 }}>
-              {subscriptionGroups.count} group(s) · {subscriptionGroups.totalTierCount} tier(s)
-            </span>
+            <div style={{ display: 'inline-flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
+              <StatPill
+                tone="neutral"
+                count={subscriptionGroups.count}
+                label={subscriptionGroups.count === 1 ? 'Group' : 'Groups'}
+              />
+              <StatPill
+                tone="neutral"
+                count={subscriptionGroups.totalTierCount}
+                label={subscriptionGroups.totalTierCount === 1 ? 'Tier' : 'Tiers'}
+              />
+            </div>
           </div>
           <div className="toolbar-right">
             <button
