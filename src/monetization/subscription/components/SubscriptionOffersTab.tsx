@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import type { Subscription } from '../Subscription.ts';
+import { CreateIntroductoryOfferModal } from './CreateIntroductoryOfferModal.tsx';
+import { CreatePromotionalOfferModal } from './CreatePromotionalOfferModal.tsx';
 import { CreateSubscriptionOfferCodeModal } from './CreateSubscriptionOfferCodeModal.tsx';
 
 interface Props {
@@ -9,6 +11,20 @@ interface Props {
 
 function SubscriptionOffersTabImpl({ sub }: Props) {
   const [createCodeOpen, setCreateCodeOpen] = useState(false);
+  const [createIntroOpen, setCreateIntroOpen] = useState(false);
+  const [createPromoOpen, setCreatePromoOpen] = useState(false);
+
+  const deleteIntro = async (offer: import('../SubscriptionOffers.ts').SubscriptionIntroductoryOffer) => {
+    if (!window.confirm(`Delete intro offer "${offer.summaryLabel}"?`)) return;
+    try { await sub.deleteIntroductoryOffer(offer); }
+    catch (err) { console.warn('[subscription] delete intro offer failed:', err); }
+  };
+  const deletePromo = async (offer: import('../SubscriptionOffers.ts').SubscriptionPromotionalOffer) => {
+    if (!window.confirm(`Delete promo offer "${offer.name}"?`)) return;
+    try { await sub.deletePromotionalOffer(offer); }
+    catch (err) { console.warn('[subscription] delete promo offer failed:', err); }
+  };
+
   useEffect(() => {
     if (!sub.isIntroductoryOffersLoaded) {
       void sub.loadIntroductoryOffers().catch((err) => console.warn('[subscription] intro offers failed:', err));
