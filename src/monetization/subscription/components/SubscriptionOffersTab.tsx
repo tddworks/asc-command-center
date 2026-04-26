@@ -1,12 +1,14 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import type { Subscription } from '../Subscription.ts';
+import { CreateSubscriptionOfferCodeModal } from './CreateSubscriptionOfferCodeModal.tsx';
 
 interface Props {
   sub: Subscription;
 }
 
 function SubscriptionOffersTabImpl({ sub }: Props) {
+  const [createCodeOpen, setCreateCodeOpen] = useState(false);
   useEffect(() => {
     if (!sub.isIntroductoryOffersLoaded) {
       void sub.loadIntroductoryOffers().catch((err) => console.warn('[subscription] intro offers failed:', err));
@@ -117,9 +119,15 @@ function SubscriptionOffersTabImpl({ sub }: Props) {
             </span>
           </div>
           <div className="toolbar-right">
-            <span className="muted" style={{ fontSize: 12 }}>
-              Create wizard ships in a later phase.
-            </span>
+            {sub.canCreateOfferCode && (
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={() => setCreateCodeOpen(true)}
+              >
+                + New Offer Code
+              </button>
+            )}
           </div>
         </div>
         {!sub.canViewOfferCodes ? (
@@ -169,6 +177,8 @@ function SubscriptionOffersTabImpl({ sub }: Props) {
           </div>
         )}
       </div>
+
+      <CreateSubscriptionOfferCodeModal sub={sub} open={createCodeOpen} onClose={() => setCreateCodeOpen(false)} />
     </div>
   );
 }
