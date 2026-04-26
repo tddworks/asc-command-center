@@ -138,6 +138,19 @@ export class Subscription {
     return this.state === SubscriptionState.WaitingForReview || this.state === SubscriptionState.InReview;
   }
   get isReadyToSubmit(): boolean { return this.state === SubscriptionState.ReadyToSubmit; }
+  get isRejected(): boolean { return this.state === SubscriptionState.Rejected; }
+
+  /** True when the tier is in a state that needs developer action to make
+   *  progress. Excludes `ReadyToSubmit` — that state is *waiting on the
+   *  user to click Submit*, not blocked on missing fields. The needs-action
+   *  banner gates on this. */
+  get needsAttention(): boolean {
+    return (
+      this.state === SubscriptionState.MissingMetadata ||
+      this.state === SubscriptionState.Rejected ||
+      this.state === SubscriptionState.DeveloperActionNeeded
+    );
+  }
 
   // ── Capability Checks ──
 

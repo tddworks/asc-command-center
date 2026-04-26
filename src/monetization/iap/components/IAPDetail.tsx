@@ -103,9 +103,10 @@ function IAPDetailImpl({ iap }: Props) {
         )}
       </div>
 
-      {/* Needs-action banner — only when the IAP is in an editable state
-          and missing one of the submit-readiness inputs the user can fix here. */}
-      {(iap.isEditable || iap.isRejected) && (
+      {/* Needs-action banner — only when the IAP is in a state that
+          actually needs developer action. ReadyToSubmit is a "click Submit"
+          state, not a "fix something" state, so the banner stays hidden. */}
+      {iap.needsAttention && (
         <div
           className="card"
           style={{

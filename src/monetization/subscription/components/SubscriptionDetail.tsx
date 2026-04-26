@@ -100,8 +100,10 @@ function SubscriptionDetailImpl({ sub }: Props) {
         )}
       </div>
 
-      {/* Needs-action banner */}
-      {(sub.isEditable && !sub.isApproved) && (
+      {/* Needs-action banner — only when the tier needs developer action.
+          ReadyToSubmit is a "click Submit" state, not a "fix something"
+          state, so the banner stays hidden. */}
+      {sub.needsAttention && (
         <div
           className="card"
           style={{

@@ -127,6 +127,17 @@ export class InAppPurchase {
   get isReadyToSubmit(): boolean { return this.state === InAppPurchaseState.ReadyToSubmit; }
   get isRejected(): boolean { return this.state === InAppPurchaseState.Rejected; }
 
+  /** True when the IAP needs developer action to make progress (missing
+   *  metadata, rejected, or developer-action-needed). The needs-action
+   *  banner gates on this. */
+  get needsAttention(): boolean {
+    return (
+      this.state === InAppPurchaseState.MissingMetadata ||
+      this.state === InAppPurchaseState.Rejected ||
+      this.state === InAppPurchaseState.DeveloperActionNeeded
+    );
+  }
+
   // ── Capability Checks (server-supplied affordances + state) ──
 
   get canSubmit(): boolean {
