@@ -51,6 +51,10 @@ export interface SubscriptionRepository {
   // ── Pricing ──
   /** Returns null when the subscription has no price schedule yet. */
   priceSchedule(sub: Subscription): Promise<SubscriptionPriceSchedule | null>;
+  setPrices(
+    sub: Subscription,
+    input: Array<{ territoryId: string; pricePointId: string }>,
+  ): Promise<void>;
 
   // ── Review screenshot ──
   reviewScreenshot(sub: Subscription): Promise<SubscriptionReviewScreenshot | null>;
