@@ -28,14 +28,26 @@ function SubscriptionPricingTabImpl({ sub }: Props) {
   const schedule = sub.priceSchedule;
   if (!schedule) {
     return (
-      <div className="card" style={{ textAlign: 'center', padding: 32 }}>
-        <div style={{ fontSize: 32, opacity: 0.4 }}>💰</div>
-        <h4 style={{ marginTop: 8 }}>No price set</h4>
-        <p className="muted" style={{ marginTop: 4 }}>
-          Apple auto-equalises prices once you set the first territory price.
-          The setup wizard ships in a later phase.
-        </p>
-      </div>
+      <>
+        <div className="card" style={{ textAlign: 'center', padding: 32 }}>
+          <div style={{ fontSize: 32, opacity: 0.4 }}>💰</div>
+          <h4 style={{ marginTop: 8 }}>No price set</h4>
+          <p className="muted" style={{ marginTop: 4 }}>
+            Apple auto-equalises every territory once an anchor price is configured.
+          </p>
+          {sub.canSetPrices && (
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              style={{ marginTop: 12 }}
+              onClick={() => setSetPriceOpen(true)}
+            >
+              Set Price
+            </button>
+          )}
+        </div>
+        <SubscriptionSetPriceModal sub={sub} open={setPriceOpen} onClose={() => setSetPriceOpen(false)} />
+      </>
     );
   }
 
@@ -54,8 +66,17 @@ function SubscriptionPricingTabImpl({ sub }: Props) {
             onChange={(e) => setQuery(e.target.value)}
           />
         </div>
-        <div className="toolbar-right">
+        <div className="toolbar-right" style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
           <span className="muted">{rows.length}/{schedule.territoryCount} territories</span>
+          {sub.canSetPrices && (
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => setSetPriceOpen(true)}
+            >
+              Change Price
+            </button>
+          )}
         </div>
       </div>
       <div className="table-wrapper">
@@ -82,6 +103,7 @@ function SubscriptionPricingTabImpl({ sub }: Props) {
           </tbody>
         </table>
       </div>
+      <SubscriptionSetPriceModal sub={sub} open={setPriceOpen} onClose={() => setSetPriceOpen(false)} />
     </div>
   );
 }
