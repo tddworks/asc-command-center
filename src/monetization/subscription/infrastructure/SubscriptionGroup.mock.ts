@@ -1,6 +1,7 @@
 import { Subscription, SubscriptionPeriod, SubscriptionState } from '../Subscription.ts';
 import { SubscriptionGroup } from '../SubscriptionGroup.ts';
 import { SubscriptionLocalization } from '../SubscriptionLocalization.ts';
+import { SubscriptionGroupLocalization } from '../SubscriptionGroupLocalization.ts';
 import { SubscriptionAvailability, SubscriptionTerritoryAvailability } from '../SubscriptionAvailability.ts';
 import { SubscriptionPriceSchedule, SubscriptionTerritoryPrice } from '../SubscriptionPriceSchedule.ts';
 import { SubscriptionReviewScreenshot } from '../SubscriptionReviewScreenshot.ts';
@@ -17,7 +18,10 @@ import type {
   CreateSubscriptionLocalizationInput,
   SubscriptionRepository,
 } from '../SubscriptionRepository.ts';
-import type { SubscriptionGroupRepository } from '../SubscriptionGroupRepository.ts';
+import type {
+  CreateSubscriptionGroupLocalizationInput,
+  SubscriptionGroupRepository,
+} from '../SubscriptionGroupRepository.ts';
 
 /** Deterministic in-memory repo seeding two groups + tier fixtures so the
  *  page exercises both the count badges and the per-tier action buttons. */
@@ -25,6 +29,8 @@ export class MockSubscriptionGroupRepository implements SubscriptionGroupReposit
   private groupsByApp = new Map<string, SubscriptionGroup[]>();
   private tiersByGroup = new Map<string, Subscription[]>();
   private localizationsByTier = new Map<string, SubscriptionLocalization[]>();
+  private groupLocalizationsByGroup = new Map<string, SubscriptionGroupLocalization[]>();
+  private nextGroupLocId = 700;
   private screenshotByTier = new Map<string, SubscriptionReviewScreenshot | null>();
   private availabilityByTier = new Map<string, SubscriptionAvailability>();
   private priceScheduleByTier = new Map<string, SubscriptionPriceSchedule | null>();
@@ -110,6 +116,66 @@ export class MockSubscriptionGroupRepository implements SubscriptionGroupReposit
 
   async submit(_sub: Subscription): Promise<void> {}
   async unsubmit(_sub: Subscription): Promise<void> {}
+
+  // ── Group localizations ──
+
+  async groupLocalizations(group: SubscriptionGroup): Promise<SubscriptionGroupLocalization[]> {
+    const cached = this.groupLocalizationsByGroup.get(group.id);
+    if (cached) return cached.map((l) => l);
+    const seeded = this.seedGroupLocalizationsFor(group);
+    this.groupLocalizationsByGroup.set(group.id, seeded);
+    return seeded.map((l) => l);
+  }
+
+  async createGroupLocalization(
+    group: SubscriptionGroup,
+    input: CreateSubscriptionGroupLocalizationInput,
+  ): Promise<SubscriptionGroupLocalization> {
+    const id = `sub-grouploc-${this.nextGroupLocId++}`;
+    const created = new SubscriptionGroupLocalization({
+      id,
+      locale: input.locale,
+      name: input.name,
+      customAppName: input.customAppName ?? null,
+      affordances: this.groupLocalizationAffordances(id),
+    });
+    const list = this.groupLocalizationsByGroup.get(group.id) ?? [];
+    list.push(created);
+    this.groupLocalizationsByGroup.set(group.id, list);
+    return created;
+  }
+
+  async saveGroupLocalization(_loc: SubscriptionGroupLocalization): Promise<void> {}
+
+  async deleteGroupLocalization(loc: SubscriptionGroupLocalization): Promise<void> {
+    for (const [groupId, list] of this.groupLocalizationsByGroup.entries()) {
+      const next = list.filter((l) => l !== loc);
+      if (next.length !== list.length) {
+        this.groupLocalizationsByGroup.set(groupId, next);
+        return;
+      }
+    }
+  }
+
+  private groupLocalizationAffordances(id: string): Record<string, string> {
+    return {
+      update: `/api/v1/subscription-group-localizations/${id}`,
+      delete: `/api/v1/subscription-group-localizations/${id}`,
+    };
+  }
+
+  private seedGroupLocalizationsFor(group: SubscriptionGroup): SubscriptionGroupLocalization[] {
+    const id = `sub-grouploc-en-${group.id}`;
+    return [
+      new SubscriptionGroupLocalization({
+        id,
+        locale: 'en-US',
+        name: group.referenceName,
+        customAppName: null,
+        affordances: this.groupLocalizationAffordances(id),
+      }),
+    ];
+  }
 
   // ── Pricing ──
 
@@ -259,6 +325,7 @@ export class MockSubscriptionGroupRepository implements SubscriptionGroupReposit
       listSubscriptions: `/api/v1/subscription-groups/${id}/subscriptions`,
       createSubscription: `/api/v1/subscription-groups/${id}/subscriptions`,
       listLocalizations: `/api/v1/subscription-groups/${id}/localizations`,
+      createLocalization: `/api/v1/subscription-groups/${id}/localizations`,
     };
   }
 

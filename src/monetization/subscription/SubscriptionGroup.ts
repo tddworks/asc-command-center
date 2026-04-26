@@ -3,6 +3,7 @@ import type { Affordances } from '../../shared/types.ts';
 import { Subscription } from './Subscription.ts';
 import type { CreateSubscriptionInput } from './SubscriptionRepository.ts';
 import type { SubscriptionGroupRepository } from './SubscriptionGroupRepository.ts';
+import { SubscriptionGroupLocalization } from './SubscriptionGroupLocalization.ts';
 
 export interface SubscriptionGroupInit {
   id: string;
@@ -25,6 +26,10 @@ export class SubscriptionGroup {
   /** Tiers loaded for this group. Populated by `loadSubscriptions`. */
   subscriptions: Subscription[] = [];
 
+  /** Group-level localizations (display name + custom app name per locale). */
+  groupLocalizations: SubscriptionGroupLocalization[] = [];
+  isGroupLocalizationsLoaded = false;
+
   repository: SubscriptionGroupRepository | null;
 
   constructor(init: SubscriptionGroupInit, repository: SubscriptionGroupRepository | null = null) {
@@ -44,6 +49,8 @@ export class SubscriptionGroup {
   get canViewSubscriptions(): boolean { return 'listSubscriptions' in this.affordances; }
   get canCreateSubscription(): boolean { return 'createSubscription' in this.affordances; }
   get canViewLocalizations(): boolean { return 'listLocalizations' in this.affordances; }
+  get canViewGroupLocalizations(): boolean { return 'listLocalizations' in this.affordances; }
+  get canCreateGroupLocalization(): boolean { return 'createLocalization' in this.affordances; }
 
   // ── Display ──
 
@@ -79,6 +86,49 @@ export class SubscriptionGroup {
     const created = await this.requireRepo().createSubscription({ ...input, groupId: this.id });
     runInAction(() => { this.subscriptions = [...this.subscriptions, created]; });
     return created;
+  }
+
+  // ── Group localization navigation (mutating) ──
+
+  async loadGroupLocalizations(): Promise<SubscriptionGroupLocalization[]> {
+    if (!this.canViewGroupLocalizations) {
+      runInAction(() => {
+        this.groupLocalizations = [];
+        this.isGroupLocalizationsLoaded = true;
+      });
+      return [];
+    }
+    const repo = this.requireRepo();
+    const list = await repo.groupLocalizations(this);
+    runInAction(() => {
+      list.forEach((l) => l.setRepository(repo));
+      this.groupLocalizations = list;
+      this.isGroupLocalizationsLoaded = true;
+    });
+    return list;
+  }
+
+  async addGroupLocalization(input: { locale: string; name: string; customAppName?: string | null }): Promise<SubscriptionGroupLocalization> {
+    if (!this.canCreateGroupLocalization) {
+      throw new Error(`SubscriptionGroup ${this.id} cannot create a localization (no createLocalization affordance)`);
+    }
+    const repo = this.requireRepo();
+    const created = await repo.createGroupLocalization(this, input);
+    runInAction(() => {
+      created.setRepository(repo);
+      this.groupLocalizations = [...this.groupLocalizations, created];
+    });
+    return created;
+  }
+
+  async removeGroupLocalization(loc: SubscriptionGroupLocalization): Promise<void> {
+    if (!loc.canDelete) {
+      throw new Error(`Group localization ${loc.locale} cannot be deleted (no delete affordance)`);
+    }
+    await loc.delete();
+    runInAction(() => {
+      this.groupLocalizations = this.groupLocalizations.filter((l) => l !== loc);
+    });
   }
 
   async removeSubscription(sub: Subscription): Promise<void> {
