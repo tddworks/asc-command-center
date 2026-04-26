@@ -326,10 +326,52 @@ export class RestSubscriptionGroupRepository implements SubscriptionGroupReposit
     return json.data.map(SubscriptionIntroductoryOffer.fromJSON);
   }
 
+  async createIntroductoryOffer(
+    sub: Subscription,
+    input: Record<string, unknown>,
+  ): Promise<SubscriptionIntroductoryOffer> {
+    const url = sub.affordances.createIntroductoryOffer ?? `/api/v1/subscriptions/${sub.id}/introductory-offers`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) throw new Error(`POST ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
+    const body = await res.json().catch(() => ({}));
+    return SubscriptionIntroductoryOffer.fromJSON((body.data ?? body) as Record<string, unknown>);
+  }
+
+  async deleteIntroductoryOffer(offer: SubscriptionIntroductoryOffer): Promise<void> {
+    const url = `/api/v1/subscription-introductory-offers/${offer.id}`;
+    const res = await fetch(url, { method: 'DELETE' });
+    if (!res.ok) throw new Error(`DELETE ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
+  }
+
   async promotionalOffers(sub: Subscription): Promise<SubscriptionPromotionalOffer[]> {
     const url = sub.affordances.listPromotionalOffers ?? `/api/v1/subscriptions/${sub.id}/promotional-offers`;
     const json = await apiClient.get<{ data: Record<string, unknown>[] }>(url);
     return json.data.map(SubscriptionPromotionalOffer.fromJSON);
+  }
+
+  async createPromotionalOffer(
+    sub: Subscription,
+    input: Record<string, unknown>,
+  ): Promise<SubscriptionPromotionalOffer> {
+    const url = sub.affordances.createPromotionalOffer ?? `/api/v1/subscriptions/${sub.id}/promotional-offers`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) throw new Error(`POST ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
+    const body = await res.json().catch(() => ({}));
+    return SubscriptionPromotionalOffer.fromJSON((body.data ?? body) as Record<string, unknown>);
+  }
+
+  async deletePromotionalOffer(offer: SubscriptionPromotionalOffer): Promise<void> {
+    const url = offer.affordances.delete ?? `/api/v1/subscription-promotional-offers/${offer.id}`;
+    const res = await fetch(url, { method: 'DELETE' });
+    if (!res.ok) throw new Error(`DELETE ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
   }
 
   async offerCodes(sub: Subscription): Promise<SubscriptionOfferCode[]> {

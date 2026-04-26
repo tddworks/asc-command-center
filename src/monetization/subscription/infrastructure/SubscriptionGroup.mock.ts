@@ -247,9 +247,57 @@ export class MockSubscriptionGroupRepository implements SubscriptionGroupReposit
     return mockIntroductoryOffersFor(sub);
   }
 
+  async createIntroductoryOffer(
+    sub: Subscription,
+    input: {
+      offerMode: OfferMode | string;
+      duration: SubscriptionDuration | string;
+      numberOfPeriods: number;
+      territory?: string | null;
+      startDate?: string | null;
+      endDate?: string | null;
+    },
+  ): Promise<SubscriptionIntroductoryOffer> {
+    void sub;
+    return new SubscriptionIntroductoryOffer({
+      id: `intro-mock-${Date.now()}`,
+      offerMode: input.offerMode,
+      duration: input.duration,
+      numberOfPeriods: input.numberOfPeriods,
+      territory: input.territory ?? null,
+      startDate: input.startDate ?? null,
+      endDate: input.endDate ?? null,
+    });
+  }
+
+  async deleteIntroductoryOffer(_offer: SubscriptionIntroductoryOffer): Promise<void> {}
+
   async promotionalOffers(sub: Subscription): Promise<SubscriptionPromotionalOffer[]> {
     return mockPromotionalOffersFor(sub);
   }
+
+  async createPromotionalOffer(
+    sub: Subscription,
+    input: {
+      name: string;
+      offerCode: string;
+      offerMode: OfferMode | string;
+      duration: SubscriptionDuration | string;
+      numberOfPeriods: number;
+    },
+  ): Promise<SubscriptionPromotionalOffer> {
+    void sub;
+    return new SubscriptionPromotionalOffer({
+      id: `promo-mock-${Date.now()}`,
+      name: input.name,
+      offerCode: input.offerCode,
+      offerMode: input.offerMode,
+      duration: input.duration,
+      numberOfPeriods: input.numberOfPeriods,
+    });
+  }
+
+  async deletePromotionalOffer(_offer: SubscriptionPromotionalOffer): Promise<void> {}
 
   async offerCodes(sub: Subscription): Promise<SubscriptionOfferCode[]> {
     return mockOfferCodesFor(sub);
@@ -369,7 +417,9 @@ export class MockSubscriptionGroupRepository implements SubscriptionGroupReposit
       getAvailability: `/api/v1/subscriptions/${id}/availability`,
       setAvailability: `/api/v1/subscriptions/${id}/availability`,
       listIntroductoryOffers: `/api/v1/subscriptions/${id}/introductory-offers`,
+      createIntroductoryOffer: `/api/v1/subscriptions/${id}/introductory-offers`,
       listPromotionalOffers: `/api/v1/subscriptions/${id}/promotional-offers`,
+      createPromotionalOffer: `/api/v1/subscriptions/${id}/promotional-offers`,
       listOfferCodes: `/api/v1/subscriptions/${id}/offer-codes`,
       createOfferCode: `/api/v1/subscriptions/${id}/offer-codes`,
     };
