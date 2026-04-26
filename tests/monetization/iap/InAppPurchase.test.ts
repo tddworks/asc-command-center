@@ -33,6 +33,7 @@ function stubRepo(overrides: Partial<InAppPurchaseRepository> = {}): InAppPurcha
     setAvailability: vi.fn().mockResolvedValue(undefined),
     offerCodes: vi.fn().mockResolvedValue([]),
     deactivateOfferCode: vi.fn().mockResolvedValue(undefined),
+    createOfferCode: vi.fn(),
     setPrice: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
@@ -585,6 +586,50 @@ describe('InAppPurchase', () => {
     await iap.loadOfferCodes();
 
     expect(iap.activeOfferCodeCount).toBe(1);
+  });
+
+  // ── createOfferCode ──
+
+  it('canCreateOfferCode maps to the createOfferCode affordance', () => {
+    expect(new InAppPurchase(iapInit({ affordances: { createOfferCode: '/x' } })).canCreateOfferCode).toBe(true);
+    expect(new InAppPurchase(iapInit({ affordances: {} })).canCreateOfferCode).toBe(false);
+  });
+
+  it('createOfferCode appends the created offer code to the list and attaches the repo', async () => {
+    const created = new InAppPurchaseOfferCode({
+      id: 'oc-new',
+      iapId: 'iap-1',
+      name: 'WELCOME',
+      customerEligibilities: [IAPCustomerEligibility.NonSpender],
+      isActive: true,
+    });
+    const createOfferCode = vi.fn().mockResolvedValue(created);
+    const repo = stubRepo({ createOfferCode });
+    const iap = new InAppPurchase(iapInit({ affordances: { createOfferCode: '/x' } }), repo);
+
+    const result = await iap.createOfferCode({
+      name: 'WELCOME',
+      customerEligibilities: [IAPCustomerEligibility.NonSpender],
+    });
+
+    expect(createOfferCode).toHaveBeenCalledWith(iap, {
+      name: 'WELCOME',
+      customerEligibilities: [IAPCustomerEligibility.NonSpender],
+    });
+    expect(result).toBe(created);
+    expect(iap.offerCodes).toContain(created);
+    expect(created.repository).toBe(repo);
+  });
+
+  it('createOfferCode throws when affordance missing', async () => {
+    const repo = stubRepo();
+    const iap = new InAppPurchase(iapInit({ affordances: {} }), repo);
+
+    await expect(iap.createOfferCode({
+      name: 'X',
+      customerEligibilities: [IAPCustomerEligibility.NonSpender],
+    })).rejects.toThrow(/cannot create offer code/);
+    expect(repo.createOfferCode).not.toHaveBeenCalled();
   });
 
   // ── setPrice ──
