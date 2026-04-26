@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import type { InAppPurchase } from '../InAppPurchase.ts';
 import type { InAppPurchaseOfferCode } from '../InAppPurchaseOfferCode.ts';
+import { CreateIAPOfferCodeModal } from './CreateIAPOfferCodeModal.tsx';
 
 interface Props {
   iap: InAppPurchase;
@@ -61,6 +62,7 @@ function OfferCodeRow({ code }: { code: InAppPurchaseOfferCode }) {
 const ObservedOfferCodeRow = observer(OfferCodeRow);
 
 function IAPOffersTabImpl({ iap }: Props) {
+  const [createOpen, setCreateOpen] = useState(false);
   useEffect(() => {
     if (iap.isOfferCodesLoaded) return;
     void iap.loadOfferCodes().catch((err) => {
@@ -85,9 +87,15 @@ function IAPOffersTabImpl({ iap }: Props) {
           </span>
         </div>
         <div className="toolbar-right">
-          <span className="muted" style={{ fontSize: 12 }}>
-            Create wizard ships in a later phase.
-          </span>
+          {iap.canCreateOfferCode && (
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={() => setCreateOpen(true)}
+            >
+              + New Offer Code
+            </button>
+          )}
         </div>
       </div>
       {iap.offerCodes.length === 0 ? (
@@ -115,6 +123,7 @@ function IAPOffersTabImpl({ iap }: Props) {
           </table>
         </div>
       )}
+      <CreateIAPOfferCodeModal iap={iap} open={createOpen} onClose={() => setCreateOpen(false)} />
     </div>
   );
 }

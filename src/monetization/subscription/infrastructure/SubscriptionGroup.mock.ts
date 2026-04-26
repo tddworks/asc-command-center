@@ -255,6 +255,30 @@ export class MockSubscriptionGroupRepository implements SubscriptionGroupReposit
     return mockOfferCodesFor(sub);
   }
 
+  async createOfferCode(
+    sub: Subscription,
+    input: {
+      name: string;
+      offerMode: OfferMode | string;
+      duration: SubscriptionDuration | string;
+      numberOfPeriods: number;
+      customerEligibilities: SubscriptionCustomerEligibility[];
+    },
+  ): Promise<SubscriptionOfferCode> {
+    void sub;
+    const id = `sc-mock-${Date.now()}`;
+    return new SubscriptionOfferCode({
+      id,
+      name: input.name,
+      offerMode: input.offerMode,
+      duration: input.duration,
+      numberOfPeriods: input.numberOfPeriods,
+      customerEligibilities: input.customerEligibilities,
+      isActive: true,
+      totalNumberOfCodes: 0,
+    });
+  }
+
   // ── Localizations ──
 
   async localizations(sub: Subscription): Promise<SubscriptionLocalization[]> {
@@ -347,6 +371,7 @@ export class MockSubscriptionGroupRepository implements SubscriptionGroupReposit
       listIntroductoryOffers: `/api/v1/subscriptions/${id}/introductory-offers`,
       listPromotionalOffers: `/api/v1/subscriptions/${id}/promotional-offers`,
       listOfferCodes: `/api/v1/subscriptions/${id}/offer-codes`,
+      createOfferCode: `/api/v1/subscriptions/${id}/offer-codes`,
     };
   }
 

@@ -185,6 +185,27 @@ export class MockInAppPurchaseRepository implements InAppPurchaseRepository {
     // map references the same instance.
   }
 
+  async createOfferCode(
+    iap: InAppPurchase,
+    input: { name: string; customerEligibilities: IAPCustomerEligibility[] },
+  ): Promise<InAppPurchaseOfferCode> {
+    const id = `oc-mock-${Date.now()}`;
+    const created = new InAppPurchaseOfferCode({
+      id,
+      iapId: iap.id,
+      name: input.name,
+      customerEligibilities: input.customerEligibilities,
+      isActive: true,
+      productionCodeCount: 0,
+      sandboxCodeCount: 0,
+      affordances: { deactivate: `/api/v1/iap-offer-codes/${id}` },
+    });
+    const list = this.offerCodesByIap.get(iap.id) ?? [];
+    list.push(created);
+    this.offerCodesByIap.set(iap.id, list);
+    return created;
+  }
+
   // ── Review screenshot ──
 
   async reviewScreenshot(iap: InAppPurchase): Promise<ReviewScreenshot | null> {
@@ -261,6 +282,7 @@ export class MockInAppPurchaseRepository implements InAppPurchaseRepository {
       getAvailability: `/api/v1/iap/${id}/availability`,
       setAvailability: `/api/v1/iap/${id}/availability`,
       listOfferCodes: `/api/v1/iap/${id}/offer-codes`,
+      createOfferCode: `/api/v1/iap/${id}/offer-codes`,
     };
   }
 

@@ -5,6 +5,9 @@ import type { SubscriptionAvailability } from './SubscriptionAvailability.ts';
 import type { SubscriptionPriceSchedule } from './SubscriptionPriceSchedule.ts';
 import type { SubscriptionReviewScreenshot } from './SubscriptionReviewScreenshot.ts';
 import type {
+  OfferMode,
+  SubscriptionCustomerEligibility,
+  SubscriptionDuration,
   SubscriptionIntroductoryOffer,
   SubscriptionOfferCode,
   SubscriptionPromotionalOffer,
@@ -152,6 +155,7 @@ export class Subscription {
   get canViewIntroductoryOffers(): boolean { return 'listIntroductoryOffers' in this.affordances; }
   get canViewPromotionalOffers(): boolean { return 'listPromotionalOffers' in this.affordances; }
   get canViewOfferCodes(): boolean { return 'listOfferCodes' in this.affordances; }
+  get canCreateOfferCode(): boolean { return 'createOfferCode' in this.affordances; }
 
   // ── Localization aggregation ──
 
@@ -373,6 +377,23 @@ export class Subscription {
       this.isPromotionalOffersLoaded = true;
     });
     return list;
+  }
+
+  async createOfferCode(input: {
+    name: string;
+    offerMode: OfferMode | string;
+    duration: SubscriptionDuration | string;
+    numberOfPeriods: number;
+    customerEligibilities: SubscriptionCustomerEligibility[];
+  }): Promise<SubscriptionOfferCode> {
+    if (!this.canCreateOfferCode) {
+      throw new Error(`Subscription ${this.id} cannot create offer code (no createOfferCode affordance)`);
+    }
+    const created = await this.requireRepo().createOfferCode(this, input);
+    runInAction(() => {
+      this.offerCodes = [...this.offerCodes, created];
+    });
+    return created;
   }
 
   async loadOfferCodes(): Promise<SubscriptionOfferCode[]> {

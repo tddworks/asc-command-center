@@ -4,10 +4,21 @@ import type { SubscriptionAvailability } from './SubscriptionAvailability.ts';
 import type { SubscriptionPriceSchedule } from './SubscriptionPriceSchedule.ts';
 import type { SubscriptionReviewScreenshot } from './SubscriptionReviewScreenshot.ts';
 import type {
+  OfferMode,
+  SubscriptionCustomerEligibility,
+  SubscriptionDuration,
   SubscriptionIntroductoryOffer,
   SubscriptionOfferCode,
   SubscriptionPromotionalOffer,
 } from './SubscriptionOffers.ts';
+
+export interface CreateSubscriptionOfferCodeInput {
+  name: string;
+  offerMode: OfferMode | string;
+  duration: SubscriptionDuration | string;
+  numberOfPeriods: number;
+  customerEligibilities: SubscriptionCustomerEligibility[];
+}
 
 export interface CreateSubscriptionInput {
   groupId: string;
@@ -72,4 +83,5 @@ export interface SubscriptionRepository {
   introductoryOffers(sub: Subscription): Promise<SubscriptionIntroductoryOffer[]>;
   promotionalOffers(sub: Subscription): Promise<SubscriptionPromotionalOffer[]>;
   offerCodes(sub: Subscription): Promise<SubscriptionOfferCode[]>;
+  createOfferCode(sub: Subscription, input: CreateSubscriptionOfferCodeInput): Promise<SubscriptionOfferCode>;
 }
