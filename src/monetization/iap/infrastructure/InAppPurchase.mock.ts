@@ -1,5 +1,6 @@
 import { InAppPurchase, InAppPurchaseState, InAppPurchaseType } from '../InAppPurchase.ts';
 import { InAppPurchaseLocalization } from '../InAppPurchaseLocalization.ts';
+import { ReviewScreenshot } from '../ReviewScreenshot.ts';
 import type {
   CreateInAppPurchaseInput,
   CreateInAppPurchaseLocalizationInput,
@@ -17,7 +18,9 @@ export class MockInAppPurchaseRepository implements InAppPurchaseRepository {
   /** Per-IAP localization fixtures. Mutations persist on this map so the
    *  detail page reflects every add/delete/update without re-fetching. */
   private localizationsByIap = new Map<string, InAppPurchaseLocalization[]>();
+  private screenshotByIap = new Map<string, ReviewScreenshot | null>();
   private nextLocId = 100;
+  private nextShotId = 200;
 
   async list(appId: string): Promise<InAppPurchase[]> {
     if (!this.byApp.has(appId)) {
@@ -122,6 +125,36 @@ export class MockInAppPurchaseRepository implements InAppPurchaseRepository {
     }
   }
 
+  // ── Review screenshot ──
+
+  async reviewScreenshot(iap: InAppPurchase): Promise<ReviewScreenshot | null> {
+    return this.screenshotByIap.get(iap.id) ?? null;
+  }
+
+  async uploadReviewScreenshot(iap: InAppPurchase, file: File): Promise<ReviewScreenshot> {
+    const id = `shot-${this.nextShotId++}`;
+    // Read the file as a data URL so the page can display the upload
+    // immediately without a CDN. Real backends sign a CDN URL instead.
+    const previewUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(file);
+    });
+    const screenshot = new ReviewScreenshot({
+      id,
+      fileName: file.name,
+      previewUrl,
+      affordances: { delete: `/api/v1/iap/${iap.id}/review-screenshot` },
+    });
+    this.screenshotByIap.set(iap.id, screenshot);
+    return screenshot;
+  }
+
+  async deleteReviewScreenshot(iap: InAppPurchase, _screenshot: ReviewScreenshot): Promise<void> {
+    this.screenshotByIap.set(iap.id, null);
+  }
+
   private localizationAffordances(id: string): Record<string, string> {
     return {
       update: `/api/v1/iap-localizations/${id}`,
@@ -161,6 +194,8 @@ export class MockInAppPurchaseRepository implements InAppPurchaseRepository {
       unsubmit: `/api/v1/iap/${id}/submit`,
       listLocalizations: `/api/v1/iap/${id}/localizations`,
       createLocalization: `/api/v1/iap/${id}/localizations`,
+      getReviewScreenshot: `/api/v1/iap/${id}/review-screenshot`,
+      uploadReviewScreenshot: `/api/v1/iap/${id}/review-screenshot`,
       getPriceSchedule: `/api/v1/iap/${id}/price-schedule`,
       getAvailability: `/api/v1/iap/${id}/availability`,
       listOfferCodes: `/api/v1/iap/${id}/offer-codes`,

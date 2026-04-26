@@ -1,5 +1,6 @@
 import { InAppPurchase } from '../InAppPurchase.ts';
 import { InAppPurchaseLocalization } from '../InAppPurchaseLocalization.ts';
+import { ReviewScreenshot } from '../ReviewScreenshot.ts';
 import { apiClient, type DataMode } from '../../../shared/api-client.tsx';
 import type {
   CreateInAppPurchaseInput,
@@ -128,6 +129,44 @@ export class RestInAppPurchaseRepository implements InAppPurchaseRepository {
 
   async deleteLocalization(loc: InAppPurchaseLocalization): Promise<void> {
     const url = loc.deleteUrl ?? `/api/v1/iap-localizations/${loc.id}`;
+    const res = await fetch(url, { method: 'DELETE' });
+    if (!res.ok) {
+      throw new Error(`DELETE ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
+    }
+  }
+
+  // ── Review screenshot ──
+
+  async reviewScreenshot(iap: InAppPurchase): Promise<ReviewScreenshot | null> {
+    const url = iap.affordances.getReviewScreenshot ?? `/api/v1/iap/${iap.id}/review-screenshot`;
+    try {
+      const json = await apiClient.get<{ data: Record<string, unknown> | null }>(url);
+      const row = Array.isArray(json.data) ? (json.data as Record<string, unknown>[])[0] : json.data;
+      return row ? ReviewScreenshot.fromJSON(row) : null;
+    } catch (err) {
+      // Treat 404 as "no screenshot uploaded yet" — that's the common
+      // first-time state, not an error worth surfacing.
+      const msg = (err as Error).message ?? '';
+      if (msg.includes('404')) return null;
+      throw err;
+    }
+  }
+
+  async uploadReviewScreenshot(iap: InAppPurchase, file: File): Promise<ReviewScreenshot> {
+    const url = iap.affordances.uploadReviewScreenshot ?? `/api/v1/iap/${iap.id}/review-screenshot`;
+    const body = new FormData();
+    body.append('file', file, file.name);
+    const res = await fetch(url, { method: 'POST', body });
+    if (!res.ok) {
+      throw new Error(`POST ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
+    }
+    const json = await res.json().catch(() => ({}));
+    const data = (json.data ?? json) as Record<string, unknown>;
+    return ReviewScreenshot.fromJSON(data);
+  }
+
+  async deleteReviewScreenshot(iap: InAppPurchase, screenshot: ReviewScreenshot): Promise<void> {
+    const url = screenshot.deleteUrl ?? `/api/v1/iap/${iap.id}/review-screenshot`;
     const res = await fetch(url, { method: 'DELETE' });
     if (!res.ok) {
       throw new Error(`DELETE ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);

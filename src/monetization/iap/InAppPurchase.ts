@@ -1,6 +1,7 @@
 import { makeAutoObservable, runInAction } from 'mobx';
 import type { Affordances } from '../../shared/types.ts';
 import { InAppPurchaseLocalization } from './InAppPurchaseLocalization.ts';
+import type { ReviewScreenshot } from './ReviewScreenshot.ts';
 import type { InAppPurchaseRepository } from './InAppPurchaseRepository.ts';
 
 export const InAppPurchaseType = {
@@ -64,6 +65,13 @@ export class InAppPurchase {
    *  apart from "loaded but empty". */
   isLocalizationsLoaded = false;
 
+  /** Currently uploaded review screenshot, or null when none exists. */
+  reviewScreenshot: ReviewScreenshot | null = null;
+  /** True once `loadReviewScreenshot()` has resolved. The "no screenshot
+   *  yet" empty state and the "still loading" spinner share the same
+   *  `null` value otherwise. */
+  isReviewScreenshotLoaded = false;
+
   repository: InAppPurchaseRepository | null;
 
   constructor(init: InAppPurchaseInit, repository: InAppPurchaseRepository | null = null) {
@@ -121,6 +129,8 @@ export class InAppPurchase {
   get canViewPricing(): boolean { return 'getPriceSchedule' in this.affordances; }
   get canViewAvailability(): boolean { return 'getAvailability' in this.affordances; }
   get canViewOfferCodes(): boolean { return 'listOfferCodes' in this.affordances; }
+  get canViewReviewScreenshot(): boolean { return 'getReviewScreenshot' in this.affordances; }
+  get canUploadReviewScreenshot(): boolean { return 'uploadReviewScreenshot' in this.affordances; }
 
   // ── Localization aggregation ──
 
@@ -271,6 +281,66 @@ export class InAppPurchase {
     runInAction(() => {
       this.localizations = this.localizations.filter((l) => l !== loc);
     });
+  }
+
+  // ── Review (notes + screenshot) ──
+
+  /** Save the review note for App Review. Reuses the same `update`
+   *  affordance gate as `update()` since it's the same PATCH endpoint. */
+  async updateReviewNote(note: string | null): Promise<void> {
+    if (!('update' in this.affordances)) {
+      throw new Error(`IAP ${this.id} cannot update review note (no update affordance)`);
+    }
+    await this.requireRepo().update(this, { reviewNote: note });
+    runInAction(() => { this.reviewNote = note; });
+  }
+
+  /** Lazy-load the review screenshot. Short-circuits to null when the
+   *  affordance is missing. */
+  async loadReviewScreenshot(): Promise<ReviewScreenshot | null> {
+    if (!this.canViewReviewScreenshot) {
+      runInAction(() => {
+        this.reviewScreenshot = null;
+        this.isReviewScreenshotLoaded = true;
+      });
+      return null;
+    }
+    const fetched = await this.requireRepo().reviewScreenshot(this);
+    runInAction(() => {
+      this.reviewScreenshot = fetched;
+      this.isReviewScreenshotLoaded = true;
+    });
+    return fetched;
+  }
+
+  /** Replace the existing screenshot (if any) with a new upload. Apple's
+   *  resource is one-to-one — uploading while one already exists deletes
+   *  the previous first so the page doesn't have to orchestrate. */
+  async uploadReviewScreenshot(file: File): Promise<ReviewScreenshot> {
+    if (!this.canUploadReviewScreenshot) {
+      throw new Error(`IAP ${this.id} cannot upload review screenshot (no uploadReviewScreenshot affordance)`);
+    }
+    const repo = this.requireRepo();
+    if (this.reviewScreenshot && this.reviewScreenshot.canDelete) {
+      await repo.deleteReviewScreenshot(this, this.reviewScreenshot);
+    }
+    const created = await repo.uploadReviewScreenshot(this, file);
+    runInAction(() => {
+      this.reviewScreenshot = created;
+      this.isReviewScreenshotLoaded = true;
+    });
+    return created;
+  }
+
+  async deleteReviewScreenshot(): Promise<void> {
+    if (!this.reviewScreenshot) {
+      throw new Error(`IAP ${this.id} has no review screenshot to delete`);
+    }
+    if (!this.reviewScreenshot.canDelete) {
+      throw new Error(`IAP ${this.id} review screenshot cannot be deleted (no delete affordance)`);
+    }
+    await this.requireRepo().deleteReviewScreenshot(this, this.reviewScreenshot);
+    runInAction(() => { this.reviewScreenshot = null; });
   }
 
   setRepository(repo: InAppPurchaseRepository): void {
