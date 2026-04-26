@@ -4,6 +4,14 @@ import { SubscriptionLocalization } from '../SubscriptionLocalization.ts';
 import { SubscriptionAvailability, SubscriptionTerritoryAvailability } from '../SubscriptionAvailability.ts';
 import { SubscriptionPriceSchedule, SubscriptionTerritoryPrice } from '../SubscriptionPriceSchedule.ts';
 import { SubscriptionReviewScreenshot } from '../SubscriptionReviewScreenshot.ts';
+import {
+  OfferMode,
+  SubscriptionCustomerEligibility,
+  SubscriptionDuration,
+  SubscriptionIntroductoryOffer,
+  SubscriptionOfferCode,
+  SubscriptionPromotionalOffer,
+} from '../SubscriptionOffers.ts';
 import type {
   CreateSubscriptionInput,
   CreateSubscriptionLocalizationInput,
@@ -155,6 +163,20 @@ export class MockSubscriptionGroupRepository implements SubscriptionGroupReposit
     // domain side is sufficient; nothing else to persist.
   }
 
+  // ── Offers ──
+
+  async introductoryOffers(sub: Subscription): Promise<SubscriptionIntroductoryOffer[]> {
+    return mockIntroductoryOffersFor(sub);
+  }
+
+  async promotionalOffers(sub: Subscription): Promise<SubscriptionPromotionalOffer[]> {
+    return mockPromotionalOffersFor(sub);
+  }
+
+  async offerCodes(sub: Subscription): Promise<SubscriptionOfferCode[]> {
+    return mockOfferCodesFor(sub);
+  }
+
   // ── Localizations ──
 
   async localizations(sub: Subscription): Promise<SubscriptionLocalization[]> {
@@ -242,9 +264,9 @@ export class MockSubscriptionGroupRepository implements SubscriptionGroupReposit
       uploadReviewScreenshot: `/api/v1/subscriptions/${id}/review-screenshot`,
       getAvailability: `/api/v1/subscriptions/${id}/availability`,
       setAvailability: `/api/v1/subscriptions/${id}/availability`,
+      listIntroductoryOffers: `/api/v1/subscriptions/${id}/introductory-offers`,
+      listPromotionalOffers: `/api/v1/subscriptions/${id}/promotional-offers`,
       listOfferCodes: `/api/v1/subscriptions/${id}/offer-codes`,
-      listIntroOffers: `/api/v1/subscriptions/${id}/intro-offers`,
-      listPromoOffers: `/api/v1/subscriptions/${id}/promo-offers`,
     };
   }
 
@@ -350,4 +372,49 @@ function mockSubAvailabilityFor(sub: Subscription): SubscriptionAvailability {
     availableInNewTerritories: usd !== null,
     territories,
   });
+}
+
+function mockIntroductoryOffersFor(sub: Subscription): SubscriptionIntroductoryOffer[] {
+  // Approved tiers ship with a free-trial offer; others stay empty.
+  if (sub.id !== 'sub-1' && sub.id !== 'sub-2') return [];
+  return [
+    new SubscriptionIntroductoryOffer({
+      id: `intro-${sub.id}`,
+      offerMode: OfferMode.FreeTrial,
+      duration: SubscriptionDuration.OneWeek,
+      numberOfPeriods: 1,
+      territory: 'USA',
+      startDate: '2026-01-01',
+    }),
+  ];
+}
+
+function mockPromotionalOffersFor(sub: Subscription): SubscriptionPromotionalOffer[] {
+  if (sub.id !== 'sub-2') return [];
+  return [
+    new SubscriptionPromotionalOffer({
+      id: `promo-${sub.id}`,
+      name: 'Holiday 2026',
+      offerCode: 'HOLIDAY2026',
+      offerMode: OfferMode.PayAsYouGo,
+      duration: SubscriptionDuration.OneMonth,
+      numberOfPeriods: 3,
+    }),
+  ];
+}
+
+function mockOfferCodesFor(sub: Subscription): SubscriptionOfferCode[] {
+  if (sub.id !== 'sub-1') return [];
+  return [
+    new SubscriptionOfferCode({
+      id: `code-${sub.id}-welcome`,
+      name: 'WELCOME50',
+      offerMode: OfferMode.PayAsYouGo,
+      duration: SubscriptionDuration.OneMonth,
+      numberOfPeriods: 1,
+      customerEligibilities: [SubscriptionCustomerEligibility.New],
+      isActive: true,
+      totalNumberOfCodes: 500,
+    }),
+  ];
 }

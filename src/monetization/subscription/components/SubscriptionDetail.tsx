@@ -4,6 +4,7 @@ import type { Subscription } from '../Subscription.ts';
 import { subscriptionGroups } from '../subscriptionGroupsInstance.ts';
 import { SubscriptionAvailabilityTab } from './SubscriptionAvailabilityTab.tsx';
 import { SubscriptionLocalizationsTab } from './SubscriptionLocalizationsTab.tsx';
+import { SubscriptionOffersTab } from './SubscriptionOffersTab.tsx';
 import { SubscriptionPricingTab } from './SubscriptionPricingTab.tsx';
 import { SubscriptionReviewTab } from './SubscriptionReviewTab.tsx';
 
@@ -24,15 +25,6 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: 'review', label: 'Review' },
   { key: 'offers', label: 'Offers' },
 ];
-
-function ComingSoon({ tab }: { tab: TabKey }) {
-  return (
-    <div className="card" style={{ textAlign: 'center', padding: 32 }}>
-      <h4 style={{ marginBottom: 4 }}>{tab.charAt(0).toUpperCase() + tab.slice(1)} — coming soon</h4>
-      <p className="muted">This tab will land in a later phase. The Localizations tab is the active workflow today.</p>
-    </div>
-  );
-}
 
 interface Props {
   sub: Subscription;
@@ -132,7 +124,7 @@ function SubscriptionDetailImpl({ sub }: Props) {
       {tab === 'pricing' && <SubscriptionPricingTab sub={sub} />}
       {tab === 'availability' && <SubscriptionAvailabilityTab sub={sub} />}
       {tab === 'review' && <SubscriptionReviewTab sub={sub} />}
-      {tab === 'offers' && <ComingSoon tab={tab} />}
+      {tab === 'offers' && <SubscriptionOffersTab sub={sub} />}
     </div>
   );
 }

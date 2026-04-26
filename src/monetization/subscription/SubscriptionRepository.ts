@@ -3,6 +3,11 @@ import type { SubscriptionLocalization } from './SubscriptionLocalization.ts';
 import type { SubscriptionAvailability } from './SubscriptionAvailability.ts';
 import type { SubscriptionPriceSchedule } from './SubscriptionPriceSchedule.ts';
 import type { SubscriptionReviewScreenshot } from './SubscriptionReviewScreenshot.ts';
+import type {
+  SubscriptionIntroductoryOffer,
+  SubscriptionOfferCode,
+  SubscriptionPromotionalOffer,
+} from './SubscriptionOffers.ts';
 
 export interface CreateSubscriptionInput {
   groupId: string;
@@ -58,4 +63,9 @@ export interface SubscriptionRepository {
     sub: Subscription,
     input: { territoryIds: string[]; availableInNewTerritories: boolean },
   ): Promise<void>;
+
+  // ── Offers ──
+  introductoryOffers(sub: Subscription): Promise<SubscriptionIntroductoryOffer[]>;
+  promotionalOffers(sub: Subscription): Promise<SubscriptionPromotionalOffer[]>;
+  offerCodes(sub: Subscription): Promise<SubscriptionOfferCode[]>;
 }

@@ -9,6 +9,14 @@ import { SubscriptionLocalization } from '../../../src/monetization/subscription
 import { SubscriptionPriceSchedule } from '../../../src/monetization/subscription/SubscriptionPriceSchedule.ts';
 import { SubscriptionReviewScreenshot } from '../../../src/monetization/subscription/SubscriptionReviewScreenshot.ts';
 import { SubscriptionAvailability, SubscriptionTerritoryAvailability } from '../../../src/monetization/subscription/SubscriptionAvailability.ts';
+import {
+  OfferMode,
+  SubscriptionDuration,
+  SubscriptionIntroductoryOffer,
+  SubscriptionPromotionalOffer,
+  SubscriptionOfferCode,
+  SubscriptionCustomerEligibility,
+} from '../../../src/monetization/subscription/SubscriptionOffers.ts';
 import type { SubscriptionRepository } from '../../../src/monetization/subscription/SubscriptionRepository.ts';
 
 function stubRepo(overrides: Partial<SubscriptionRepository> = {}): SubscriptionRepository {
@@ -27,6 +35,9 @@ function stubRepo(overrides: Partial<SubscriptionRepository> = {}): Subscription
     deleteReviewScreenshot: vi.fn().mockResolvedValue(undefined),
     availability: vi.fn().mockResolvedValue(null),
     setAvailability: vi.fn().mockResolvedValue(undefined),
+    introductoryOffers: vi.fn().mockResolvedValue([]),
+    promotionalOffers: vi.fn().mockResolvedValue([]),
+    offerCodes: vi.fn().mockResolvedValue([]),
     ...overrides,
   };
 }
@@ -422,6 +433,81 @@ describe('Subscription', () => {
     const sub = new Subscription(subInit({ affordances: { setAvailability: '/y' } }), repo);
 
     await expect(sub.saveAvailability()).rejects.toThrow(/no availability loaded/);
+  });
+
+  // ── Offers ──
+
+  it('canViewIntroductoryOffers / canViewPromotionalOffers / canViewOfferCodes map to affordances', () => {
+    const open = new Subscription(subInit({
+      affordances: {
+        listIntroductoryOffers: '/x',
+        listPromotionalOffers: '/y',
+        listOfferCodes: '/z',
+      },
+    }));
+    expect(open.canViewIntroductoryOffers).toBe(true);
+    expect(open.canViewPromotionalOffers).toBe(true);
+    expect(open.canViewOfferCodes).toBe(true);
+
+    const closed = new Subscription(subInit({ affordances: {} }));
+    expect(closed.canViewIntroductoryOffers).toBe(false);
+    expect(closed.canViewPromotionalOffers).toBe(false);
+    expect(closed.canViewOfferCodes).toBe(false);
+  });
+
+  it('loadIntroductoryOffers populates the list and short-circuits on missing affordance', async () => {
+    const offer = new SubscriptionIntroductoryOffer({
+      id: 'i-1',
+      offerMode: OfferMode.FreeTrial,
+      duration: SubscriptionDuration.OneWeek,
+      numberOfPeriods: 1,
+    });
+    const repo = stubRepo({ introductoryOffers: vi.fn().mockResolvedValue([offer]) });
+    const sub = new Subscription(subInit({ affordances: { listIntroductoryOffers: '/x' } }), repo);
+
+    await sub.loadIntroductoryOffers();
+    expect(sub.introductoryOffers).toEqual([offer]);
+    expect(sub.isIntroductoryOffersLoaded).toBe(true);
+
+    const closedRepo = stubRepo();
+    const closedSub = new Subscription(subInit({ affordances: {} }), closedRepo);
+    await closedSub.loadIntroductoryOffers();
+    expect(closedSub.introductoryOffers).toEqual([]);
+    expect(closedRepo.introductoryOffers).not.toHaveBeenCalled();
+  });
+
+  it('loadPromotionalOffers populates the list', async () => {
+    const offer = new SubscriptionPromotionalOffer({
+      id: 'p-1',
+      name: 'Holiday',
+      offerCode: 'HOLIDAY',
+      offerMode: OfferMode.PayUpFront,
+      duration: SubscriptionDuration.OneMonth,
+      numberOfPeriods: 1,
+    });
+    const repo = stubRepo({ promotionalOffers: vi.fn().mockResolvedValue([offer]) });
+    const sub = new Subscription(subInit({ affordances: { listPromotionalOffers: '/x' } }), repo);
+
+    await sub.loadPromotionalOffers();
+    expect(sub.promotionalOffers).toEqual([offer]);
+    expect(sub.isPromotionalOffersLoaded).toBe(true);
+  });
+
+  it('loadOfferCodes populates the list', async () => {
+    const code = new SubscriptionOfferCode({
+      id: 'c-1', name: 'WELCOME',
+      offerMode: OfferMode.FreeTrial,
+      duration: SubscriptionDuration.OneMonth,
+      numberOfPeriods: 1,
+      customerEligibilities: [SubscriptionCustomerEligibility.New],
+      isActive: true,
+    });
+    const repo = stubRepo({ offerCodes: vi.fn().mockResolvedValue([code]) });
+    const sub = new Subscription(subInit({ affordances: { listOfferCodes: '/x' } }), repo);
+
+    await sub.loadOfferCodes();
+    expect(sub.offerCodes).toEqual([code]);
+    expect(sub.isOfferCodesLoaded).toBe(true);
   });
 
   it('suggestedProductId derives a com.bundle.<slug> shape', () => {
