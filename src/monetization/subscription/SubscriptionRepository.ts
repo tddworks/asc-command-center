@@ -1,5 +1,6 @@
 import type { Subscription, SubscriptionPeriod } from './Subscription.ts';
 import type { SubscriptionLocalization } from './SubscriptionLocalization.ts';
+import type { SubscriptionAvailability } from './SubscriptionAvailability.ts';
 import type { SubscriptionPriceSchedule } from './SubscriptionPriceSchedule.ts';
 import type { SubscriptionReviewScreenshot } from './SubscriptionReviewScreenshot.ts';
 
@@ -50,4 +51,11 @@ export interface SubscriptionRepository {
   reviewScreenshot(sub: Subscription): Promise<SubscriptionReviewScreenshot | null>;
   uploadReviewScreenshot(sub: Subscription, file: File): Promise<SubscriptionReviewScreenshot>;
   deleteReviewScreenshot(sub: Subscription, screenshot: SubscriptionReviewScreenshot): Promise<void>;
+
+  // ── Availability ──
+  availability(sub: Subscription): Promise<SubscriptionAvailability | null>;
+  setAvailability(
+    sub: Subscription,
+    input: { territoryIds: string[]; availableInNewTerritories: boolean },
+  ): Promise<void>;
 }

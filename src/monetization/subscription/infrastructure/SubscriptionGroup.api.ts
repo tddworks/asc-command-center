@@ -1,6 +1,7 @@
 import { Subscription } from '../Subscription.ts';
 import { SubscriptionGroup } from '../SubscriptionGroup.ts';
 import { SubscriptionLocalization } from '../SubscriptionLocalization.ts';
+import { SubscriptionAvailability } from '../SubscriptionAvailability.ts';
 import { SubscriptionPriceSchedule } from '../SubscriptionPriceSchedule.ts';
 import { SubscriptionReviewScreenshot } from '../SubscriptionReviewScreenshot.ts';
 import { apiClient, type DataMode } from '../../../shared/api-client.tsx';
@@ -204,6 +205,34 @@ export class RestSubscriptionGroupRepository implements SubscriptionGroupReposit
     const url = screenshot.deleteUrl ?? `/api/v1/subscriptions/${sub.id}/review-screenshot`;
     const res = await fetch(url, { method: 'DELETE' });
     if (!res.ok) throw new Error(`DELETE ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
+  }
+
+  // ── Availability ──
+
+  async availability(sub: Subscription): Promise<SubscriptionAvailability | null> {
+    const url = sub.affordances.getAvailability ?? `/api/v1/subscriptions/${sub.id}/availability`;
+    try {
+      const json = await apiClient.get<{ data: Record<string, unknown> | null }>(url);
+      const row = Array.isArray(json.data) ? (json.data as Record<string, unknown>[])[0] : json.data;
+      return row ? SubscriptionAvailability.fromJSON(row) : null;
+    } catch (err) {
+      const msg = (err as Error).message ?? '';
+      if (msg.includes('404')) return null;
+      throw err;
+    }
+  }
+
+  async setAvailability(
+    sub: Subscription,
+    input: { territoryIds: string[]; availableInNewTerritories: boolean },
+  ): Promise<void> {
+    const url = sub.affordances.setAvailability ?? `/api/v1/subscriptions/${sub.id}/availability`;
+    const res = await fetch(url, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) throw new Error(`PATCH ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
   }
 
   // ── Pricing ──

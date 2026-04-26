@@ -8,6 +8,7 @@ import {
 import { SubscriptionLocalization } from '../../../src/monetization/subscription/SubscriptionLocalization.ts';
 import { SubscriptionPriceSchedule } from '../../../src/monetization/subscription/SubscriptionPriceSchedule.ts';
 import { SubscriptionReviewScreenshot } from '../../../src/monetization/subscription/SubscriptionReviewScreenshot.ts';
+import { SubscriptionAvailability, SubscriptionTerritoryAvailability } from '../../../src/monetization/subscription/SubscriptionAvailability.ts';
 import type { SubscriptionRepository } from '../../../src/monetization/subscription/SubscriptionRepository.ts';
 
 function stubRepo(overrides: Partial<SubscriptionRepository> = {}): SubscriptionRepository {
@@ -24,6 +25,8 @@ function stubRepo(overrides: Partial<SubscriptionRepository> = {}): Subscription
     reviewScreenshot: vi.fn().mockResolvedValue(null),
     uploadReviewScreenshot: vi.fn(),
     deleteReviewScreenshot: vi.fn().mockResolvedValue(undefined),
+    availability: vi.fn().mockResolvedValue(null),
+    setAvailability: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
@@ -349,6 +352,76 @@ describe('Subscription', () => {
     const repo = stubRepo();
     const sub = new Subscription(subInit(), repo);
     await expect(sub.deleteReviewScreenshot()).rejects.toThrow(/no review screenshot to delete/);
+  });
+
+  // ── Availability ──
+
+  it('canViewAvailability / canSetAvailability map to affordances', () => {
+    const open = new Subscription(subInit({ affordances: { getAvailability: '/x', setAvailability: '/y' } }));
+    expect(open.canViewAvailability).toBe(true);
+    expect(open.canSetAvailability).toBe(true);
+
+    const closed = new Subscription(subInit({ affordances: {} }));
+    expect(closed.canViewAvailability).toBe(false);
+    expect(closed.canSetAvailability).toBe(false);
+  });
+
+  it('loadAvailability short-circuits to null when affordance missing', async () => {
+    const repo = stubRepo();
+    const sub = new Subscription(subInit({ affordances: {} }), repo);
+
+    const result = await sub.loadAvailability();
+
+    expect(result).toBeNull();
+    expect(sub.isAvailabilityLoaded).toBe(true);
+    expect(repo.availability).not.toHaveBeenCalled();
+  });
+
+  it('loadAvailability populates availability from the repo', async () => {
+    const avail = new SubscriptionAvailability({
+      availableInNewTerritories: false,
+      territories: [new SubscriptionTerritoryAvailability({ territoryId: 'USA', territoryName: 'US', currency: 'USD', isAvailable: true })],
+    });
+    const repo = stubRepo({ availability: vi.fn().mockResolvedValue(avail) });
+    const sub = new Subscription(subInit({ affordances: { getAvailability: '/x' } }), repo);
+
+    await sub.loadAvailability();
+
+    expect(sub.availability).toBe(avail);
+    expect(sub.isAvailabilityLoaded).toBe(true);
+  });
+
+  it('saveAvailability calls repo.setAvailability with current state and clears dirty', async () => {
+    const avail = new SubscriptionAvailability({
+      availableInNewTerritories: false,
+      territories: [
+        new SubscriptionTerritoryAvailability({ territoryId: 'USA', territoryName: 'US', currency: 'USD', isAvailable: true }),
+        new SubscriptionTerritoryAvailability({ territoryId: 'JPN', territoryName: 'Japan', currency: 'JPY', isAvailable: false }),
+      ],
+    });
+    const repo = stubRepo({ availability: vi.fn().mockResolvedValue(avail) });
+    const sub = new Subscription(subInit({
+      affordances: { getAvailability: '/x', setAvailability: '/y' },
+    }), repo);
+    await sub.loadAvailability();
+
+    avail.toggleTerritory('JPN');
+    avail.setAvailableInNewTerritories(true);
+
+    await sub.saveAvailability();
+
+    expect(repo.setAvailability).toHaveBeenCalledWith(sub, {
+      territoryIds: ['USA', 'JPN'],
+      availableInNewTerritories: true,
+    });
+    expect(avail.isDirty).toBe(false);
+  });
+
+  it('saveAvailability throws when nothing is loaded', async () => {
+    const repo = stubRepo();
+    const sub = new Subscription(subInit({ affordances: { setAvailability: '/y' } }), repo);
+
+    await expect(sub.saveAvailability()).rejects.toThrow(/no availability loaded/);
   });
 
   it('suggestedProductId derives a com.bundle.<slug> shape', () => {

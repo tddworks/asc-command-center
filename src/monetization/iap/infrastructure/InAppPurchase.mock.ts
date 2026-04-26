@@ -1,5 +1,6 @@
 import { InAppPurchase, InAppPurchaseState, InAppPurchaseType } from '../InAppPurchase.ts';
 import { InAppPurchaseLocalization } from '../InAppPurchaseLocalization.ts';
+import { IAPAvailability, TerritoryAvailability } from '../IAPAvailability.ts';
 import { IAPPriceSchedule, TerritoryPrice } from '../IAPPriceSchedule.ts';
 import { ReviewScreenshot } from '../ReviewScreenshot.ts';
 import type {
@@ -20,6 +21,7 @@ export class MockInAppPurchaseRepository implements InAppPurchaseRepository {
    *  detail page reflects every add/delete/update without re-fetching. */
   private localizationsByIap = new Map<string, InAppPurchaseLocalization[]>();
   private screenshotByIap = new Map<string, ReviewScreenshot | null>();
+  private availabilityByIap = new Map<string, IAPAvailability>();
   private nextLocId = 100;
   private nextShotId = 200;
 
@@ -132,6 +134,27 @@ export class MockInAppPurchaseRepository implements InAppPurchaseRepository {
     return mockPriceScheduleFor(iap);
   }
 
+  // ── Availability ──
+
+  async availability(iap: InAppPurchase): Promise<IAPAvailability | null> {
+    let avail = this.availabilityByIap.get(iap.id);
+    if (!avail) {
+      avail = mockAvailabilityFor(iap);
+      this.availabilityByIap.set(iap.id, avail);
+    }
+    return avail;
+  }
+
+  async setAvailability(
+    iap: InAppPurchase,
+    _input: { territoryIds: string[]; availableInNewTerritories: boolean },
+  ): Promise<void> {
+    void iap;
+    void _input;
+    // Domain mutates `availability` in place + calls markSaved after the
+    // awaited call returns; the mock holds the same instance.
+  }
+
   // ── Review screenshot ──
 
   async reviewScreenshot(iap: InAppPurchase): Promise<ReviewScreenshot | null> {
@@ -205,6 +228,7 @@ export class MockInAppPurchaseRepository implements InAppPurchaseRepository {
       uploadReviewScreenshot: `/api/v1/iap/${id}/review-screenshot`,
       getPriceSchedule: `/api/v1/iap/${id}/price-schedule`,
       getAvailability: `/api/v1/iap/${id}/availability`,
+      setAvailability: `/api/v1/iap/${id}/availability`,
       listOfferCodes: `/api/v1/iap/${id}/offer-codes`,
     };
   }
@@ -298,5 +322,22 @@ function mockPriceScheduleFor(iap: InAppPurchase): IAPPriceSchedule | null {
     baseCurrency: base.currency,
     basePricePointId: `pp-${iap.id}-${base.id}`,
     territoryPrices: rows,
+  });
+}
+
+function mockAvailabilityFor(iap: InAppPurchase): IAPAvailability {
+  // First-load default: every territory available, auto-include on. The
+  // page mutates this in place; mutations persist on the mock map across
+  // re-loads because we hand back the same instance.
+  const usd = basePriceFor(iap);
+  const territories = SAMPLE_TERRITORIES.map((t) => new TerritoryAvailability({
+    territoryId: t.id,
+    territoryName: t.name,
+    currency: t.currency,
+    isAvailable: usd !== null, // unpriced fixtures stay unavailable
+  }));
+  return new IAPAvailability({
+    availableInNewTerritories: usd !== null,
+    territories,
   });
 }

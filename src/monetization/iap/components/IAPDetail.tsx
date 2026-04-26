@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import type { InAppPurchase } from '../InAppPurchase.ts';
 import { iaps } from '../iapsInstance.ts';
+import { IAPAvailabilityTab } from './IAPAvailabilityTab.tsx';
 import { IAPLocalizationsTab } from './IAPLocalizationsTab.tsx';
 import { IAPPricingTab } from './IAPPricingTab.tsx';
 import { IAPReviewTab } from './IAPReviewTab.tsx';
@@ -134,8 +135,9 @@ function IAPDetailImpl({ iap }: Props) {
       {/* Tab body */}
       {tab === 'localizations' && <IAPLocalizationsTab iap={iap} />}
       {tab === 'pricing' && <IAPPricingTab iap={iap} />}
+      {tab === 'availability' && <IAPAvailabilityTab iap={iap} />}
       {tab === 'review' && <IAPReviewTab iap={iap} />}
-      {tab !== 'localizations' && tab !== 'pricing' && tab !== 'review' && <ComingSoon tab={tab} />}
+      {tab === 'offers' && <ComingSoon tab={tab} />}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 import { InAppPurchase } from '../InAppPurchase.ts';
 import { InAppPurchaseLocalization } from '../InAppPurchaseLocalization.ts';
+import { IAPAvailability } from '../IAPAvailability.ts';
 import { IAPPriceSchedule } from '../IAPPriceSchedule.ts';
 import { ReviewScreenshot } from '../ReviewScreenshot.ts';
 import { apiClient, type DataMode } from '../../../shared/api-client.tsx';
@@ -134,6 +135,34 @@ export class RestInAppPurchaseRepository implements InAppPurchaseRepository {
     if (!res.ok) {
       throw new Error(`DELETE ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
     }
+  }
+
+  // ── Availability ──
+
+  async availability(iap: InAppPurchase): Promise<IAPAvailability | null> {
+    const url = iap.affordances.getAvailability ?? `/api/v1/iap/${iap.id}/availability`;
+    try {
+      const json = await apiClient.get<{ data: Record<string, unknown> | null }>(url);
+      const row = Array.isArray(json.data) ? (json.data as Record<string, unknown>[])[0] : json.data;
+      return row ? IAPAvailability.fromJSON(row) : null;
+    } catch (err) {
+      const msg = (err as Error).message ?? '';
+      if (msg.includes('404')) return null;
+      throw err;
+    }
+  }
+
+  async setAvailability(
+    iap: InAppPurchase,
+    input: { territoryIds: string[]; availableInNewTerritories: boolean },
+  ): Promise<void> {
+    const url = iap.affordances.setAvailability ?? `/api/v1/iap/${iap.id}/availability`;
+    const res = await fetch(url, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+    if (!res.ok) throw new Error(`PATCH ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
   }
 
   // ── Pricing ──

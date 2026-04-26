@@ -1,5 +1,6 @@
 import type { InAppPurchase, InAppPurchaseType } from './InAppPurchase.ts';
 import type { InAppPurchaseLocalization } from './InAppPurchaseLocalization.ts';
+import type { IAPAvailability } from './IAPAvailability.ts';
 import type { IAPPriceSchedule } from './IAPPriceSchedule.ts';
 import type { ReviewScreenshot } from './ReviewScreenshot.ts';
 
@@ -39,6 +40,14 @@ export interface InAppPurchaseRepository {
   // ── Pricing ──
   /** Returns null when the IAP has no price schedule yet (newly created). */
   priceSchedule(iap: InAppPurchase): Promise<IAPPriceSchedule | null>;
+
+  // ── Availability ──
+  /** Returns null when the IAP has no availability resource yet. */
+  availability(iap: InAppPurchase): Promise<IAPAvailability | null>;
+  setAvailability(
+    iap: InAppPurchase,
+    input: { territoryIds: string[]; availableInNewTerritories: boolean },
+  ): Promise<void>;
 
   // ── Review screenshot ──
   /** Returns null when the IAP has no review screenshot uploaded yet. */
