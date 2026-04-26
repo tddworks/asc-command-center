@@ -2,6 +2,7 @@ import type { Subscription, SubscriptionPeriod } from './Subscription.ts';
 import type { SubscriptionLocalization } from './SubscriptionLocalization.ts';
 import type { SubscriptionAvailability } from './SubscriptionAvailability.ts';
 import type { SubscriptionPriceSchedule } from './SubscriptionPriceSchedule.ts';
+import type { SubscriptionPricePointPage } from './SubscriptionPricePoint.ts';
 import type { SubscriptionReviewScreenshot } from './SubscriptionReviewScreenshot.ts';
 import type {
   OfferMode,
@@ -83,6 +84,14 @@ export interface SubscriptionRepository {
     sub: Subscription,
     input: Array<{ territoryId: string; pricePointId: string }>,
   ): Promise<void>;
+  pricePoints(
+    sub: Subscription,
+    input: { territoryId: string; cursor: string | null; limit?: number },
+  ): Promise<SubscriptionPricePointPage>;
+  equalizations(
+    sub: Subscription,
+    input: { pricePointId: string; cursor: string | null; limit?: number },
+  ): Promise<SubscriptionPricePointPage>;
 
   // ── Review screenshot ──
   reviewScreenshot(sub: Subscription): Promise<SubscriptionReviewScreenshot | null>;
