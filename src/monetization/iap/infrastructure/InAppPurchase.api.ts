@@ -1,6 +1,11 @@
 import { InAppPurchase } from '../InAppPurchase.ts';
+import { InAppPurchaseLocalization } from '../InAppPurchaseLocalization.ts';
 import { apiClient, type DataMode } from '../../../shared/api-client.tsx';
-import type { CreateInAppPurchaseInput, InAppPurchaseRepository } from '../InAppPurchaseRepository.ts';
+import type {
+  CreateInAppPurchaseInput,
+  CreateInAppPurchaseLocalizationInput,
+  InAppPurchaseRepository,
+} from '../InAppPurchaseRepository.ts';
 
 /**
  * REST implementation of the IAP repository. Methods follow affordance
@@ -73,6 +78,56 @@ export class RestInAppPurchaseRepository implements InAppPurchaseRepository {
   async unsubmit(iap: InAppPurchase): Promise<void> {
     const url = iap.affordances.unsubmit;
     if (!url) throw new Error(`IAP ${iap.id} has no unsubmit affordance`);
+    const res = await fetch(url, { method: 'DELETE' });
+    if (!res.ok) {
+      throw new Error(`DELETE ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
+    }
+  }
+
+  // ── Localizations ──
+
+  async localizations(iap: InAppPurchase): Promise<InAppPurchaseLocalization[]> {
+    const url = iap.affordances.listLocalizations ?? `/api/v1/iap/${iap.id}/localizations`;
+    const json = await apiClient.get<{ data: Record<string, unknown>[] }>(url);
+    return json.data.map(InAppPurchaseLocalization.fromJSON);
+  }
+
+  async createLocalization(
+    iap: InAppPurchase,
+    input: CreateInAppPurchaseLocalizationInput,
+  ): Promise<InAppPurchaseLocalization> {
+    const url = iap.affordances.createLocalization ?? `/api/v1/iap/${iap.id}/localizations`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        locale: input.locale,
+        name: input.name,
+        description: input.description ?? null,
+      }),
+    });
+    if (!res.ok) {
+      throw new Error(`POST ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
+    }
+    const body = await res.json().catch(() => ({}));
+    const data = (body.data ?? body) as Record<string, unknown>;
+    return InAppPurchaseLocalization.fromJSON(data);
+  }
+
+  async saveLocalization(loc: InAppPurchaseLocalization): Promise<void> {
+    const url = loc.updateUrl ?? `/api/v1/iap-localizations/${loc.id}`;
+    const res = await fetch(url, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: loc.name, description: loc.description }),
+    });
+    if (!res.ok) {
+      throw new Error(`PATCH ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
+    }
+  }
+
+  async deleteLocalization(loc: InAppPurchaseLocalization): Promise<void> {
+    const url = loc.deleteUrl ?? `/api/v1/iap-localizations/${loc.id}`;
     const res = await fetch(url, { method: 'DELETE' });
     if (!res.ok) {
       throw new Error(`DELETE ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
