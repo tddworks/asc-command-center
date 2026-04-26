@@ -219,7 +219,7 @@ function IAPLocalizationsTabImpl({ iap }: Props) {
                 className="btn btn-primary btn-sm"
                 onClick={() => setPickerOpen(true)}
               >
-                Manage Languages
+                + Add Languages
               </button>
             )}
           </div>
