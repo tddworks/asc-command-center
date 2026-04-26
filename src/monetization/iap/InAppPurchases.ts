@@ -18,6 +18,12 @@ export class InAppPurchases {
    *  rapid mode/account switches. */
   appId: string | null = null;
 
+  /** Currently focused IAP — drives the page's list-vs-detail switch. The
+   *  page checks `iaps.selectedIap` and renders detail when non-null,
+   *  list otherwise. Cleared on `refreshFor` so a stale detail doesn't
+   *  hang around when the user changes apps. */
+  selectedIap: InAppPurchase | null = null;
+
   isLoading = false;
   loaded = false;
   error: Error | null = null;
@@ -44,16 +50,21 @@ export class InAppPurchases {
   switchRepository(repo: InAppPurchaseRepository): void {
     this.repository = repo;
     this.list = [];
+    this.selectedIap = null;
     this.appId = null;
     this.loaded = false;
     this.error = null;
   }
 
-  /** Load IAPs for the given app. Replaces `list` on success. */
+  /** Load IAPs for the given app. Replaces `list` on success and clears
+   *  any stale detail selection so a previous app's IAP doesn't linger. */
   async refreshFor(appId: string): Promise<void> {
     this.appId = appId;
     this.isLoading = true;
     this.error = null;
+    if (this.selectedIap && this.selectedIap.appId !== appId) {
+      runInAction(() => { this.selectedIap = null; });
+    }
     try {
       const fetched = await this.repository.list(appId);
       runInAction(() => {
@@ -86,6 +97,21 @@ export class InAppPurchases {
     runInAction(() => {
       this.list = this.list.filter((p) => p.id !== iap.id);
     });
+  }
+
+  // ── Selection ──
+
+  /** Focus an IAP. Must be one of the IAPs already in `list`. The page
+   *  reads `selectedIap` to switch into detail mode. */
+  select(iap: InAppPurchase): void {
+    if (!this.list.includes(iap)) {
+      throw new Error(`IAP ${iap.id} is not in the loaded list`);
+    }
+    this.selectedIap = iap;
+  }
+
+  clearSelection(): void {
+    this.selectedIap = null;
   }
 
   // ── Lookups ──

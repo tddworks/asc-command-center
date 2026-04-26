@@ -1,5 +1,6 @@
 import { makeAutoObservable, runInAction } from 'mobx';
 import type { Affordances } from '../../shared/types.ts';
+import { InAppPurchaseLocalization } from './InAppPurchaseLocalization.ts';
 import type { InAppPurchaseRepository } from './InAppPurchaseRepository.ts';
 
 export const InAppPurchaseType = {
@@ -56,6 +57,13 @@ export class InAppPurchase {
   hasSubmission: boolean;
   affordances: Affordances;
 
+  /** Localizations loaded for this IAP (empty until `loadLocalizations()`). */
+  localizations: InAppPurchaseLocalization[] = [];
+  /** True once `loadLocalizations()` has succeeded at least once — distinct
+   *  from `localizations.length > 0` so the UI can tell "still loading"
+   *  apart from "loaded but empty". */
+  isLocalizationsLoaded = false;
+
   repository: InAppPurchaseRepository | null;
 
   constructor(init: InAppPurchaseInit, repository: InAppPurchaseRepository | null = null) {
@@ -109,9 +117,28 @@ export class InAppPurchase {
   }
 
   get canViewLocalizations(): boolean { return 'listLocalizations' in this.affordances; }
+  get canCreateLocalization(): boolean { return 'createLocalization' in this.affordances; }
   get canViewPricing(): boolean { return 'getPriceSchedule' in this.affordances; }
   get canViewAvailability(): boolean { return 'getAvailability' in this.affordances; }
   get canViewOfferCodes(): boolean { return 'listOfferCodes' in this.affordances; }
+
+  // ── Localization aggregation ──
+
+  /** Number of localizations whose `isComplete` getter is true. The
+   *  Submit-for-Review gate checks `completeLocalizationCount > 0`. */
+  get completeLocalizationCount(): number {
+    return this.localizations.filter((l) => l.isComplete).length;
+  }
+
+  /** True if at least one locale exists and has a non-empty name. */
+  get hasAnyCompleteLocalization(): boolean {
+    return this.completeLocalizationCount > 0;
+  }
+
+  /** True if any localization has a pending edit / new locale awaiting save. */
+  get hasUnsavedLocalizationChanges(): boolean {
+    return this.localizations.some((l) => l.isNew || l.hasUnsavedChanges);
+  }
 
   // ── Display Getters ──
 
@@ -192,6 +219,57 @@ export class InAppPurchase {
     runInAction(() => {
       if (patch.referenceName !== undefined) this.referenceName = patch.referenceName;
       if (patch.reviewNote !== undefined) this.reviewNote = patch.reviewNote;
+    });
+  }
+
+  // ── Localization navigation (mutating) ──
+
+  /** Load all localizations for this IAP. Replaces `localizations` and
+   *  attaches the repo to each child so they can save/delete themselves.
+   *  Short-circuits to `[]` when the affordance is missing. */
+  async loadLocalizations(): Promise<InAppPurchaseLocalization[]> {
+    if (!this.canViewLocalizations) {
+      runInAction(() => {
+        this.localizations = [];
+        this.isLocalizationsLoaded = true;
+      });
+      return [];
+    }
+    const repo = this.requireRepo();
+    const list = await repo.localizations(this);
+    runInAction(() => {
+      list.forEach((l) => l.setRepository(repo));
+      this.localizations = list;
+      this.isLocalizationsLoaded = true;
+    });
+    return list;
+  }
+
+  /** Create a localization on the backend, attach the repo, append to
+   *  `localizations`. Throws (and does not mutate) when the affordance
+   *  is missing. */
+  async addLocalization(input: { locale: string; name: string; description?: string | null }): Promise<InAppPurchaseLocalization> {
+    if (!this.canCreateLocalization) {
+      throw new Error(`IAP ${this.id} cannot create a localization (no createLocalization affordance)`);
+    }
+    const repo = this.requireRepo();
+    const created = await repo.createLocalization(this, input);
+    runInAction(() => {
+      created.setRepository(repo);
+      this.localizations = [...this.localizations, created];
+    });
+    return created;
+  }
+
+  /** Delete a localization through its own self-persistence and prune the
+   *  list. The locale's `canDelete` is checked at the page boundary. */
+  async removeLocalization(loc: InAppPurchaseLocalization): Promise<void> {
+    if (!loc.canDelete) {
+      throw new Error(`Localization ${loc.locale} cannot be deleted (no delete affordance)`);
+    }
+    await loc.delete();
+    runInAction(() => {
+      this.localizations = this.localizations.filter((l) => l !== loc);
     });
   }
 
