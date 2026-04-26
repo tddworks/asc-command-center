@@ -5,6 +5,7 @@ import {
   SubscriptionState,
   type SubscriptionInit,
 } from '../../../src/monetization/subscription/Subscription.ts';
+import { SubscriptionLocalization } from '../../../src/monetization/subscription/SubscriptionLocalization.ts';
 import type { SubscriptionRepository } from '../../../src/monetization/subscription/SubscriptionRepository.ts';
 
 function stubRepo(overrides: Partial<SubscriptionRepository> = {}): SubscriptionRepository {
@@ -13,6 +14,10 @@ function stubRepo(overrides: Partial<SubscriptionRepository> = {}): Subscription
     remove: vi.fn().mockResolvedValue(undefined),
     submit: vi.fn().mockResolvedValue(undefined),
     unsubmit: vi.fn().mockResolvedValue(undefined),
+    localizations: vi.fn().mockResolvedValue([]),
+    createLocalization: vi.fn(),
+    saveLocalization: vi.fn().mockResolvedValue(undefined),
+    deleteLocalization: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
@@ -138,6 +143,66 @@ describe('Subscription', () => {
 
     await expect(sub.update({ name: 'x' })).rejects.toThrow(/not editable/);
     expect(repo.update).not.toHaveBeenCalled();
+  });
+
+  // ── Localizations ──
+
+  it('canViewLocalizations / canCreateLocalization map to affordances', () => {
+    const open = new Subscription(subInit({ affordances: { listLocalizations: '/x', createLocalization: '/y' } }));
+    expect(open.canViewLocalizations).toBe(true);
+    expect(open.canCreateLocalization).toBe(true);
+
+    const closed = new Subscription(subInit({ affordances: {} }));
+    expect(closed.canViewLocalizations).toBe(false);
+    expect(closed.canCreateLocalization).toBe(false);
+  });
+
+  it('loadLocalizations populates and attaches the repo', async () => {
+    const en = new SubscriptionLocalization({ id: 'l-1', locale: 'en-US', name: 'Premium', description: null });
+    const repo = stubRepo({ localizations: vi.fn().mockResolvedValue([en]) });
+    const sub = new Subscription(subInit({ affordances: { listLocalizations: '/x' } }), repo);
+
+    await sub.loadLocalizations();
+
+    expect(sub.localizations).toEqual([en]);
+    expect(en.repository).toBe(repo);
+    expect(sub.isLocalizationsLoaded).toBe(true);
+  });
+
+  it('addLocalization gates on affordance and appends', async () => {
+    const created = new SubscriptionLocalization({ id: 'l-new', locale: 'de-DE', name: 'X', description: null });
+    const repo = stubRepo({ createLocalization: vi.fn().mockResolvedValue(created) });
+    const sub = new Subscription(subInit({ affordances: { createLocalization: '/x' } }), repo);
+
+    const result = await sub.addLocalization({ locale: 'de-DE', name: 'X' });
+
+    expect(result).toBe(created);
+    expect(sub.localizations).toContain(created);
+    expect(repo.createLocalization).toHaveBeenCalledWith(sub, { locale: 'de-DE', name: 'X' });
+  });
+
+  it('removeLocalization delegates to loc.delete and prunes the list', async () => {
+    const a = new SubscriptionLocalization({ id: 'l-1', locale: 'en-US', name: 'X', description: null, affordances: { delete: '/x' } });
+    const b = new SubscriptionLocalization({ id: 'l-2', locale: 'fr-FR', name: 'X', description: null, affordances: { delete: '/y' } });
+    const repo = stubRepo({ localizations: vi.fn().mockResolvedValue([a, b]) });
+    const sub = new Subscription(subInit({ affordances: { listLocalizations: '/x' } }), repo);
+    await sub.loadLocalizations();
+
+    await sub.removeLocalization(a);
+
+    expect(repo.deleteLocalization).toHaveBeenCalledWith(a);
+    expect(sub.localizations).toEqual([b]);
+  });
+
+  it('completeLocalizationCount counts non-empty names', async () => {
+    const a = new SubscriptionLocalization({ id: 'l-1', locale: 'en-US', name: 'Premium', description: null });
+    const b = new SubscriptionLocalization({ id: 'l-2', locale: 'fr-FR', name: '', description: null });
+    const repo = stubRepo({ localizations: vi.fn().mockResolvedValue([a, b]) });
+    const sub = new Subscription(subInit({ affordances: { listLocalizations: '/x' } }), repo);
+    await sub.loadLocalizations();
+
+    expect(sub.completeLocalizationCount).toBe(1);
+    expect(sub.hasAnyCompleteLocalization).toBe(true);
   });
 
   it('suggestedProductId derives a com.bundle.<slug> shape', () => {

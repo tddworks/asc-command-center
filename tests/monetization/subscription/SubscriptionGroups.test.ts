@@ -19,7 +19,7 @@ function stubRepo(overrides: Partial<SubscriptionGroupRepository> = {}): Subscri
     createSubscription: vi.fn(),
     removeSubscription: vi.fn().mockResolvedValue(undefined),
     ...overrides,
-  };
+  } as SubscriptionGroupRepository;
 }
 
 function mkGroup(id: string, repo: SubscriptionGroupRepository, opts: { affordances?: Record<string, string> } = {}): SubscriptionGroup {
@@ -115,12 +115,16 @@ describe('SubscriptionGroups (root aggregate)', () => {
     expect(groups.list).toContain(noDelete);
   });
 
-  it('switchRepository resets state', async () => {
+  it('switchRepository resets state including selectedTier', async () => {
     const repo1 = stubRepo();
     const initial = mkGroup('sg-1', repo1);
+    const tier = mkTier('sub-1', 'sg-1');
     repo1.list = vi.fn().mockResolvedValue([initial]);
+    repo1.subscriptions = vi.fn().mockResolvedValue([tier]);
     const groups = new SubscriptionGroups(repo1);
     await groups.refreshFor('app-1');
+    groups.selectTier(tier);
+    expect(groups.selectedTier).toBe(tier);
 
     const repo2 = stubRepo();
     groups.switchRepository(repo2);
@@ -129,5 +133,52 @@ describe('SubscriptionGroups (root aggregate)', () => {
     expect(groups.list).toEqual([]);
     expect(groups.loaded).toBe(false);
     expect(groups.appId).toBeNull();
+    expect(groups.selectedTier).toBeNull();
+  });
+
+  // ── Selection ──
+
+  it('selectTier focuses a loaded tier and clearSelection resets', async () => {
+    const repo = stubRepo();
+    const group = mkGroup('sg-1', repo);
+    const tier = mkTier('sub-1', 'sg-1');
+    repo.list = vi.fn().mockResolvedValue([group]);
+    repo.subscriptions = vi.fn().mockResolvedValue([tier]);
+    const groups = new SubscriptionGroups(repo);
+    await groups.refreshFor('app-1');
+
+    groups.selectTier(tier);
+    expect(groups.selectedTier).toBe(tier);
+
+    groups.clearSelection();
+    expect(groups.selectedTier).toBeNull();
+  });
+
+  it('selectTier throws when the tier is not in any loaded group', async () => {
+    const repo = stubRepo();
+    const group = mkGroup('sg-1', repo);
+    const owned = mkTier('sub-1', 'sg-1');
+    const stranger = mkTier('sub-X', 'sg-X');
+    repo.list = vi.fn().mockResolvedValue([group]);
+    repo.subscriptions = vi.fn().mockResolvedValue([owned]);
+    const groups = new SubscriptionGroups(repo);
+    await groups.refreshFor('app-1');
+
+    expect(() => groups.selectTier(stranger)).toThrow(/not in any loaded group/);
+  });
+
+  it('refreshFor clears selection when switching apps', async () => {
+    const repo = stubRepo();
+    const group = mkGroup('sg-1', repo);
+    const tier = mkTier('sub-1', 'sg-1');
+    repo.list = vi.fn().mockResolvedValue([group]);
+    repo.subscriptions = vi.fn().mockResolvedValue([tier]);
+    const groups = new SubscriptionGroups(repo);
+    await groups.refreshFor('app-1');
+    groups.selectTier(tier);
+
+    await groups.refreshFor('app-2');
+
+    expect(groups.selectedTier).toBeNull();
   });
 });
