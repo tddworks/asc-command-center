@@ -4,6 +4,11 @@ import { SubscriptionLocalization } from '../SubscriptionLocalization.ts';
 import { SubscriptionAvailability } from '../SubscriptionAvailability.ts';
 import { SubscriptionPriceSchedule } from '../SubscriptionPriceSchedule.ts';
 import { SubscriptionReviewScreenshot } from '../SubscriptionReviewScreenshot.ts';
+import {
+  SubscriptionIntroductoryOffer,
+  SubscriptionOfferCode,
+  SubscriptionPromotionalOffer,
+} from '../SubscriptionOffers.ts';
 import { apiClient, type DataMode } from '../../../shared/api-client.tsx';
 import type {
   CreateSubscriptionInput,
@@ -248,6 +253,26 @@ export class RestSubscriptionGroupRepository implements SubscriptionGroupReposit
       if (msg.includes('404')) return null;
       throw err;
     }
+  }
+
+  // ── Offers ──
+
+  async introductoryOffers(sub: Subscription): Promise<SubscriptionIntroductoryOffer[]> {
+    const url = sub.affordances.listIntroductoryOffers ?? `/api/v1/subscriptions/${sub.id}/introductory-offers`;
+    const json = await apiClient.get<{ data: Record<string, unknown>[] }>(url);
+    return json.data.map(SubscriptionIntroductoryOffer.fromJSON);
+  }
+
+  async promotionalOffers(sub: Subscription): Promise<SubscriptionPromotionalOffer[]> {
+    const url = sub.affordances.listPromotionalOffers ?? `/api/v1/subscriptions/${sub.id}/promotional-offers`;
+    const json = await apiClient.get<{ data: Record<string, unknown>[] }>(url);
+    return json.data.map(SubscriptionPromotionalOffer.fromJSON);
+  }
+
+  async offerCodes(sub: Subscription): Promise<SubscriptionOfferCode[]> {
+    const url = sub.affordances.listOfferCodes ?? `/api/v1/subscriptions/${sub.id}/offer-codes`;
+    const json = await apiClient.get<{ data: Record<string, unknown>[] }>(url);
+    return json.data.map(SubscriptionOfferCode.fromJSON);
   }
 }
 

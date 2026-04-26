@@ -4,6 +4,11 @@ import { SubscriptionLocalization } from './SubscriptionLocalization.ts';
 import type { SubscriptionAvailability } from './SubscriptionAvailability.ts';
 import type { SubscriptionPriceSchedule } from './SubscriptionPriceSchedule.ts';
 import type { SubscriptionReviewScreenshot } from './SubscriptionReviewScreenshot.ts';
+import type {
+  SubscriptionIntroductoryOffer,
+  SubscriptionOfferCode,
+  SubscriptionPromotionalOffer,
+} from './SubscriptionOffers.ts';
 import type { SubscriptionRepository } from './SubscriptionRepository.ts';
 
 export const SubscriptionPeriod = {
@@ -81,6 +86,15 @@ export class Subscription {
   availability: SubscriptionAvailability | null = null;
   isAvailabilityLoaded = false;
 
+  introductoryOffers: SubscriptionIntroductoryOffer[] = [];
+  isIntroductoryOffersLoaded = false;
+
+  promotionalOffers: SubscriptionPromotionalOffer[] = [];
+  isPromotionalOffersLoaded = false;
+
+  offerCodes: SubscriptionOfferCode[] = [];
+  isOfferCodesLoaded = false;
+
   repository: SubscriptionRepository | null;
 
   constructor(init: SubscriptionInit, repository: SubscriptionRepository | null = null) {
@@ -134,6 +148,9 @@ export class Subscription {
   get canUploadReviewScreenshot(): boolean { return 'uploadReviewScreenshot' in this.affordances; }
   get canViewAvailability(): boolean { return 'getAvailability' in this.affordances; }
   get canSetAvailability(): boolean { return 'setAvailability' in this.affordances; }
+  get canViewIntroductoryOffers(): boolean { return 'listIntroductoryOffers' in this.affordances; }
+  get canViewPromotionalOffers(): boolean { return 'listPromotionalOffers' in this.affordances; }
+  get canViewOfferCodes(): boolean { return 'listOfferCodes' in this.affordances; }
 
   // ── Localization aggregation ──
 
@@ -321,6 +338,56 @@ export class Subscription {
     }
     await this.requireRepo().deleteReviewScreenshot(this, this.reviewScreenshot);
     runInAction(() => { this.reviewScreenshot = null; });
+  }
+
+  // ── Offers ──
+
+  async loadIntroductoryOffers(): Promise<SubscriptionIntroductoryOffer[]> {
+    if (!this.canViewIntroductoryOffers) {
+      runInAction(() => {
+        this.introductoryOffers = [];
+        this.isIntroductoryOffersLoaded = true;
+      });
+      return [];
+    }
+    const list = await this.requireRepo().introductoryOffers(this);
+    runInAction(() => {
+      this.introductoryOffers = list;
+      this.isIntroductoryOffersLoaded = true;
+    });
+    return list;
+  }
+
+  async loadPromotionalOffers(): Promise<SubscriptionPromotionalOffer[]> {
+    if (!this.canViewPromotionalOffers) {
+      runInAction(() => {
+        this.promotionalOffers = [];
+        this.isPromotionalOffersLoaded = true;
+      });
+      return [];
+    }
+    const list = await this.requireRepo().promotionalOffers(this);
+    runInAction(() => {
+      this.promotionalOffers = list;
+      this.isPromotionalOffersLoaded = true;
+    });
+    return list;
+  }
+
+  async loadOfferCodes(): Promise<SubscriptionOfferCode[]> {
+    if (!this.canViewOfferCodes) {
+      runInAction(() => {
+        this.offerCodes = [];
+        this.isOfferCodesLoaded = true;
+      });
+      return [];
+    }
+    const list = await this.requireRepo().offerCodes(this);
+    runInAction(() => {
+      this.offerCodes = list;
+      this.isOfferCodesLoaded = true;
+    });
+    return list;
   }
 
   // ── Availability ──
