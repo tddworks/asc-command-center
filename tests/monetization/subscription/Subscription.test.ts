@@ -9,6 +9,7 @@ import { SubscriptionLocalization } from '../../../src/monetization/subscription
 import { SubscriptionPriceSchedule } from '../../../src/monetization/subscription/SubscriptionPriceSchedule.ts';
 import { SubscriptionReviewScreenshot } from '../../../src/monetization/subscription/SubscriptionReviewScreenshot.ts';
 import { SubscriptionAvailability, SubscriptionTerritoryAvailability } from '../../../src/monetization/subscription/SubscriptionAvailability.ts';
+import { SubscriptionPricePoint } from '../../../src/monetization/subscription/SubscriptionPricePoint.ts';
 import {
   OfferMode,
   SubscriptionDuration,
@@ -44,6 +45,8 @@ function stubRepo(overrides: Partial<SubscriptionRepository> = {}): Subscription
     createPromotionalOffer: vi.fn(),
     deletePromotionalOffer: vi.fn().mockResolvedValue(undefined),
     setPrices: vi.fn().mockResolvedValue(undefined),
+    pricePoints: vi.fn().mockResolvedValue({ items: [], nextCursor: null }),
+    equalizations: vi.fn().mockResolvedValue({ items: [], nextCursor: null }),
     ...overrides,
   };
 }
@@ -650,6 +653,31 @@ describe('Subscription', () => {
       customerEligibilities: [],
     })).rejects.toThrow(/cannot create offer code/);
     expect(repo.createOfferCode).not.toHaveBeenCalled();
+  });
+
+  // ── Price-point picker ──
+
+  it('loadPricePoints passes territory + cursor + limit to the repo', async () => {
+    const items = [new SubscriptionPricePoint({ id: 'pp-1', territoryId: 'USA', formattedPrice: '$0.99', currency: 'USD', proceeds: '$0.69' })];
+    const pricePoints = vi.fn().mockResolvedValue({ items, nextCursor: 'CURSOR-2' });
+    const repo = stubRepo({ pricePoints });
+    const sub = new Subscription(subInit({ affordances: { setPrices: '/x' } }), repo);
+
+    const page = await sub.loadPricePoints({ territoryId: 'USA', cursor: 'CURSOR-1', limit: 25 });
+
+    expect(pricePoints).toHaveBeenCalledWith(sub, { territoryId: 'USA', cursor: 'CURSOR-1', limit: 25 });
+    expect(page.items).toBe(items);
+    expect(page.nextCursor).toBe('CURSOR-2');
+  });
+
+  it('loadEqualizations passes pricePointId + cursor to the repo', async () => {
+    const equalizations = vi.fn().mockResolvedValue({ items: [], nextCursor: null });
+    const repo = stubRepo({ equalizations });
+    const sub = new Subscription(subInit({ affordances: { setPrices: '/x' } }), repo);
+
+    await sub.loadEqualizations({ pricePointId: 'pp-anchor', cursor: null });
+
+    expect(equalizations).toHaveBeenCalledWith(sub, { pricePointId: 'pp-anchor', cursor: null });
   });
 
   // ── setPrices ──
