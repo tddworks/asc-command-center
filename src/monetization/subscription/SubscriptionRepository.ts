@@ -9,9 +9,10 @@ export interface CreateSubscriptionInput {
 }
 
 /** Port for individual subscription tier mutations. The group-level
- *  CRUD lives on `SubscriptionGroupRepository`. */
+ *  CRUD lives on `SubscriptionGroupRepository`. Tier `get` is intentionally
+ *  not on this port — single-tier reload would collide with the group's
+ *  `get(id)` when one REST handle implements both interfaces. */
 export interface SubscriptionRepository {
-  get(id: string): Promise<Subscription>;
   update(
     sub: Subscription,
     patch: {
