@@ -17,6 +17,11 @@ function stubRepo(overrides: Partial<SubscriptionRepository> = {}): Subscription
     saveLocalization: vi.fn().mockResolvedValue(undefined),
     deleteLocalization: vi.fn().mockResolvedValue(undefined),
     priceSchedule: vi.fn().mockResolvedValue(null),
+    reviewScreenshot: vi.fn().mockResolvedValue(null),
+    uploadReviewScreenshot: vi.fn(),
+    deleteReviewScreenshot: vi.fn().mockResolvedValue(undefined),
+    availability: vi.fn().mockResolvedValue(null),
+    setAvailability: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
