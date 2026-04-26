@@ -3,6 +3,7 @@ import type { Affordances } from '../../shared/types.ts';
 import { InAppPurchaseLocalization } from './InAppPurchaseLocalization.ts';
 import type { IAPAvailability } from './IAPAvailability.ts';
 import type { IAPPriceSchedule } from './IAPPriceSchedule.ts';
+import type { InAppPurchaseOfferCode } from './InAppPurchaseOfferCode.ts';
 import type { ReviewScreenshot } from './ReviewScreenshot.ts';
 import type { InAppPurchaseRepository } from './InAppPurchaseRepository.ts';
 
@@ -84,6 +85,10 @@ export class InAppPurchase {
   availability: IAPAvailability | null = null;
   isAvailabilityLoaded = false;
 
+  /** Offer codes attached to this IAP (empty until loaded). */
+  offerCodes: InAppPurchaseOfferCode[] = [];
+  isOfferCodesLoaded = false;
+
   repository: InAppPurchaseRepository | null;
 
   constructor(init: InAppPurchaseInit, repository: InAppPurchaseRepository | null = null) {
@@ -161,6 +166,12 @@ export class InAppPurchase {
   /** True if any localization has a pending edit / new locale awaiting save. */
   get hasUnsavedLocalizationChanges(): boolean {
     return this.localizations.some((l) => l.isNew || l.hasUnsavedChanges);
+  }
+
+  // ── Offer code aggregation ──
+
+  get activeOfferCodeCount(): number {
+    return this.offerCodes.filter((c) => c.isActive).length;
   }
 
   // ── Display Getters ──
@@ -343,6 +354,26 @@ export class InAppPurchase {
       this.isReviewScreenshotLoaded = true;
     });
     return created;
+  }
+
+  // ── Offer codes ──
+
+  async loadOfferCodes(): Promise<InAppPurchaseOfferCode[]> {
+    if (!this.canViewOfferCodes) {
+      runInAction(() => {
+        this.offerCodes = [];
+        this.isOfferCodesLoaded = true;
+      });
+      return [];
+    }
+    const repo = this.requireRepo();
+    const list = await repo.offerCodes(this);
+    runInAction(() => {
+      list.forEach((c) => c.setRepository(repo));
+      this.offerCodes = list;
+      this.isOfferCodesLoaded = true;
+    });
+    return list;
   }
 
   // ── Availability ──
