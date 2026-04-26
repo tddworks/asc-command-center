@@ -156,6 +156,8 @@ export class Subscription {
   get canViewPromotionalOffers(): boolean { return 'listPromotionalOffers' in this.affordances; }
   get canViewOfferCodes(): boolean { return 'listOfferCodes' in this.affordances; }
   get canCreateOfferCode(): boolean { return 'createOfferCode' in this.affordances; }
+  get canCreateIntroductoryOffer(): boolean { return 'createIntroductoryOffer' in this.affordances; }
+  get canCreatePromotionalOffer(): boolean { return 'createPromotionalOffer' in this.affordances; }
 
   // ── Localization aggregation ──
 
@@ -377,6 +379,51 @@ export class Subscription {
       this.isPromotionalOffersLoaded = true;
     });
     return list;
+  }
+
+  async createIntroductoryOffer(input: {
+    offerMode: OfferMode | string;
+    duration: SubscriptionDuration | string;
+    numberOfPeriods: number;
+    territory?: string | null;
+    startDate?: string | null;
+    endDate?: string | null;
+  }): Promise<SubscriptionIntroductoryOffer> {
+    if (!this.canCreateIntroductoryOffer) {
+      throw new Error(`Subscription ${this.id} cannot create introductory offer (no createIntroductoryOffer affordance)`);
+    }
+    const created = await this.requireRepo().createIntroductoryOffer(this, input);
+    runInAction(() => { this.introductoryOffers = [...this.introductoryOffers, created]; });
+    return created;
+  }
+
+  async deleteIntroductoryOffer(offer: SubscriptionIntroductoryOffer): Promise<void> {
+    await this.requireRepo().deleteIntroductoryOffer(offer);
+    runInAction(() => {
+      this.introductoryOffers = this.introductoryOffers.filter((o) => o !== offer);
+    });
+  }
+
+  async createPromotionalOffer(input: {
+    name: string;
+    offerCode: string;
+    offerMode: OfferMode | string;
+    duration: SubscriptionDuration | string;
+    numberOfPeriods: number;
+  }): Promise<SubscriptionPromotionalOffer> {
+    if (!this.canCreatePromotionalOffer) {
+      throw new Error(`Subscription ${this.id} cannot create promotional offer (no createPromotionalOffer affordance)`);
+    }
+    const created = await this.requireRepo().createPromotionalOffer(this, input);
+    runInAction(() => { this.promotionalOffers = [...this.promotionalOffers, created]; });
+    return created;
+  }
+
+  async deletePromotionalOffer(offer: SubscriptionPromotionalOffer): Promise<void> {
+    await this.requireRepo().deletePromotionalOffer(offer);
+    runInAction(() => {
+      this.promotionalOffers = this.promotionalOffers.filter((o) => o !== offer);
+    });
   }
 
   async createOfferCode(input: {

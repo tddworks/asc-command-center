@@ -20,6 +20,23 @@ export interface CreateSubscriptionOfferCodeInput {
   customerEligibilities: SubscriptionCustomerEligibility[];
 }
 
+export interface CreateIntroductoryOfferInput {
+  offerMode: OfferMode | string;
+  duration: SubscriptionDuration | string;
+  numberOfPeriods: number;
+  territory?: string | null;
+  startDate?: string | null;
+  endDate?: string | null;
+}
+
+export interface CreatePromotionalOfferInput {
+  name: string;
+  offerCode: string;
+  offerMode: OfferMode | string;
+  duration: SubscriptionDuration | string;
+  numberOfPeriods: number;
+}
+
 export interface CreateSubscriptionInput {
   groupId: string;
   name: string;
@@ -81,7 +98,13 @@ export interface SubscriptionRepository {
 
   // ── Offers ──
   introductoryOffers(sub: Subscription): Promise<SubscriptionIntroductoryOffer[]>;
+  createIntroductoryOffer(sub: Subscription, input: CreateIntroductoryOfferInput): Promise<SubscriptionIntroductoryOffer>;
+  deleteIntroductoryOffer(offer: SubscriptionIntroductoryOffer): Promise<void>;
+
   promotionalOffers(sub: Subscription): Promise<SubscriptionPromotionalOffer[]>;
+  createPromotionalOffer(sub: Subscription, input: CreatePromotionalOfferInput): Promise<SubscriptionPromotionalOffer>;
+  deletePromotionalOffer(offer: SubscriptionPromotionalOffer): Promise<void>;
+
   offerCodes(sub: Subscription): Promise<SubscriptionOfferCode[]>;
   createOfferCode(sub: Subscription, input: CreateSubscriptionOfferCodeInput): Promise<SubscriptionOfferCode>;
 }
