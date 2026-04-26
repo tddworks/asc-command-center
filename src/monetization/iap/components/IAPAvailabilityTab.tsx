@@ -20,7 +20,7 @@ function IAPAvailabilityTabImpl({ iap }: Props) {
   }, [iap]);
 
   if (!iap.canViewAvailability) {
-    return <div className="card-body"><span className="muted">Backend does not expose availability for this IAP.</span></div>;
+    return <div className="card-body padded"><span className="muted">Backend does not expose availability for this IAP.</span></div>;
   }
   if (!iap.isAvailabilityLoaded) {
     return <div className="loading"><span className="spinner" /><span>Loading availability…</span></div>;
@@ -52,7 +52,7 @@ function IAPAvailabilityTabImpl({ iap }: Props) {
 
   return (
     <div className="card">
-      {/* Title row — clean, no overflow risk */}
+      {/* Title row */}
       <div className="toolbar">
         <div className="toolbar-left">
           <h3>Availability</h3>
@@ -62,26 +62,37 @@ function IAPAvailabilityTabImpl({ iap }: Props) {
         </div>
       </div>
 
-      {/* Settings row — auto-include + save (always visible, doesn't share space with search/filters) */}
+      {/* Setting + Save band — proper padding so the row breathes */}
       <div
-        className="card-body"
+        className="card-body padded"
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap: 12,
+          gap: 16,
           flexWrap: 'wrap',
           borderBottom: '1px solid var(--border)',
         }}
       >
         <label
-          style={{ display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer' }}
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 10,
+            cursor: 'pointer',
+          }}
         >
           <input
             type="checkbox"
             checked={avail.availableInNewTerritories}
             onChange={(e) => avail.setAvailableInNewTerritories(e.target.checked)}
+            style={{ width: 16, height: 16 }}
           />
-          <span>Auto-include new territories</span>
+          <span>
+            <span style={{ fontWeight: 500 }}>Auto-include new territories</span>
+            <span className="form-hint" style={{ marginLeft: 8 }}>
+              Apple will include this IAP automatically when a new territory is added.
+            </span>
+          </span>
         </label>
         <span style={{ flex: 1 }} />
         {avail.isDirty && (
@@ -103,20 +114,20 @@ function IAPAvailabilityTabImpl({ iap }: Props) {
         </button>
       </div>
 
-      {/* Filter row — search + pills + bulk actions */}
+      {/* Filter + bulk band */}
       <div
-        className="card-body"
+        className="card-body padded"
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap: 6,
+          gap: 8,
           flexWrap: 'wrap',
         }}
       >
         <input
           type="search"
           className="form-input"
-          style={{ minWidth: 200, flex: '0 1 280px' }}
+          style={{ minWidth: 180, flex: '0 1 280px' }}
           placeholder="Search territories…"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
@@ -153,7 +164,7 @@ function IAPAvailabilityTabImpl({ iap }: Props) {
       </div>
 
       {error && (
-        <div className="card-body" style={{ paddingTop: 0 }}>
+        <div className="card-body padded" style={{ paddingTop: 0 }}>
           <span className="form-hint" style={{ color: 'var(--danger-text)' }}>{error}</span>
         </div>
       )}
