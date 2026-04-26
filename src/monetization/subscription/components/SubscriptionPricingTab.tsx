@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import type { Subscription } from '../Subscription.ts';
+import { SubscriptionSetPriceModal } from './SubscriptionSetPriceModal.tsx';
 
 interface Props {
   sub: Subscription;
@@ -8,6 +9,7 @@ interface Props {
 
 function SubscriptionPricingTabImpl({ sub }: Props) {
   const [query, setQuery] = useState('');
+  const [setPriceOpen, setSetPriceOpen] = useState(false);
 
   useEffect(() => {
     if (sub.isPriceScheduleLoaded) return;

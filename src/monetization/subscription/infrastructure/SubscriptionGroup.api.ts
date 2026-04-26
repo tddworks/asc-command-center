@@ -255,6 +255,19 @@ export class RestSubscriptionGroupRepository implements SubscriptionGroupReposit
     }
   }
 
+  async setPrices(
+    sub: Subscription,
+    input: Array<{ territoryId: string; pricePointId: string }>,
+  ): Promise<void> {
+    const url = sub.affordances.setPrices ?? `/api/v1/subscriptions/${sub.id}/price-schedule`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prices: input }),
+    });
+    if (!res.ok) throw new Error(`POST ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
+  }
+
   // ── Offers ──
 
   async introductoryOffers(sub: Subscription): Promise<SubscriptionIntroductoryOffer[]> {

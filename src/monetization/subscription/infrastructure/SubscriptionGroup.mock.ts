@@ -27,6 +27,7 @@ export class MockSubscriptionGroupRepository implements SubscriptionGroupReposit
   private localizationsByTier = new Map<string, SubscriptionLocalization[]>();
   private screenshotByTier = new Map<string, SubscriptionReviewScreenshot | null>();
   private availabilityByTier = new Map<string, SubscriptionAvailability>();
+  private priceScheduleByTier = new Map<string, SubscriptionPriceSchedule | null>();
   private nextLocId = 500;
   private nextShotId = 600;
 
@@ -113,7 +114,18 @@ export class MockSubscriptionGroupRepository implements SubscriptionGroupReposit
   // ── Pricing ──
 
   async priceSchedule(sub: Subscription): Promise<SubscriptionPriceSchedule | null> {
-    return mockSubPriceScheduleFor(sub);
+    const cached = this.priceScheduleByTier.get(sub.id);
+    if (cached !== undefined) return cached;
+    const seeded = mockSubPriceScheduleFor(sub);
+    this.priceScheduleByTier.set(sub.id, seeded);
+    return seeded;
+  }
+
+  async setPrices(
+    sub: Subscription,
+    input: Array<{ territoryId: string; pricePointId: string }>,
+  ): Promise<void> {
+    this.priceScheduleByTier.set(sub.id, mockSetSubPricesFor(sub, input));
   }
 
   // ── Review screenshot ──
@@ -260,6 +272,7 @@ export class MockSubscriptionGroupRepository implements SubscriptionGroupReposit
       listLocalizations: `/api/v1/subscriptions/${id}/localizations`,
       createLocalization: `/api/v1/subscriptions/${id}/localizations`,
       getPriceSchedule: `/api/v1/subscriptions/${id}/price-schedule`,
+      setPrices: `/api/v1/subscriptions/${id}/price-schedule`,
       getReviewScreenshot: `/api/v1/subscriptions/${id}/review-screenshot`,
       uploadReviewScreenshot: `/api/v1/subscriptions/${id}/review-screenshot`,
       getAvailability: `/api/v1/subscriptions/${id}/availability`,
@@ -401,6 +414,34 @@ function mockPromotionalOffersFor(sub: Subscription): SubscriptionPromotionalOff
       numberOfPeriods: 3,
     }),
   ];
+}
+
+/** Build a fresh schedule after the user picks one or more
+ *  {territoryId, pricePointId} pairs. The first pair is the anchor; we
+ *  re-equalise off Apple's notional FX for the rest. Real Apple equalises
+ *  via paginated price-points; the wizard ships in a later phase. */
+function mockSetSubPricesFor(
+  sub: Subscription,
+  input: Array<{ territoryId: string; pricePointId: string }>,
+): SubscriptionPriceSchedule {
+  const anchor = input[0];
+  const anchorTerritory = SUB_TERRITORIES.find((t) => t.id === anchor?.territoryId)
+    ?? SUB_TERRITORIES[0];
+  const fallbackUsd = subBasePriceFor(sub) ?? 9.99;
+  const usdEquivalent = (fallbackUsd * anchorTerritory.rate) / anchorTerritory.rate;
+
+  const rows = SUB_TERRITORIES.map((t) => {
+    const local = usdEquivalent * t.rate;
+    const explicit = input.find((p) => p.territoryId === t.id);
+    return new SubscriptionTerritoryPrice({
+      territoryId: t.id,
+      territoryName: t.name,
+      formattedPrice: formatSubPrice(local, t.currency, t.symbol),
+      currency: t.currency,
+      pricePointId: explicit?.pricePointId ?? `pp-${sub.id}-${t.id}`,
+    });
+  });
+  return new SubscriptionPriceSchedule({ territoryPrices: rows });
 }
 
 function mockOfferCodesFor(sub: Subscription): SubscriptionOfferCode[] {
