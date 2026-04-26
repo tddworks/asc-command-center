@@ -1,5 +1,10 @@
 import { InAppPurchase, InAppPurchaseState, InAppPurchaseType } from '../InAppPurchase.ts';
-import type { CreateInAppPurchaseInput, InAppPurchaseRepository } from '../InAppPurchaseRepository.ts';
+import { InAppPurchaseLocalization } from '../InAppPurchaseLocalization.ts';
+import type {
+  CreateInAppPurchaseInput,
+  CreateInAppPurchaseLocalizationInput,
+  InAppPurchaseRepository,
+} from '../InAppPurchaseRepository.ts';
 
 /**
  * Deterministic in-memory IAP repository. Mutations persist on `this`
@@ -9,6 +14,10 @@ import type { CreateInAppPurchaseInput, InAppPurchaseRepository } from '../InApp
  */
 export class MockInAppPurchaseRepository implements InAppPurchaseRepository {
   private byApp = new Map<string, InAppPurchase[]>();
+  /** Per-IAP localization fixtures. Mutations persist on this map so the
+   *  detail page reflects every add/delete/update without re-fetching. */
+  private localizationsByIap = new Map<string, InAppPurchaseLocalization[]>();
+  private nextLocId = 100;
 
   async list(appId: string): Promise<InAppPurchase[]> {
     if (!this.byApp.has(appId)) {
@@ -70,6 +79,79 @@ export class MockInAppPurchaseRepository implements InAppPurchaseRepository {
     void iap;
   }
 
+  // ── Localizations ──
+
+  async localizations(iap: InAppPurchase): Promise<InAppPurchaseLocalization[]> {
+    const cached = this.localizationsByIap.get(iap.id);
+    if (cached) return cached.map((l) => l);
+    const seeded = this.seedLocalizationsFor(iap);
+    this.localizationsByIap.set(iap.id, seeded);
+    return seeded.map((l) => l);
+  }
+
+  async createLocalization(
+    iap: InAppPurchase,
+    input: CreateInAppPurchaseLocalizationInput,
+  ): Promise<InAppPurchaseLocalization> {
+    const id = `loc-${this.nextLocId++}`;
+    const created = new InAppPurchaseLocalization({
+      id,
+      locale: input.locale,
+      name: input.name,
+      description: input.description ?? null,
+      affordances: this.localizationAffordances(id),
+    });
+    const list = this.localizationsByIap.get(iap.id) ?? [];
+    list.push(created);
+    this.localizationsByIap.set(iap.id, list);
+    return created;
+  }
+
+  async saveLocalization(_loc: InAppPurchaseLocalization): Promise<void> {
+    // Domain mutates `_loc` in place after save resolves; the in-memory
+    // array references the same object so no extra bookkeeping needed.
+  }
+
+  async deleteLocalization(loc: InAppPurchaseLocalization): Promise<void> {
+    for (const [iapId, list] of this.localizationsByIap.entries()) {
+      const next = list.filter((l) => l !== loc);
+      if (next.length !== list.length) {
+        this.localizationsByIap.set(iapId, next);
+        return;
+      }
+    }
+  }
+
+  private localizationAffordances(id: string): Record<string, string> {
+    return {
+      update: `/api/v1/iap-localizations/${id}`,
+      delete: `/api/v1/iap-localizations/${id}`,
+    };
+  }
+
+  private seedLocalizationsFor(iap: InAppPurchase): InAppPurchaseLocalization[] {
+    const sample: Record<string, { name: string; description: string }> = {
+      'iap-1': { name: 'Premium Upgrade', description: 'Unlock every feature forever.' },
+      'iap-2': { name: '100 Coins', description: 'A pouch of 100 in-game coins.' },
+      'iap-3': { name: 'Special Offer', description: 'Limited-time bundle.' },
+      'iap-4': { name: 'Starter Pack', description: 'Everything you need to start.' },
+      'iap-5': { name: '', description: '' },
+    };
+    const fallback = { name: iap.referenceName, description: '' };
+    const en = sample[iap.id] ?? fallback;
+    const id = `loc-en-${iap.id}`;
+    if (!en.name) return [];
+    return [
+      new InAppPurchaseLocalization({
+        id,
+        locale: 'en-US',
+        name: en.name,
+        description: en.description || null,
+        affordances: this.localizationAffordances(id),
+      }),
+    ];
+  }
+
   private affordancesFor(id: string): Record<string, string> {
     return {
       get: `/api/v1/iap/${id}`,
@@ -78,6 +160,7 @@ export class MockInAppPurchaseRepository implements InAppPurchaseRepository {
       submit: `/api/v1/iap/${id}/submit`,
       unsubmit: `/api/v1/iap/${id}/submit`,
       listLocalizations: `/api/v1/iap/${id}/localizations`,
+      createLocalization: `/api/v1/iap/${id}/localizations`,
       getPriceSchedule: `/api/v1/iap/${id}/price-schedule`,
       getAvailability: `/api/v1/iap/${id}/availability`,
       listOfferCodes: `/api/v1/iap/${id}/offer-codes`,

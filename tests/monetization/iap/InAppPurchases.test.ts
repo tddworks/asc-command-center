@@ -119,12 +119,14 @@ describe('InAppPurchases (root aggregate)', () => {
     expect(iaps.list).toContain(noDelete);
   });
 
-  it('switchRepository clears state and rebinds the repo', async () => {
+  it('switchRepository clears state, selection, and rebinds the repo', async () => {
     const initial = mkIap('iap-1');
     const repo1 = stubRepo({ list: vi.fn().mockResolvedValue([initial]) });
     const iaps = new InAppPurchases(repo1);
     await iaps.refreshFor('app-1');
+    iaps.select(iaps.list[0]);
     expect(iaps.list).toHaveLength(1);
+    expect(iaps.selectedIap).toBe(initial);
 
     const repo2 = stubRepo();
     iaps.switchRepository(repo2);
@@ -133,6 +135,7 @@ describe('InAppPurchases (root aggregate)', () => {
     expect(iaps.list).toEqual([]);
     expect(iaps.loaded).toBe(false);
     expect(iaps.appId).toBeNull();
+    expect(iaps.selectedIap).toBeNull();
   });
 
   it('select focuses an IAP and clearSelection resets', async () => {
