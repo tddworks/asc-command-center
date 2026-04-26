@@ -221,6 +221,26 @@ describe('InAppPurchase', () => {
     await expect(iap.submit()).rejects.toThrow(/no repository/);
   });
 
+  // ── Helpers ──
+
+  it('suggestedProductId replaces the last bundle segment with a slug', () => {
+    expect(InAppPurchase.suggestedProductId('com.example.weather', 'Premium Upgrade'))
+      .toBe('com.example.premium_upgrade');
+    expect(InAppPurchase.suggestedProductId('com.example.weather', '100 Coins'))
+      .toBe('com.example.100_coins');
+  });
+
+  it('suggestedProductId trims punctuation and collapses whitespace', () => {
+    expect(InAppPurchase.suggestedProductId('com.example.app', '  Pro!! Bundle  '))
+      .toBe('com.example.pro_bundle');
+  });
+
+  it('suggestedProductId falls back when one side is empty', () => {
+    expect(InAppPurchase.suggestedProductId('com.example.app', '')).toBe('com.example.app');
+    expect(InAppPurchase.suggestedProductId('', 'Premium')).toBe('premium');
+    expect(InAppPurchase.suggestedProductId('singleseg', 'Premium')).toBe('singleseg.premium');
+  });
+
   // ── fromJSON ──
 
   it('fromJSON hydrates the standard backend shape', () => {
