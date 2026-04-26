@@ -1,6 +1,7 @@
 import { makeAutoObservable, runInAction } from 'mobx';
 import type { Affordances } from '../../shared/types.ts';
 import { SubscriptionLocalization } from './SubscriptionLocalization.ts';
+import type { SubscriptionPriceSchedule } from './SubscriptionPriceSchedule.ts';
 import type { SubscriptionRepository } from './SubscriptionRepository.ts';
 
 export const SubscriptionPeriod = {
@@ -66,6 +67,10 @@ export class Subscription {
   /** True once `loadLocalizations()` has resolved. */
   isLocalizationsLoaded = false;
 
+  /** Pricing snapshot, or null when never loaded / no schedule exists. */
+  priceSchedule: SubscriptionPriceSchedule | null = null;
+  isPriceScheduleLoaded = false;
+
   repository: SubscriptionRepository | null;
 
   constructor(init: SubscriptionInit, repository: SubscriptionRepository | null = null) {
@@ -114,6 +119,7 @@ export class Subscription {
   get canUpdate(): boolean { return this.isEditable && 'update' in this.affordances; }
   get canViewLocalizations(): boolean { return 'listLocalizations' in this.affordances; }
   get canCreateLocalization(): boolean { return 'createLocalization' in this.affordances; }
+  get canViewPricing(): boolean { return 'getPriceSchedule' in this.affordances; }
 
   // ── Localization aggregation ──
 
@@ -248,6 +254,24 @@ export class Subscription {
       this.localizations = [...this.localizations, created];
     });
     return created;
+  }
+
+  // ── Pricing ──
+
+  async loadPriceSchedule(): Promise<SubscriptionPriceSchedule | null> {
+    if (!this.canViewPricing) {
+      runInAction(() => {
+        this.priceSchedule = null;
+        this.isPriceScheduleLoaded = true;
+      });
+      return null;
+    }
+    const fetched = await this.requireRepo().priceSchedule(this);
+    runInAction(() => {
+      this.priceSchedule = fetched;
+      this.isPriceScheduleLoaded = true;
+    });
+    return fetched;
   }
 
   async removeLocalization(loc: SubscriptionLocalization): Promise<void> {

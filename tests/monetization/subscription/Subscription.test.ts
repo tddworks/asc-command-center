@@ -6,6 +6,7 @@ import {
   type SubscriptionInit,
 } from '../../../src/monetization/subscription/Subscription.ts';
 import { SubscriptionLocalization } from '../../../src/monetization/subscription/SubscriptionLocalization.ts';
+import { SubscriptionPriceSchedule } from '../../../src/monetization/subscription/SubscriptionPriceSchedule.ts';
 import type { SubscriptionRepository } from '../../../src/monetization/subscription/SubscriptionRepository.ts';
 
 function stubRepo(overrides: Partial<SubscriptionRepository> = {}): SubscriptionRepository {
@@ -18,6 +19,7 @@ function stubRepo(overrides: Partial<SubscriptionRepository> = {}): Subscription
     createLocalization: vi.fn(),
     saveLocalization: vi.fn().mockResolvedValue(undefined),
     deleteLocalization: vi.fn().mockResolvedValue(undefined),
+    priceSchedule: vi.fn().mockResolvedValue(null),
     ...overrides,
   };
 }
@@ -203,6 +205,40 @@ describe('Subscription', () => {
 
     expect(sub.completeLocalizationCount).toBe(1);
     expect(sub.hasAnyCompleteLocalization).toBe(true);
+  });
+
+  // ── Pricing ──
+
+  it('canViewPricing maps to the getPriceSchedule affordance', () => {
+    expect(new Subscription(subInit({ affordances: { getPriceSchedule: '/x' } })).canViewPricing).toBe(true);
+    expect(new Subscription(subInit({ affordances: {} })).canViewPricing).toBe(false);
+  });
+
+  it('loadPriceSchedule short-circuits to null when the affordance is missing', async () => {
+    const repo = stubRepo();
+    const sub = new Subscription(subInit({ affordances: {} }), repo);
+
+    const result = await sub.loadPriceSchedule();
+
+    expect(result).toBeNull();
+    expect(sub.isPriceScheduleLoaded).toBe(true);
+    expect(repo.priceSchedule).not.toHaveBeenCalled();
+  });
+
+  it('loadPriceSchedule populates priceSchedule from the repo', async () => {
+    const sched = SubscriptionPriceSchedule.fromJSON({
+      territoryPrices: [
+        { territory: { id: 'USA', displayName: 'United States', currency: 'USD' }, customerPrice: '$9.99', pricePoint: { id: 'pp-1' } },
+      ],
+    });
+    const repo = stubRepo({ priceSchedule: vi.fn().mockResolvedValue(sched) });
+    const sub = new Subscription(subInit({ affordances: { getPriceSchedule: '/x' } }), repo);
+
+    await sub.loadPriceSchedule();
+
+    expect(sub.priceSchedule).toBe(sched);
+    expect(sub.isPriceScheduleLoaded).toBe(true);
+    expect(repo.priceSchedule).toHaveBeenCalledWith(sub);
   });
 
   it('suggestedProductId derives a com.bundle.<slug> shape', () => {

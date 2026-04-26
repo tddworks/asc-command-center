@@ -1,5 +1,6 @@
 import type { Subscription, SubscriptionPeriod } from './Subscription.ts';
 import type { SubscriptionLocalization } from './SubscriptionLocalization.ts';
+import type { SubscriptionPriceSchedule } from './SubscriptionPriceSchedule.ts';
 
 export interface CreateSubscriptionInput {
   groupId: string;
@@ -39,4 +40,8 @@ export interface SubscriptionRepository {
   createLocalization(sub: Subscription, input: CreateSubscriptionLocalizationInput): Promise<SubscriptionLocalization>;
   saveLocalization(loc: SubscriptionLocalization): Promise<void>;
   deleteLocalization(loc: SubscriptionLocalization): Promise<void>;
+
+  // ── Pricing ──
+  /** Returns null when the subscription has no price schedule yet. */
+  priceSchedule(sub: Subscription): Promise<SubscriptionPriceSchedule | null>;
 }

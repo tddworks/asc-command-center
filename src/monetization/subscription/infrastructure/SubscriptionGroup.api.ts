@@ -1,6 +1,7 @@
 import { Subscription } from '../Subscription.ts';
 import { SubscriptionGroup } from '../SubscriptionGroup.ts';
 import { SubscriptionLocalization } from '../SubscriptionLocalization.ts';
+import { SubscriptionPriceSchedule } from '../SubscriptionPriceSchedule.ts';
 import { apiClient, type DataMode } from '../../../shared/api-client.tsx';
 import type {
   CreateSubscriptionInput,
@@ -170,6 +171,21 @@ export class RestSubscriptionGroupRepository implements SubscriptionGroupReposit
     const url = loc.deleteUrl ?? `/api/v1/subscription-localizations/${loc.id}`;
     const res = await fetch(url, { method: 'DELETE' });
     if (!res.ok) throw new Error(`DELETE ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
+  }
+
+  // ── Pricing ──
+
+  async priceSchedule(sub: Subscription): Promise<SubscriptionPriceSchedule | null> {
+    const url = sub.affordances.getPriceSchedule ?? `/api/v1/subscriptions/${sub.id}/price-schedule`;
+    try {
+      const json = await apiClient.get<{ data: Record<string, unknown> | null }>(url);
+      const row = Array.isArray(json.data) ? (json.data as Record<string, unknown>[])[0] : json.data;
+      return row ? SubscriptionPriceSchedule.fromJSON(row) : null;
+    } catch (err) {
+      const msg = (err as Error).message ?? '';
+      if (msg.includes('404')) return null;
+      throw err;
+    }
   }
 }
 
