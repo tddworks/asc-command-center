@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import type { InAppPurchase } from '../InAppPurchase.ts';
+import { territoryFlag } from '../../../shared/territoryDirectory.ts';
 import { IAPPricePointPickerModal } from './IAPPricePointPickerModal.tsx';
 
 interface Props {
@@ -60,7 +61,7 @@ function IAPPricingTabImpl({ iap }: Props) {
           <div className="toolbar-left">
             <strong>⭐ Base Territory</strong>
             <span className="muted" style={{ marginLeft: 8 }}>
-              {schedule.baseTerritoryName} · {schedule.basePrice} {schedule.baseCurrency}
+              {territoryFlag(schedule.baseTerritoryId)} {schedule.baseTerritoryName} · {schedule.basePrice} {schedule.baseCurrency}
             </span>
           </div>
           <div className="toolbar-right">
@@ -108,19 +109,27 @@ function IAPPricingTabImpl({ iap }: Props) {
             <tbody>
               {rows.length === 0 ? (
                 <tr><td colSpan={4} className="muted" style={{ textAlign: 'center', padding: 16 }}>No matching territories.</td></tr>
-              ) : rows.map((p) => (
-                <tr key={p.territoryId}>
-                  <td className="cell-primary">
-                    {p.territoryName}
-                    {p.territoryId === schedule.baseTerritoryId && (
-                      <span className="platform-badge" style={{ marginLeft: 6 }}>BASE</span>
-                    )}
-                  </td>
-                  <td className="cell-mono">{p.territoryId}</td>
-                  <td>{p.currency}</td>
-                  <td>{p.formattedPrice}</td>
-                </tr>
-              ))}
+              ) : rows.map((p) => {
+                const flag = territoryFlag(p.territoryId);
+                return (
+                  <tr key={p.territoryId}>
+                    <td className="cell-primary">
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                        {flag && (
+                          <span aria-hidden="true" style={{ fontSize: 18, lineHeight: 1 }}>{flag}</span>
+                        )}
+                        <span>{p.territoryName}</span>
+                        {p.territoryId === schedule.baseTerritoryId && (
+                          <span className="platform-badge" style={{ marginLeft: 2 }}>BASE</span>
+                        )}
+                      </span>
+                    </td>
+                    <td className="cell-mono">{p.territoryId}</td>
+                    <td>{p.currency}</td>
+                    <td>{p.formattedPrice}</td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>

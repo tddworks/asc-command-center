@@ -158,7 +158,9 @@ export class InAppPurchase {
 
   get canViewLocalizations(): boolean { return 'listLocalizations' in this.affordances; }
   get canCreateLocalization(): boolean { return 'createLocalization' in this.affordances; }
-  get canViewPricing(): boolean { return 'getPriceSchedule' in this.affordances; }
+  get canViewPricing(): boolean {
+    return 'getPriceSchedule' in this.affordances || 'listPricePoints' in this.affordances;
+  }
   get canSetPrice(): boolean { return 'setPrice' in this.affordances; }
   get canViewAvailability(): boolean { return 'getAvailability' in this.affordances; }
   get canSetAvailability(): boolean { return 'setAvailability' in this.affordances; }
