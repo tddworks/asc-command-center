@@ -39,16 +39,16 @@ This document is the canonical design reference. Implementation lives in
 | Plugin types | `src/extensibility/plugin/Plugin.ts` | ✅ `PluginRegistration { pages, sidebarItems, widgets }` |
 | Page route wiring | `src/App.tsx` (`pluginRegistry.getPages()`) | ✅ lazy-imports registered pages |
 | Sidebar wiring | `src/shared/layout/Sidebar.tsx` | ✅ renders registered sidebar items |
-| Named widget rendering | `src/extensibility/plugin/PluginSlot.tsx` | ✅ renders widgets for a named slot |
-| **Plugin bootstrap fetch + script inject** | — | ❌ missing |
-| **`window.ascPluginAPI` host bridge** | — | ❌ missing |
-| **Capability-typed `<PluginSlot>`** (props + `kind`) | — | ❌ widgets get no props today |
-| **Plugin lifecycle hooks** (`activate` / `deactivate`) | — | ❌ |
-| **Plugin settings store** (asc-cli-backed) | — | ❌ in asc-cli AND host |
-| **Dev-mode plugin path override** | — | ❌ |
+| Capability-typed `<PluginSlot>` (props + `kind`) | `src/extensibility/plugin/{PluginSlot,slots}.ts` | ✅ widgets receive the slot's typed `SlotContext` as props |
+| Plugin bootstrap fetch + script inject | `src/extensibility/plugin/PluginBootstrap.tsx` | ✅ fetches `/api/plugins`, dynamic-imports `*.bundle.js`, calls `activate(api)` |
+| `window.ascPluginAPI` host bridge | `src/extensibility/plugin/installPluginAPI.ts` | ✅ installed before plugin scripts load; surfaces `register`, `host.runtime/ui/settings/apiClient` |
+| Plugin lifecycle hooks (`activate` / `deactivate`) | `PluginBootstrap` | ✅ stores returned `PluginHandle`, calls `deactivate()` on unload |
+| Plugin settings store (asc-cli-backed) | `src/extensibility/plugin/settingsClient.ts` + `asc-cli` REST | ✅ `GET/PUT /api/plugin-settings/:id`, secret fields keychain-capable |
+| Dev-mode plugin path override | `VITE_PLUGIN_PATH` env var | ✅ host fetches plugin JS from Vite dev server when set |
 
-The missing pieces are split across asc-cli (a settings REST endpoint) and
-asc-command-center (everything else).
+The host plugin surface is fully wired. New work is now in the plugins
+themselves (e.g. asc-pro/plugin/ai-src) and adding new `kind` discriminators
+to existing slots — both additive without touching the host contract.
 
 ## Architecture
 
@@ -415,27 +415,65 @@ call. No new slot, no catalog bump, no doc update.
 
 ### Context shape per slot
 
+`SlotContext` is a discriminated union — widgets pattern-match on `slot`
+and then narrow on `kind`. Source of truth: `src/extensibility/plugin/
+slots.ts`. The plugin SDK ships a mirror at `asc-pro/plugin/sdk/
+pluginApiTypes.ts`.
+
 ```ts
-// Discriminated-union by `slot`; kind is plugin-facing filtering info.
 type SlotContext =
-  | { slot: 'text.edit';    kind: TextEditKind;    text: string; onChange(v: string): void; locale: string; context?: Record<string, unknown> }
-  | { slot: 'page.toolbar'; kind: PageToolbarKind; context: Record<string, unknown> }
-  | { slot: 'list.rowAction'; kind: ListRowKind;   item: unknown };
+  | TextEditSlotContext
+  | PageToolbarSlotContext
+  | ListRowSlotContext;
+
+interface TextEditSlotContext {
+  slot: 'text.edit';
+  kind: TextEditKind;
+  text: string;
+  onChange(next: string): void;
+  locale: string;
+  /** Hint for the plugin's prompt (e.g. char limits on App Store fields). */
+  maxLength?: number;
+  /** Domain context — narrowly typed per kind group. The host populates
+   *  whichever is relevant; widgets read what they need. */
+  app?: App;
+  appInfo?: AppInfo;
+  version?: Version;
+  review?: Review;
+  /** Cross-locale fan-out targets, present only on the primary-locale
+   *  instance of a field. See "Batch fan-out" below. */
+  batch?: BatchTargets;
+  /** Free-form contextual hints the host supplies for create-time and
+   *  composite slots. See "The `meta` bag" below. */
+  meta?: Record<string, string>;
+}
 
 type TextEditKind =
+  // App Info
   | 'appInfo.name'
   | 'appInfo.subtitle'
   | 'appInfo.privacyPolicyUrl'
+  // Version
   | 'version.description'
   | 'version.whatsNew'
   | 'version.keywords'
   | 'version.promotionalText'
-  | 'review.response';
+  // Customer
+  | 'review.response'
+  // Monetization — localizations table inputs
+  | 'iapLocalization.name'
+  | 'iapLocalization.description'
+  | 'subscriptionLocalization.name'
+  | 'subscriptionLocalization.description'
+  // Monetization — create-modal name fields
+  | 'iapCreate.referenceName'
+  | 'subscriptionCreate.name'
+  | 'subscriptionGroupCreate.referenceName';
 ```
 
-`TextEditKind` is the list of fields the host marks as *text-editable*.
-Plugins filter on it; an AI widget registers for `text.edit` and declines
-to render when `kind` isn't in its set:
+`TextEditKind` is the union of every field the host marks as
+*text-editable*. Plugins filter on it; an AI widget registers for
+`text.edit` and declines to render when `kind` isn't in its set:
 
 ```tsx
 function AIEnhanceButton(ctx: SlotContext & { slot: 'text.edit' }) {
@@ -463,6 +501,96 @@ Every widget for slot `S` is a React component typed as
 `React.FC<SlotContext & { slot: S }>`. Nothing else. Widgets see
 the field's current text and an `onChange` callback — they mutate host
 state through normal React/MobX semantics.
+
+### Batch fan-out (`BatchTargets`)
+
+A `text.edit` slot mounted on a *primary-locale* instance of a field can
+also carry a `batch` payload describing the same field on every sibling
+locale. Widgets use it to expose a "fan one operation across all
+locales" affordance — the asc-pro AI plugin's "Translate to all locales"
+button is the canonical consumer.
+
+```ts
+interface BatchTargets {
+  /** Locale code of the source row (e.g. `'en-US'`). */
+  sourceLocale: string;
+  /** Current text in the source row — what the widget feeds to AI. */
+  sourceText: string;
+  /** Sibling rows the widget will write to. */
+  targets: readonly BatchTarget[];
+}
+
+interface BatchTarget {
+  locale: string;
+  /** What's already in the target field — lets the widget warn before
+   *  overwriting. */
+  current: string;
+  /** Setter the widget calls with the produced string. */
+  setText(v: string): void;
+}
+```
+
+Hosts mount `batch` only on the primary-locale slot of a field; sibling
+rows omit it so they expose only the single-field affordance. A widget
+that ignores `batch` keeps working — it just shows the per-field button.
+
+### The `meta` bag
+
+`meta?: Record<string, string>` is a free-form contextual hint bag the
+host populates for slots whose prompt depends on context the slot's
+typed fields don't carry. Conventional keys:
+
+| Key | Set on | Meaning |
+|---|---|---|
+| `iapType` | `iapCreate.referenceName` | One of `CONSUMABLE`, `NON_CONSUMABLE`, `NON_RENEWING_SUBSCRIPTION` — lets a "Suggest IAP Name" enhancement bias toward the right vocabulary (coins/gems vs premium-unlock vs seasonal-pass). |
+| `groupName` | `subscriptionCreate.name` | The subscription group's reference name — gives the suggester context for tier names like "Pro Monthly". |
+| `period` | `subscriptionCreate.name` | The pending billing period (`ONE_WEEK`, `ONE_MONTH`, `ONE_YEAR`, …). |
+
+Plugins read what they understand and ignore unknown keys. New keys are
+purely additive — neither host nor existing plugins need to change for a
+new convention to land.
+
+### Worked example: the "Suggest IAP Name" enhancement
+
+End-to-end, here's how a context-driven suggestion plugs together:
+
+```tsx
+// Host: src/monetization/iap/components/CreateIAPModal.tsx
+<PluginSlot
+  slot="text.edit"
+  ctx={{
+    slot: 'text.edit',
+    kind: 'iapCreate.referenceName',
+    text: referenceName,
+    onChange: setReferenceName,        // setting name auto-derives productId
+    locale: 'en-US',
+    app,                                // carries name + bundleId
+    meta: { iapType: type },            // CONSUMABLE | NON_CONSUMABLE | …
+  }}
+/>
+```
+
+```ts
+// Plugin: asc-pro/plugin/ai-src/enhancements.ts
+export const iapNameSuggestion: Enhancement = {
+  id: 'openai.iap_name_suggestion',
+  displayName: 'Suggest IAP Name',
+  category: 'marketing',
+  kinds: ['iapCreate.referenceName'],
+  prompt: ({ appName, bundleId, meta }) => `
+You are an App Store in-app purchase naming expert.
+
+App name: ${appName}
+Bundle ID: ${bundleId}
+IAP type:  ${describeType(meta?.iapType)}
+
+Generate a creative, descriptive reference name (2-4 words). Output only
+the reference name.`.trim(),
+};
+```
+
+The host doesn't know about "AI"; the plugin doesn't know about
+`InAppPurchase`. Both meet at `kind` + `meta`.
 
 ## Registration shape
 
@@ -551,57 +679,37 @@ Host exposes `ascPluginAPI.version` (semver). Plugin manifest carries
 The host's `PluginBootstrap` refuses to load a plugin whose `apiVersion`
 major exceeds the host's version, and logs a descriptive error.
 
-## Open items (phase 1 scope)
+## Running a plugin end-to-end
 
-### Host — asc-command-center
+```bash
+# 1. Build the plugin bundle
+cd asc-pro && ./build-framework.sh
+# → ~/.asc/plugins/ASCPro.plugin/ui/ai.bundle.js
 
-- [ ] `src/extensibility/plugin/PluginAPI.ts` — split `PluginAPI` into the
-      five host namespaces above.
-- [ ] `src/extensibility/plugin/slots.ts` — define `SlotName`, `SlotContext`,
-      `TextEditKind`, etc.
-- [ ] `src/extensibility/plugin/PluginBootstrap.tsx` — fetch, activate,
-      deactivate, HMR-friendly.
-- [ ] Install `window.ascPluginAPI` in `src/main.tsx` before the React
-      root mounts.
-- [ ] Extend `<PluginSlot>` to take `ctx` and forward as props.
-- [ ] Place `<PluginSlot slot="text.edit" ctx={{ kind, text, onChange, … }} />`
-      next to every `TextEditKind` field across existing pages.
-- [ ] `host.settings` client — wraps `GET/PUT /api/plugin-settings/:id`;
-      calls the new asc-cli endpoints.
-- [ ] `host.ui.components` re-exports — `Card`, `Modal`, `FormGroup`,
-      `Button`. Keep plugins visually consistent.
+# 2. Boot the CLI's web server
+cd asc-cli && swift run asc web
+# /api/plugins lists ASCPro with the bundle's apiVersion
 
-### CLI — asc-cli
+# 3. Start the SPA
+cd asc-command-center && npm run dev
+# PluginBootstrap fetches /api/plugins → dynamic-imports ai.bundle.js →
+# plugin calls api.register() → ✨ AI buttons appear next to every
+# eligible text field; Settings page at /ai-settings.
+```
 
-- [ ] `PluginSettingsStore.swift` — reads/writes
-      `~/.asc/plugin-settings/<id>.json`; keychain-backed secret fields.
-- [ ] New REST endpoints in `ASCWebServer.swift`:
-       - `GET    /api/plugin-settings/:id`
-       - `PUT    /api/plugin-settings/:id`
-       - `PUT    /api/plugin-settings/:id/secret`
-       - `DELETE /api/plugin-settings/:id/secret/:key`
-- [ ] Add `apiVersion` to the `/api/plugins` response so the browser
-      bootstrap can reject incompatible plugins.
+For HMR-friendly development without rebuilding the bundle:
 
-### Doc
+```bash
+VITE_PLUGIN_PATH=/abs/path/to/asc-pro/plugin/ui npm run dev
+```
 
-- [ ] `docs/plugins/slots.md` — catalogue of every `kind` value per slot,
-      with screenshots of where they render. Updated every time a slot
-      mount is added (one-line diff).
+The host then fetches plugin JS from the local Vite dev server instead
+of `/api/plugins/<slug>/...`, so edits in `plugin/<name>-src/*.ts(x)`
+hot-reload through the SPA.
+
+## Open items (next slice of work)
+
+- [ ] `docs/plugins/slots.md` — kind-by-kind catalogue with screenshots,
+      auto-updated when a `<PluginSlot>` mount is added.
 - [ ] `docs/plugins/host-api.md` — versioned API reference extracted from
-      `PluginAPI.ts`.
-- [ ] `docs/plugins/ai-plugin.md` — the upcoming AI plugin's design,
-      prompts, and schemas.
-
-###   To run live
-
-cd /asc-pro && ./build-framework.sh
-# → ~/.asc/plugins/ASCPro.plugin/ui/ai.bundle.js exists
-
-cd /asc-cli && swift run asc web
-# asc-cli boots, /api/plugins lists ASC Pro with apiVersion 1.0.0
-
-cd /asc-command-center && npm run dev
-# host loads /api/plugins → dynamic-imports ai.bundle.js →
-# plugin calls api.register → ✨ buttons appear next to every
-# AI-eligible text field; Settings page at /ai-settings.
+      `PluginAPI.ts` so plugins can pin a specific surface.
