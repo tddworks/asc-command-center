@@ -204,9 +204,11 @@ function SubscriptionPage() {
 
   const canCreateGroup = !!workspace.currentApp;
 
+  const isEmpty = subscriptionGroups.list.length === 0;
+
   return (
     <>
-      <div className="card" style={{ marginBottom: 16 }}>
+      <div className="card" style={{ marginBottom: isEmpty ? 0 : 16 }}>
         <div className="toolbar">
           <div className="toolbar-left" style={{ gap: 12 }}>
             <h3>Subscription Groups</h3>
@@ -235,19 +237,56 @@ function SubscriptionPage() {
             </button>
           </div>
         </div>
+        {isEmpty && (
+          <div className="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="23 4 23 10 17 10"/>
+              <polyline points="1 20 1 14 7 14"/>
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10"/>
+              <path d="M20.49 15a9 9 0 0 1-14.85 3.36L1 14"/>
+            </svg>
+            <h3>No subscription groups yet</h3>
+            <p>
+              Subscriptions live inside groups so customers can upgrade, downgrade, or crossgrade between tiers without re-subscribing.
+            </p>
+            <ol
+              className="muted"
+              style={{
+                textAlign: 'left',
+                display: 'inline-block',
+                margin: '0 auto 16px',
+                paddingLeft: 20,
+                fontSize: 12,
+                lineHeight: 1.7,
+              }}
+            >
+              <li>Create a group with a reference name (e.g. <em>Pro Plans</em>).</li>
+              <li>Add one tier per duration — monthly, yearly, lifetime.</li>
+              <li>Order tiers from highest to lowest service level.</li>
+              <li>Localize, price, and submit each tier for review.</li>
+            </ol>
+            <div>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={() => setCreateGroupOpen(true)}
+                disabled={!canCreateGroup}
+                title={canCreateGroup ? 'Create a new subscription group' : 'Pick an app first'}
+              >
+                + New Group
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
-      {subscriptionGroups.list.length === 0 ? (
-        <div className="card"><div className="card-body"><span className="muted">No subscription groups for this app.</span></div></div>
-      ) : (
-        subscriptionGroups.list.map((g) => (
-          <ObservedGroupCard
-            key={g.id}
-            group={g}
-            onAddTier={(group) => setTierTarget(group)}
-          />
-        ))
-      )}
+      {!isEmpty && subscriptionGroups.list.map((g) => (
+        <ObservedGroupCard
+          key={g.id}
+          group={g}
+          onAddTier={(group) => setTierTarget(group)}
+        />
+      ))}
 
       <CreateSubscriptionGroupModal
         open={createGroupOpen}
