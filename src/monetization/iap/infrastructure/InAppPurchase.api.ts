@@ -46,8 +46,15 @@ export class RestInAppPurchaseRepository implements InAppPurchaseRepository {
       throw new Error(`POST ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
     }
     const body = await res.json().catch(() => ({}));
-    const data = (body.data ?? body) as Record<string, unknown>;
-    return InAppPurchase.fromJSON({ ...data, appId: input.appId }, this);
+    const raw = body.data ?? body;
+    const data = (Array.isArray(raw) ? raw[0] : raw) as Record<string, unknown> | undefined;
+    if (!data || !data.id) {
+      const fresh = await this.list(input.appId);
+      const match =
+        fresh.find((iap) => iap.productId === input.productId) ?? fresh[fresh.length - 1];
+      if (match) return match;
+    }
+    return InAppPurchase.fromJSON({ ...(data ?? {}), appId: input.appId }, this);
   }
 
   async update(

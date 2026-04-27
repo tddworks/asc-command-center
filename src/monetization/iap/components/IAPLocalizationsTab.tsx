@@ -5,6 +5,7 @@ import {
   IAP_LOCALIZATION_NAME_LIMIT,
 } from '../InAppPurchaseLocalization.ts';
 import { LocalizationsTab } from '../../components/LocalizationsTab.tsx';
+import { workspace } from '../../../workspace/workspaceInstance.ts';
 
 interface Props {
   iap: InAppPurchase;
@@ -26,6 +27,7 @@ function IAPLocalizationsTabImpl({ iap }: Props) {
           name: 'iapLocalization.name',
           description: 'iapLocalization.description',
         },
+        primaryLocale: workspace.currentApp?.primaryLocale ?? 'en-US',
       }}
     />
   );

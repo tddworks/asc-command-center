@@ -55,6 +55,10 @@ export interface LocalizationsConfig {
    *  subscription localizations get distinct AI behavior without the
    *  shared component knowing which slice it's in. */
   slotKinds: { name: TextEditKind; description: TextEditKind };
+  /** App's primary locale (e.g. `'en-US'`). Drives the "Primary" / "SOURCE"
+   *  badges and auto-selection in `AddLanguagesSheet`. Threaded from
+   *  `workspace.currentApp.primaryLocale` by the slice wrapper. */
+  primaryLocale: string;
 }
 
 // ── Availability ──────────────────────────────────────────────────
