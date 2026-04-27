@@ -7,15 +7,9 @@ import { SubscriptionLocalizationsTab } from './SubscriptionLocalizationsTab.tsx
 import { SubscriptionOffersTab } from './SubscriptionOffersTab.tsx';
 import { SubscriptionPricingTab } from './SubscriptionPricingTab.tsx';
 import { SubscriptionReviewTab } from './SubscriptionReviewTab.tsx';
-import { InlineRename } from '../../../shared/components/InlineRename.tsx';
-
-const STATUS_CLASS: Record<string, string> = {
-  success: 'live',
-  info: 'pending',
-  warning: 'pending',
-  danger: 'rejected',
-  neutral: '',
-};
+import { ProductDetailHeader, type StatusTone } from '../../components/ProductDetailHeader.tsx';
+import { ProductTabBar } from '../../components/ProductTabBar.tsx';
+import { NeedsAttentionBanner } from '../../components/NeedsAttentionBanner.tsx';
 
 type TabKey = 'localizations' | 'pricing' | 'availability' | 'review' | 'offers';
 
@@ -33,7 +27,6 @@ interface Props {
 
 function SubscriptionDetailImpl({ sub }: Props) {
   const [tab, setTab] = useState<TabKey>('localizations');
-  const [submitError, setSubmitError] = useState<string | null>(null);
 
   useEffect(() => {
     if (sub.isLocalizationsLoaded) return;
@@ -42,118 +35,45 @@ function SubscriptionDetailImpl({ sub }: Props) {
     });
   }, [sub]);
 
-  const back = () => subscriptionGroups.clearSelection();
-
-  const submit = async () => {
-    setSubmitError(null);
-    try { await sub.submit(); }
-    catch (err) { setSubmitError((err as Error).message); }
-  };
-  const unsubmit = async () => {
-    setSubmitError(null);
-    try { await sub.unsubmit(); }
-    catch (err) { setSubmitError((err as Error).message); }
-  };
+  const submitHint =
+    sub.canSubmit && !sub.hasAnyCompleteLocalization
+      ? 'Add at least one localization with a display name before submitting for review.'
+      : null;
 
   return (
     <div>
-      {/* Sticky header */}
-      <div className="card" style={{ marginBottom: 12 }}>
-        <div className="toolbar" style={{ alignItems: 'flex-start' }}>
-          <div className="toolbar-left" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
-            <button type="button" className="btn btn-secondary btn-sm" onClick={back} style={{ marginBottom: 4 }}>
-              ← Back to subscriptions
-            </button>
-            <InlineRename
-              value={sub.name}
-              canEdit={sub.canUpdate}
-              onSave={(next) => sub.update({ name: next })}
-              placeholder="Display name"
-            />
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span className="cell-mono">{sub.productId}</span>
-              <span className="platform-badge">{sub.periodLabel}</span>
-              {sub.isFamilySharable && <span className="platform-badge">Family</span>}
-              <span className={`status ${STATUS_CLASS[sub.statusTone]}`}>{sub.statusLabel}</span>
-            </div>
-          </div>
-          <div className="toolbar-right" style={{ display: 'flex', gap: 6 }}>
-            {sub.canSubmit && (
-              <button type="button" className="btn btn-primary btn-sm" onClick={submit}>Submit for Review</button>
-            )}
-            {sub.canUnsubmit && (
-              <button type="button" className="btn btn-secondary btn-sm" onClick={unsubmit}>Cancel Submission</button>
-            )}
-          </div>
-        </div>
-        {submitError && (
-          <div className="card-body" style={{ paddingTop: 0 }}>
-            <span className="form-hint" style={{ color: 'var(--danger-text)' }}>{submitError}</span>
-          </div>
-        )}
-        {sub.canSubmit && !sub.hasAnyCompleteLocalization && (
-          <div className="card-body" style={{ paddingTop: 0 }}>
-            <span className="form-hint" style={{ color: 'var(--danger-text)' }}>
-              Add at least one localization with a display name before submitting for review.
-            </span>
-          </div>
-        )}
-      </div>
+      <ProductDetailHeader
+        backLabel="Back to subscriptions"
+        onBack={() => subscriptionGroups.clearSelection()}
+        name={sub.name}
+        canEditName={sub.canUpdate}
+        onRenameSave={(next) => sub.update({ name: next })}
+        renamePlaceholder="Display name"
+        productId={sub.productId}
+        badges={
+          <>
+            <span className="platform-badge">{sub.periodLabel}</span>
+            {sub.isFamilySharable && <span className="platform-badge">Family</span>}
+          </>
+        }
+        statusLabel={sub.statusLabel}
+        statusTone={sub.statusTone as StatusTone}
+        canSubmit={sub.canSubmit}
+        canUnsubmit={sub.canUnsubmit}
+        onSubmit={() => sub.submit()}
+        onUnsubmit={() => sub.unsubmit()}
+        submitHint={submitHint}
+      />
 
-      {/* Needs-action banner — only when the tier needs developer action.
-          ReadyToSubmit is a "click Submit" state, not a "fix something"
-          state, so the banner stays hidden. */}
       {sub.needsAttention && (
-        <div
-          role="status"
-          style={{
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: 12,
-            marginBottom: 12,
-            padding: '12px 16px',
-            background: 'var(--warning-bg)',
-            border: '1px solid var(--warning-text)',
-            borderRadius: 8,
-            color: 'var(--warning-text)',
-          }}
-        >
-          <span aria-hidden style={{ fontSize: 16, lineHeight: '20px' }}>⚠️</span>
-          <div style={{ flex: 1, lineHeight: 1.5 }}>
-            <div style={{ fontWeight: 600, marginBottom: 2 }}>{sub.statusLabel}</div>
-            <div style={{ fontSize: 13, opacity: 0.9 }}>
-              Add a localization with a display name and set a price before submitting for review.
-            </div>
-          </div>
-        </div>
+        <NeedsAttentionBanner
+          title={sub.statusLabel}
+          message="Add a localization with a display name and set a price before submitting for review."
+        />
       )}
 
-      {/* Tab nav */}
-      <div className="card" style={{ marginBottom: 12, padding: 0 }}>
-        <div role="tablist" style={{ display: 'flex', borderBottom: '1px solid var(--border)' }}>
-          {TABS.map((t) => (
-            <button
-              key={t.key}
-              type="button"
-              role="tab"
-              aria-selected={tab === t.key}
-              onClick={() => setTab(t.key)}
-              style={{
-                background: 'transparent', border: 'none',
-                padding: '10px 16px', cursor: 'pointer',
-                color: tab === t.key ? 'var(--text-primary)' : 'var(--text-secondary)',
-                fontWeight: tab === t.key ? 600 : 500,
-                borderBottom: tab === t.key ? '2px solid var(--accent)' : '2px solid transparent',
-                marginBottom: -1,
-              }}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-      </div>
+      <ProductTabBar tabs={TABS} active={tab} onChange={(k) => setTab(k as TabKey)} />
 
-      {/* Tab body */}
       {tab === 'localizations' && <SubscriptionLocalizationsTab sub={sub} />}
       {tab === 'pricing' && <SubscriptionPricingTab sub={sub} />}
       {tab === 'availability' && <SubscriptionAvailabilityTab sub={sub} />}

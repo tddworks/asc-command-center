@@ -7,15 +7,9 @@ import { IAPLocalizationsTab } from './IAPLocalizationsTab.tsx';
 import { IAPOffersTab } from './IAPOffersTab.tsx';
 import { IAPPricingTab } from './IAPPricingTab.tsx';
 import { IAPReviewTab } from './IAPReviewTab.tsx';
-import { InlineRename } from '../../../shared/components/InlineRename.tsx';
-
-const STATUS_CLASS: Record<string, string> = {
-  success: 'live',
-  info: 'pending',
-  warning: 'pending',
-  danger: 'rejected',
-  neutral: '',
-};
+import { ProductDetailHeader, type StatusTone } from '../../components/ProductDetailHeader.tsx';
+import { ProductTabBar } from '../../components/ProductTabBar.tsx';
+import { NeedsAttentionBanner } from '../../components/NeedsAttentionBanner.tsx';
 
 type TabKey = 'localizations' | 'pricing' | 'availability' | 'review' | 'offers';
 
@@ -33,12 +27,7 @@ interface Props {
 
 function IAPDetailImpl({ iap }: Props) {
   const [tab, setTab] = useState<TabKey>('localizations');
-  const [submitError, setSubmitError] = useState<string | null>(null);
 
-  // Lazy-load localizations the first time the page sees this IAP.
-  // Skipped if the affordance is missing — `loadLocalizations` short-
-  // circuits and flips `isLocalizationsLoaded` so the tab can show its
-  // "no affordance" copy instead of spinning forever.
   useEffect(() => {
     if (iap.isLocalizationsLoaded) return;
     void iap.loadLocalizations().catch((err) => {
@@ -46,119 +35,40 @@ function IAPDetailImpl({ iap }: Props) {
     });
   }, [iap]);
 
-  const back = () => iaps.clearSelection();
-
-  const submit = async () => {
-    setSubmitError(null);
-    try { await iap.submit(); }
-    catch (err) { setSubmitError((err as Error).message); }
-  };
-  const unsubmit = async () => {
-    setSubmitError(null);
-    try { await iap.unsubmit(); }
-    catch (err) { setSubmitError((err as Error).message); }
-  };
+  const submitHint =
+    iap.canSubmit && !iap.hasAnyCompleteLocalization
+      ? 'Add at least one localization with a display name before submitting for review.'
+      : null;
 
   return (
     <div>
-      {/* Sticky header — name, productId, badges, primary action */}
-      <div className="card" style={{ marginBottom: 12 }}>
-        <div className="toolbar" style={{ alignItems: 'flex-start' }}>
-          <div className="toolbar-left" style={{ flexDirection: 'column', alignItems: 'flex-start', gap: 4 }}>
-            <button type="button" className="btn btn-secondary btn-sm" onClick={back} style={{ marginBottom: 4 }}>
-              ← Back to list
-            </button>
-            <InlineRename
-              value={iap.referenceName}
-              canEdit={iap.canUpdate}
-              onSave={(next) => iap.update({ referenceName: next })}
-              placeholder="Internal reference name"
-            />
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <span className="cell-mono">{iap.productId}</span>
-              <span className="platform-badge">{iap.displayType}</span>
-              <span className={`status ${STATUS_CLASS[iap.statusTone]}`}>{iap.statusLabel}</span>
-            </div>
-          </div>
-          <div className="toolbar-right" style={{ display: 'flex', gap: 6 }}>
-            {iap.canSubmit && (
-              <button type="button" className="btn btn-primary btn-sm" onClick={submit}>Submit for Review</button>
-            )}
-            {iap.canUnsubmit && (
-              <button type="button" className="btn btn-secondary btn-sm" onClick={unsubmit}>Cancel Submission</button>
-            )}
-          </div>
-        </div>
-        {submitError && (
-          <div className="card-body" style={{ paddingTop: 0 }}>
-            <span className="form-hint" style={{ color: 'var(--danger-text)' }}>{submitError}</span>
-          </div>
-        )}
-        {iap.canSubmit && !iap.hasAnyCompleteLocalization && (
-          <div className="card-body" style={{ paddingTop: 0 }}>
-            <span className="form-hint" style={{ color: 'var(--danger-text)' }}>
-              Add at least one localization with a display name before submitting for review.
-            </span>
-          </div>
-        )}
-      </div>
+      <ProductDetailHeader
+        backLabel="Back to list"
+        onBack={() => iaps.clearSelection()}
+        name={iap.referenceName}
+        canEditName={iap.canUpdate}
+        onRenameSave={(next) => iap.update({ referenceName: next })}
+        renamePlaceholder="Internal reference name"
+        productId={iap.productId}
+        badges={<span className="platform-badge">{iap.displayType}</span>}
+        statusLabel={iap.statusLabel}
+        statusTone={iap.statusTone as StatusTone}
+        canSubmit={iap.canSubmit}
+        canUnsubmit={iap.canUnsubmit}
+        onSubmit={() => iap.submit()}
+        onUnsubmit={() => iap.unsubmit()}
+        submitHint={submitHint}
+      />
 
-      {/* Needs-action banner — only when the IAP is in a state that
-          actually needs developer action. ReadyToSubmit is a "click Submit"
-          state, not a "fix something" state, so the banner stays hidden. */}
       {iap.needsAttention && (
-        <div
-          role="status"
-          style={{
-            display: 'flex',
-            alignItems: 'flex-start',
-            gap: 12,
-            marginBottom: 12,
-            padding: '12px 16px',
-            background: 'var(--warning-bg)',
-            border: '1px solid var(--warning-text)',
-            borderRadius: 8,
-            color: 'var(--warning-text)',
-          }}
-        >
-          <span aria-hidden style={{ fontSize: 16, lineHeight: '20px' }}>⚠️</span>
-          <div style={{ flex: 1, lineHeight: 1.5 }}>
-            <div style={{ fontWeight: 600, marginBottom: 2 }}>{iap.statusLabel}</div>
-            <div style={{ fontSize: 13, opacity: 0.9 }}>
-              Add a localization with a display name and set a base price before submitting for review.
-            </div>
-          </div>
-        </div>
+        <NeedsAttentionBanner
+          title={iap.statusLabel}
+          message="Add a localization with a display name and set a base price before submitting for review."
+        />
       )}
 
-      {/* Tab nav */}
-      <div className="card" style={{ marginBottom: 12, padding: 0 }}>
-        <div role="tablist" style={{ display: 'flex', borderBottom: '1px solid var(--border)' }}>
-          {TABS.map((t) => (
-            <button
-              key={t.key}
-              type="button"
-              role="tab"
-              aria-selected={tab === t.key}
-              onClick={() => setTab(t.key)}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                padding: '10px 16px',
-                cursor: 'pointer',
-                color: tab === t.key ? 'var(--text-primary)' : 'var(--text-secondary)',
-                fontWeight: tab === t.key ? 600 : 500,
-                borderBottom: tab === t.key ? '2px solid var(--accent)' : '2px solid transparent',
-                marginBottom: -1,
-              }}
-            >
-              {t.label}
-            </button>
-          ))}
-        </div>
-      </div>
+      <ProductTabBar tabs={TABS} active={tab} onChange={(k) => setTab(k as TabKey)} />
 
-      {/* Tab body */}
       {tab === 'localizations' && <IAPLocalizationsTab iap={iap} />}
       {tab === 'pricing' && <IAPPricingTab iap={iap} />}
       {tab === 'availability' && <IAPAvailabilityTab iap={iap} />}
