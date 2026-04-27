@@ -80,31 +80,8 @@ function IAPPage() {
 
   const canCreate = !!workspace.currentApp;
 
-  const showOnboarding = iaps.count === 0 && canCreate;
-
   return (
     <>
-      {showOnboarding && (
-        <div
-          className="card"
-          style={{ marginBottom: 16, borderLeft: '3px solid var(--accent)' }}
-        >
-          <div className="card-body">
-            <h4 style={{ marginBottom: 4 }}>👋 Get started with In-App Purchases</h4>
-            <p className="muted" style={{ marginBottom: 8 }}>
-              Add your first IAP, then complete the four submit-readiness steps:
-              localization, pricing, availability, and review screenshot.
-            </p>
-            <ol className="muted" style={{ paddingLeft: 20, marginBottom: 0 }}>
-              <li>Create an IAP and pick its type.</li>
-              <li>Add at least one localization with a display name.</li>
-              <li>Set a base price — Apple equalises every territory.</li>
-              <li>Submit for review.</li>
-            </ol>
-          </div>
-        </div>
-      )}
-
       <div className="card">
         <div className="toolbar">
           <div className="toolbar-left" style={{ gap: 12 }}>
@@ -132,7 +109,43 @@ function IAPPage() {
           </div>
         </div>
         {iaps.list.length === 0 ? (
-          <div className="card-body"><span className="muted">No in-app purchases for this app yet.</span></div>
+          <div className="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="1" x2="12" y2="23"/>
+              <path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+            </svg>
+            <h3>No in-app purchases yet</h3>
+            <p>
+              Add your first IAP, then complete localization, pricing, availability, and a review screenshot before submitting.
+            </p>
+            <ol
+              className="muted"
+              style={{
+                textAlign: 'left',
+                display: 'inline-block',
+                margin: '0 auto 16px',
+                paddingLeft: 20,
+                fontSize: 12,
+                lineHeight: 1.7,
+              }}
+            >
+              <li>Create an IAP and pick its type.</li>
+              <li>Add at least one localization with a display name.</li>
+              <li>Set a base price — Apple equalises every territory.</li>
+              <li>Submit for review.</li>
+            </ol>
+            <div>
+              <button
+                type="button"
+                className="btn btn-primary btn-sm"
+                onClick={() => setCreateOpen(true)}
+                disabled={!canCreate}
+                title={canCreate ? 'Create a new in-app purchase' : 'Pick an app first'}
+              >
+                + New IAP
+              </button>
+            </div>
+          </div>
         ) : (
           <div className="table-wrapper">
             <table>
