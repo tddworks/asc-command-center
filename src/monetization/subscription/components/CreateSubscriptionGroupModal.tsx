@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import { subscriptionGroups } from '../subscriptionGroupsInstance.ts';
 import { workspace } from '../../../workspace/workspaceInstance.ts';
+import { PluginSlot } from '../../../extensibility/plugin/PluginSlot.tsx';
 
 interface Props {
   open: boolean;
@@ -71,7 +72,26 @@ function CreateSubscriptionGroupModalImpl({ open, onClose }: Props) {
           )}
 
           <div className="form-group">
-            <label className="form-label" htmlFor="grp-ref">Reference Name *</label>
+            <label
+              className="form-label"
+              htmlFor="grp-ref"
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+            >
+              <span>Reference Name *</span>
+              {app && (
+                <PluginSlot
+                  slot="text.edit"
+                  ctx={{
+                    slot: 'text.edit',
+                    kind: 'subscriptionGroupCreate.referenceName',
+                    text: referenceName,
+                    onChange: (v) => setReferenceName(v),
+                    locale: 'en-US',
+                    app,
+                  }}
+                />
+              )}
+            </label>
             <input
               id="grp-ref"
               className="form-input"

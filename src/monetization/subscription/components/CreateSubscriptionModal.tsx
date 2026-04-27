@@ -3,6 +3,7 @@ import { observer } from 'mobx-react-lite';
 import { workspace } from '../../../workspace/workspaceInstance.ts';
 import { Subscription, SubscriptionPeriod } from '../Subscription.ts';
 import type { SubscriptionGroup } from '../SubscriptionGroup.ts';
+import { PluginSlot } from '../../../extensibility/plugin/PluginSlot.tsx';
 
 interface Props {
   open: boolean;
@@ -98,7 +99,27 @@ function CreateSubscriptionModalImpl({ open, group, onClose }: Props) {
 
         <div className="modal-body">
           <div className="form-group">
-            <label className="form-label" htmlFor="sub-name">Display Name *</label>
+            <label
+              className="form-label"
+              htmlFor="sub-name"
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+            >
+              <span>Display Name *</span>
+              {app && (
+                <PluginSlot
+                  slot="text.edit"
+                  ctx={{
+                    slot: 'text.edit',
+                    kind: 'subscriptionCreate.name',
+                    text: name,
+                    onChange: (v) => setName(v),
+                    locale: 'en-US',
+                    app,
+                    meta: { groupName: group.referenceName, period },
+                  }}
+                />
+              )}
+            </label>
             <input
               id="sub-name"
               className="form-input"
