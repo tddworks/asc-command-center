@@ -434,6 +434,20 @@ describe('InAppPurchase', () => {
 
   // ── Pricing ──
 
+  it('canViewPricing maps to either getPriceSchedule or listPricePoints affordance', () => {
+    const explicit = new InAppPurchase(iapInit({ affordances: { getPriceSchedule: '/x' } }));
+    expect(explicit.canViewPricing).toBe(true);
+
+    // Backend currently emits only listPricePoints on the IAP listing — the
+    // price-schedule endpoint exists at the standard path and the UI should
+    // still show pricing.
+    const implied = new InAppPurchase(iapInit({ affordances: { listPricePoints: '/x' } }));
+    expect(implied.canViewPricing).toBe(true);
+
+    const closed = new InAppPurchase(iapInit({ affordances: {} }));
+    expect(closed.canViewPricing).toBe(false);
+  });
+
   it('loadPriceSchedule short-circuits to null when affordance is missing', async () => {
     const repo = stubRepo();
     const iap = new InAppPurchase(iapInit({ affordances: {} }), repo);

@@ -1,4 +1,5 @@
 import { makeAutoObservable } from 'mobx';
+import { territoryName, formatTerritoryPrice } from '../../shared/territoryDirectory.ts';
 
 export interface TerritoryPriceInit {
   /** Apple territory id (e.g. "USA"). */
@@ -48,22 +49,28 @@ export class TerritoryPrice {
 
   static fromJSON(json: Record<string, unknown>): TerritoryPrice {
     const territory = json.territory as Record<string, unknown> | undefined;
+    const id = (json.territoryId as string) ?? (territory?.id as string) ?? '';
+    const currency =
+      (json.currency as string) ??
+      (territory?.currency as string) ??
+      '';
+    const rawPrice =
+      (json.formattedPrice as string) ??
+      (json.customerPrice as string) ??
+      (json.price as string) ??
+      '';
     return new TerritoryPrice({
-      territoryId: (json.territoryId as string) ?? (territory?.id as string) ?? '',
+      territoryId: id,
       territoryName:
         (json.territoryName as string) ??
         (territory?.displayName as string) ??
         (territory?.name as string) ??
-        ((json.territoryId as string) ?? (territory?.id as string) ?? ''),
+        territoryName(id),
       formattedPrice:
-        (json.formattedPrice as string) ??
-        (json.customerPrice as string) ??
-        (json.price as string) ??
-        '',
-      currency:
-        (json.currency as string) ??
-        (territory?.currency as string) ??
-        '',
+        json.formattedPrice !== undefined
+          ? (json.formattedPrice as string)
+          : formatTerritoryPrice(rawPrice, currency),
+      currency,
       pricePointId:
         (json.pricePointId as string) ??
         ((json.pricePoint as Record<string, unknown> | undefined)?.id as string) ??
@@ -135,27 +142,35 @@ export class IAPPriceSchedule {
       (json.baseTerritoryName as string) ??
       (base?.displayName as string) ??
       (base?.name as string) ??
-      baseTerritoryId;
+      territoryName(baseTerritoryId);
     const baseCurrency =
       (json.baseCurrency as string) ??
       (base?.currency as string) ??
-      '';
-    const basePrice =
-      (json.basePrice as string) ??
-      (json.formattedBasePrice as string) ??
       '';
     const basePricePointId =
       (json.basePricePointId as string) ??
       ((json.basePricePoint as Record<string, unknown> | undefined)?.id as string) ??
       '';
     const rows = (json.territoryPrices as Record<string, unknown>[] | undefined) ?? [];
+    const territoryPrices = rows.map(TerritoryPrice.fromJSON);
+
+    // Backend payload doesn't include a top-level basePrice — derive it from
+    // the territory row matching baseTerritory.id so the header card has the
+    // formatted base price to show.
+    const baseRow = territoryPrices.find((p) => p.territoryId === baseTerritoryId);
+    const basePrice =
+      (json.basePrice as string) ??
+      (json.formattedBasePrice as string) ??
+      baseRow?.formattedPrice ??
+      '';
+
     return new IAPPriceSchedule({
       baseTerritoryId,
       baseTerritoryName,
       basePrice,
       baseCurrency,
       basePricePointId,
-      territoryPrices: rows.map(TerritoryPrice.fromJSON),
+      territoryPrices,
     });
   }
 }

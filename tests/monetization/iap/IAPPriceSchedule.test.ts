@@ -83,4 +83,38 @@ describe('IAPPriceSchedule', () => {
     expect(sched.territoryPrices.length).toBe(2);
     expect(sched.territoryPrices[1].territoryName).toBe('Japan');
   });
+
+  it('fromJSON enriches the live backend shape (id-only territory + raw price)', () => {
+    // Mirrors GET /api/v1/iap/<id>/price-schedule: territory has only id +
+    // currency, customerPrice is a raw number string, and the top-level
+    // payload omits basePrice. The factory should look up display names from
+    // the directory, format prices via the currency code, and derive the
+    // base price from territoryPrices using baseTerritory.id.
+    const sched = IAPPriceSchedule.fromJSON({
+      baseTerritory: { id: 'USA', currency: 'USD' },
+      territoryPrices: [
+        { territory: { id: 'USA', currency: 'USD' }, customerPrice: '6.99', proceeds: '5.94' },
+        { territory: { id: 'JPN', currency: 'JPY' }, customerPrice: '1100', proceeds: '850' },
+        { territory: { id: 'ARE', currency: 'AED' }, customerPrice: '24.99', proceeds: '20.23' },
+      ],
+    });
+
+    expect(sched.baseTerritoryId).toBe('USA');
+    expect(sched.baseTerritoryName).toBe('United States');
+    expect(sched.baseCurrency).toBe('USD');
+    expect(sched.basePrice).toBe('$6.99');
+
+    const usa = sched.territoryPrices[0];
+    expect(usa.territoryName).toBe('United States');
+    expect(usa.formattedPrice).toBe('$6.99');
+
+    const jpn = sched.territoryPrices[1];
+    expect(jpn.territoryName).toBe('Japan');
+    expect(jpn.formattedPrice).toBe('¥1,100');
+
+    const are = sched.territoryPrices[2];
+    expect(are.territoryName).toBe('United Arab Emirates');
+    expect(are.formattedPrice).toMatch(/AED/);
+    expect(are.formattedPrice).toMatch(/24\.99/);
+  });
 });
