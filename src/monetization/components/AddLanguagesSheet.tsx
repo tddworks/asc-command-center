@@ -52,19 +52,28 @@ function AddLanguagesSheetImpl<L extends LocalizationLike, P extends ProductWith
   const inputRef = useRef<HTMLInputElement | null>(null);
 
   const source = product.localizations[0] ?? null;
+  const primaryLocale = config.primaryLocale;
+  /** True when the user is bootstrapping localizations from zero and the
+   *  primary locale isn't saved yet. In that case the sheet auto-selects
+   *  the primary and locks its checkbox so the user can't ship without
+   *  it — primary is required by the App Store. */
+  const primaryNotYetSaved =
+    !product.localizations.some((l) => l.locale === primaryLocale);
 
   useEffect(() => {
     if (!open) return;
     setStep('select');
     setQuery('');
-    setSelected(new Set());
+    // Auto-include the primary locale when it isn't already saved. The
+    // user can add more on top but can't drop it.
+    setSelected(primaryNotYetSaved ? new Set([primaryLocale]) : new Set());
     setContents([]);
     setSaving(false);
     requestAnimationFrame(() => inputRef.current?.focus());
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [open, onClose]);
+  }, [open, onClose, primaryLocale, primaryNotYetSaved]);
 
   const taken = useMemo(
     () => new Set(product.localizations.map((l) => l.locale)),
@@ -79,8 +88,11 @@ function AddLanguagesSheetImpl<L extends LocalizationLike, P extends ProductWith
     !needle || `${l.displayName} ${l.code}`.toLowerCase().includes(needle),
   );
 
+  const isPrimaryLocked = (code: string): boolean =>
+    primaryNotYetSaved && code === primaryLocale;
+
   const toggle = (code: string) => {
-    if (taken.has(code)) return;
+    if (taken.has(code) || isPrimaryLocked(code)) return;
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(code)) next.delete(code);
@@ -91,7 +103,13 @@ function AddLanguagesSheetImpl<L extends LocalizationLike, P extends ProductWith
 
   const goNext = () => {
     if (selected.size === 0) return;
-    setContents([...selected].map((locale) => ({
+    // Render primary first (matches iOS layout where SOURCE leads).
+    const ordered = [...selected].sort((a, b) => {
+      if (a === primaryLocale) return -1;
+      if (b === primaryLocale) return 1;
+      return 0;
+    });
+    setContents(ordered.map((locale) => ({
       locale,
       name: '',
       description: '',
@@ -201,6 +219,8 @@ function AddLanguagesSheetImpl<L extends LocalizationLike, P extends ProductWith
               <ul className="locale-manager-list" style={{ padding: 0 }}>
                 {filtered.map((l) => {
                   const added = taken.has(l.code);
+                  const locked = isPrimaryLocked(l.code);
+                  const disabled = added || locked;
                   const isSelected = selected.has(l.code);
                   return (
                     <li key={l.code} className={`locale-manager-row ${added ? 'is-active' : 'is-available'}`}>
@@ -208,12 +228,15 @@ function AddLanguagesSheetImpl<L extends LocalizationLike, P extends ProductWith
                         type="button"
                         className="locale-manager-row-button"
                         onClick={() => toggle(l.code)}
-                        disabled={added}
-                        style={{ opacity: added ? 0.55 : 1, cursor: added ? 'default' : 'pointer' }}
+                        disabled={disabled}
+                        style={{ opacity: added ? 0.55 : 1, cursor: disabled ? 'default' : 'pointer' }}
                       >
                         <span className="locale-manager-row-text">
                           <span className="locale-manager-row-name">
                             {l.displayName}
+                            {locked && (
+                              <span className="locale-manager-badge tone-primary" style={{ marginLeft: 8 }}>Primary</span>
+                            )}
                             {added && <span className="locale-manager-badge tone-primary" style={{ marginLeft: 8 }}>Added</span>}
                           </span>
                           <span className="locale-manager-row-code">{l.code}</span>
@@ -284,7 +307,11 @@ function AddLanguagesSheetImpl<L extends LocalizationLike, P extends ProductWith
                 </div>
               )}
 
-              {contents.map((c) => (
+              {contents.map((c) => {
+                const isPrimaryRow = c.locale === primaryLocale;
+                const isEmpty = !c.name.trim() && !c.description.trim();
+                const isEdited = c.status === 'idle' && !isEmpty;
+                return (
                 <div
                   key={c.locale}
                   style={{
@@ -295,7 +322,18 @@ function AddLanguagesSheetImpl<L extends LocalizationLike, P extends ProductWith
                 >
                   <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 10 }}>
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
-                      <strong>{localeDisplayName(c.locale) || c.locale}</strong>
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                        <strong>{localeDisplayName(c.locale) || c.locale}</strong>
+                        {isPrimaryRow && (
+                          <span className="platform-badge" style={{ fontSize: 9 }}>SOURCE</span>
+                        )}
+                        {isEmpty && c.status === 'idle' && (
+                          <span className="status pending" style={{ fontSize: 10 }}>Empty</span>
+                        )}
+                        {isEdited && (
+                          <span className="status live" style={{ fontSize: 10 }}>Edited</span>
+                        )}
+                      </span>
                       <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>
                         {c.locale}
                       </span>
@@ -385,7 +423,8 @@ function AddLanguagesSheetImpl<L extends LocalizationLike, P extends ProductWith
                     )}
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
 
             <div className="locale-manager-footer">

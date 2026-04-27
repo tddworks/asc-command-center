@@ -5,6 +5,7 @@ import {
   SUBSCRIPTION_LOCALIZATION_NAME_LIMIT,
 } from '../SubscriptionLocalization.ts';
 import { LocalizationsTab } from '../../components/LocalizationsTab.tsx';
+import { workspace } from '../../../workspace/workspaceInstance.ts';
 
 interface Props {
   sub: Subscription;
@@ -26,6 +27,7 @@ function SubscriptionLocalizationsTabImpl({ sub }: Props) {
           name: 'subscriptionLocalization.name',
           description: 'subscriptionLocalization.description',
         },
+        primaryLocale: workspace.currentApp?.primaryLocale ?? 'en-US',
       }}
     />
   );
