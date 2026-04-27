@@ -237,8 +237,11 @@ describe('Subscription', () => {
 
   // ── Pricing ──
 
-  it('canViewPricing maps to the getPriceSchedule affordance', () => {
+  it('canViewPricing accepts either getPriceSchedule or listPricePoints affordance', () => {
     expect(new Subscription(subInit({ affordances: { getPriceSchedule: '/x' } })).canViewPricing).toBe(true);
+    // Backend currently advertises only listPricePoints on the subscription
+    // listing — the price-schedule endpoint exists at the standard path.
+    expect(new Subscription(subInit({ affordances: { listPricePoints: '/x' } })).canViewPricing).toBe(true);
     expect(new Subscription(subInit({ affordances: {} })).canViewPricing).toBe(false);
   });
 

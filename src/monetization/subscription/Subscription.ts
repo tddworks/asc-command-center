@@ -164,7 +164,9 @@ export class Subscription {
   get canUpdate(): boolean { return this.isEditable && 'update' in this.affordances; }
   get canViewLocalizations(): boolean { return 'listLocalizations' in this.affordances; }
   get canCreateLocalization(): boolean { return 'createLocalization' in this.affordances; }
-  get canViewPricing(): boolean { return 'getPriceSchedule' in this.affordances; }
+  get canViewPricing(): boolean {
+    return 'getPriceSchedule' in this.affordances || 'listPricePoints' in this.affordances;
+  }
   get canSetPrices(): boolean { return 'setPrices' in this.affordances; }
   get canViewReviewScreenshot(): boolean { return 'getReviewScreenshot' in this.affordances; }
   get canUploadReviewScreenshot(): boolean { return 'uploadReviewScreenshot' in this.affordances; }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import type { Subscription } from '../Subscription.ts';
+import { TerritoryPriceTable } from '../../components/TerritoryPriceTable.tsx';
 import { SubscriptionPricePointPickerModal } from './SubscriptionPricePointPickerModal.tsx';
 
 interface Props {
@@ -79,30 +80,7 @@ function SubscriptionPricingTabImpl({ sub }: Props) {
           )}
         </div>
       </div>
-      <div className="table-wrapper">
-        <table>
-          <thead>
-            <tr>
-              <th>Territory</th>
-              <th>ID</th>
-              <th>Currency</th>
-              <th>Price</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.length === 0 ? (
-              <tr><td colSpan={4} className="muted" style={{ textAlign: 'center', padding: 16 }}>No matching territories.</td></tr>
-            ) : rows.map((p) => (
-              <tr key={p.territoryId}>
-                <td className="cell-primary">{p.territoryName}</td>
-                <td className="cell-mono">{p.territoryId}</td>
-                <td>{p.currency}</td>
-                <td>{p.formattedPrice}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <TerritoryPriceTable prices={rows} />
       <SubscriptionPricePointPickerModal sub={sub} open={setPriceOpen} onClose={() => setSetPriceOpen(false)} />
     </div>
   );
