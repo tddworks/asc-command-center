@@ -180,8 +180,11 @@ export class RestSubscriptionGroupRepository implements SubscriptionGroupReposit
     });
     if (!res.ok) throw new Error(`POST ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
     const body = await res.json().catch(() => ({}));
-    const data = (body.data ?? body) as Record<string, unknown>;
-    return SubscriptionGroupLocalization.fromJSON(data);
+    // asc-cli wraps create responses in `data: [{…}]`, same envelope as
+    // list. Tolerate both shapes.
+    const raw = body.data ?? body;
+    const row = (Array.isArray(raw) ? raw[0] : raw) as Record<string, unknown>;
+    return SubscriptionGroupLocalization.fromJSON(row);
   }
 
   async saveGroupLocalization(loc: SubscriptionGroupLocalization): Promise<void> {
@@ -226,8 +229,9 @@ export class RestSubscriptionGroupRepository implements SubscriptionGroupReposit
     });
     if (!res.ok) throw new Error(`POST ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
     const body = await res.json().catch(() => ({}));
-    const data = (body.data ?? body) as Record<string, unknown>;
-    return SubscriptionLocalization.fromJSON(data);
+    const raw = body.data ?? body;
+    const row = (Array.isArray(raw) ? raw[0] : raw) as Record<string, unknown>;
+    return SubscriptionLocalization.fromJSON(row);
   }
 
   async saveLocalization(loc: SubscriptionLocalization): Promise<void> {

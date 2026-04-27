@@ -124,8 +124,12 @@ export class RestInAppPurchaseRepository implements InAppPurchaseRepository {
       throw new Error(`POST ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
     }
     const body = await res.json().catch(() => ({}));
-    const data = (body.data ?? body) as Record<string, unknown>;
-    return InAppPurchaseLocalization.fromJSON(data);
+    // The asc-cli backend wraps the created resource in `data: [{…}]`
+    // (single-element array, same envelope as list). Older cuts of the
+    // server returned the bare object — accept both.
+    const raw = body.data ?? body;
+    const row = (Array.isArray(raw) ? raw[0] : raw) as Record<string, unknown>;
+    return InAppPurchaseLocalization.fromJSON(row);
   }
 
   async saveLocalization(loc: InAppPurchaseLocalization): Promise<void> {
