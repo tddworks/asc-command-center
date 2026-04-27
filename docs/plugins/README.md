@@ -707,9 +707,28 @@ The host then fetches plugin JS from the local Vite dev server instead
 of `/api/plugins/<slug>/...`, so edits in `plugin/<name>-src/*.ts(x)`
 hot-reload through the SPA.
 
+## Companion docs
+
+- [`slots.md`](./slots.md) — kind-by-kind catalogue: every place the
+  host renders `<PluginSlot>`, what context fields are populated, and
+  what `meta` keys a plugin can read. Plugin authors should plan
+  against this list.
+- [`host-api.md`](./host-api.md) — versioned reference for
+  `window.ascPluginAPI` extracted from `PluginAPI.ts`: each `host.*`
+  namespace, what's *not* exposed, lifecycle, and the patch/minor/major
+  bump policy.
+
 ## Open items (next slice of work)
 
-- [ ] `docs/plugins/slots.md` — kind-by-kind catalogue with screenshots,
-      auto-updated when a `<PluginSlot>` mount is added.
-- [ ] `docs/plugins/host-api.md` — versioned API reference extracted from
-      `PluginAPI.ts` so plugins can pin a specific surface.
+- [ ] **Single source of truth for `TextEditKind`.** Today
+  `slots.ts` (host) and `pluginApiTypes.ts` (plugin SDK) both declare
+  the union — every new kind requires editing both. Collapsing this
+  via build-time copy or a published `@asc/plugin-types` package is
+  the highest-leverage cleanup remaining (see the SRP/OCP
+  retrospective in `host-api.md`'s "What the host does not expose"
+  section for context).
+- [ ] **Typed `meta` per kind.** The conventional keys (`iapType`,
+  `groupName`, `period`) are documented in prose only; a discriminated
+  `MetaFor<K extends TextEditKind>` map would let plugin authors get
+  autocomplete on `ctx.meta?.…` and the host get a compile-time check
+  that it set the right keys.
