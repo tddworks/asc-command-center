@@ -10,6 +10,7 @@ import {
   localeDisplayName,
 } from '../../shared/AppStoreLocaleRegistry.ts';
 import { PluginSlot } from '../../extensibility/plugin/PluginSlot.tsx';
+import { workspace } from '../../workspace/workspaceInstance.ts';
 
 interface Props<L extends LocalizationLike, P extends ProductWithLocalizations<L>> {
   open: boolean;
@@ -367,7 +368,11 @@ function AddLanguagesSheetImpl<L extends LocalizationLike, P extends ProductWith
                         : () => { /* primary already saved — panel is read-only for it */ },
                       locale: primaryLocale,
                       maxLength: config.nameLimit,
-                      meta: { mode: 'panel' },
+                      app: workspace.currentApp ?? undefined,
+                      meta: {
+                        mode: 'panel',
+                        productLabel: config.productLabel,
+                      },
                       batch,
                       relatedFields,
                     }}
@@ -437,6 +442,8 @@ function AddLanguagesSheetImpl<L extends LocalizationLike, P extends ProductWith
                             onChange: (v) => updateContent(c.locale, { name: v }),
                             locale: c.locale,
                             maxLength: config.nameLimit,
+                            app: workspace.currentApp ?? undefined,
+                            meta: { productLabel: config.productLabel },
                             batch: source && source.name ? {
                               sourceLocale: source.locale,
                               sourceText: source.name,
@@ -473,6 +480,8 @@ function AddLanguagesSheetImpl<L extends LocalizationLike, P extends ProductWith
                             onChange: (v) => updateContent(c.locale, { description: v }),
                             locale: c.locale,
                             maxLength: config.descriptionLimit,
+                            app: workspace.currentApp ?? undefined,
+                            meta: { productLabel: config.productLabel },
                             batch: source && source.description ? {
                               sourceLocale: source.locale,
                               sourceText: source.description,
