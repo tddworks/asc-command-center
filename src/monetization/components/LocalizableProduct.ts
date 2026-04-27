@@ -94,3 +94,13 @@ export interface AvailabilityConfig {
    *  automatically when a new territory is added." */
   productKind: string;
 }
+
+/** Structural shape that both `TerritoryPrice` (IAP) and
+ *  `SubscriptionTerritoryPrice` already satisfy. Lets the shared territory
+ *  price table render either without coupling to a slice. */
+export interface TerritoryPriceLike {
+  readonly territoryId: string;
+  readonly territoryName: string;
+  readonly formattedPrice: string;
+  readonly currency: string;
+}

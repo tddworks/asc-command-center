@@ -69,4 +69,28 @@ describe('SubscriptionPriceSchedule', () => {
     expect(sched.territoryPrices.length).toBe(2);
     expect(sched.territoryPrices[1].territoryName).toBe('Japan');
   });
+
+  it('fromJSON enriches the live backend shape (id-only territory + raw price)', () => {
+    // Mirrors GET /api/v1/subscriptions/<id>/price-schedule: each row only
+    // carries the territory id + currency code, customerPrice is a raw
+    // number string. The factory should look up display names from the
+    // shared territory directory and format prices via the currency code.
+    const sched = SubscriptionPriceSchedule.fromJSON({
+      territoryPrices: [
+        { territory: { id: 'USA', currency: 'USD' }, customerPrice: '0.99' },
+        { territory: { id: 'JPN', currency: 'JPY' }, customerPrice: '160' },
+        { territory: { id: 'ARE', currency: 'AED' }, customerPrice: '2.99' },
+      ],
+    });
+
+    expect(sched.territoryPrices[0].territoryName).toBe('United States');
+    expect(sched.territoryPrices[0].formattedPrice).toBe('$0.99');
+
+    expect(sched.territoryPrices[1].territoryName).toBe('Japan');
+    expect(sched.territoryPrices[1].formattedPrice).toBe('¥160');
+
+    expect(sched.territoryPrices[2].territoryName).toBe('United Arab Emirates');
+    expect(sched.territoryPrices[2].formattedPrice).toMatch(/AED/);
+    expect(sched.territoryPrices[2].formattedPrice).toMatch(/2\.99/);
+  });
 });

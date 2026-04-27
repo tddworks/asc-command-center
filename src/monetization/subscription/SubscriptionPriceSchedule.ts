@@ -1,4 +1,5 @@
 import { makeAutoObservable } from 'mobx';
+import { territoryName, formatTerritoryPrice } from '../../shared/territoryDirectory.ts';
 
 export interface SubscriptionTerritoryPriceInit {
   territoryId: string;
@@ -39,22 +40,28 @@ export class SubscriptionTerritoryPrice {
 
   static fromJSON(json: Record<string, unknown>): SubscriptionTerritoryPrice {
     const territory = json.territory as Record<string, unknown> | undefined;
+    const id = (json.territoryId as string) ?? (territory?.id as string) ?? '';
+    const currency =
+      (json.currency as string) ??
+      (territory?.currency as string) ??
+      '';
+    const rawPrice =
+      (json.formattedPrice as string) ??
+      (json.customerPrice as string) ??
+      (json.price as string) ??
+      '';
     return new SubscriptionTerritoryPrice({
-      territoryId: (json.territoryId as string) ?? (territory?.id as string) ?? '',
+      territoryId: id,
       territoryName:
         (json.territoryName as string) ??
         (territory?.displayName as string) ??
         (territory?.name as string) ??
-        ((json.territoryId as string) ?? (territory?.id as string) ?? ''),
+        territoryName(id),
       formattedPrice:
-        (json.formattedPrice as string) ??
-        (json.customerPrice as string) ??
-        (json.price as string) ??
-        '',
-      currency:
-        (json.currency as string) ??
-        (territory?.currency as string) ??
-        '',
+        json.formattedPrice !== undefined
+          ? (json.formattedPrice as string)
+          : formatTerritoryPrice(rawPrice, currency),
+      currency,
       pricePointId:
         (json.pricePointId as string) ??
         ((json.pricePoint as Record<string, unknown> | undefined)?.id as string) ??
