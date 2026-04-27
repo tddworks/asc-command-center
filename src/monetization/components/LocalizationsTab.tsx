@@ -72,7 +72,7 @@ function LocaleRow<L extends LocalizationLike, P extends ProductWithLocalization
       <td className="cell-primary">
         <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <span>
-            {localeDisplayName(loc.locale) || loc.locale}
+            {localeDisplayName(loc.locale) || loc.locale || '(unknown locale)'}
             {isSource && (
               <span className="platform-badge" style={{ marginLeft: 8, fontSize: 9 }}>SOURCE</span>
             )}
@@ -81,7 +81,7 @@ function LocaleRow<L extends LocalizationLike, P extends ProductWithLocalization
             )}
           </span>
           <span style={{ fontSize: 11, color: 'var(--text-muted)', fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>
-            {loc.locale}
+            {loc.locale || loc.id || '—'}
           </span>
         </div>
       </td>
@@ -329,7 +329,7 @@ function LocalizationsTabImpl<L extends LocalizationLike, P extends ProductWithL
                   const isSource = loc === source;
                   return (
                   <ObservedLocaleRow
-                    key={loc.locale || loc.id || `row-${orderedLocalizations.indexOf(loc)}`}
+                    key={loc.id || loc.locale || `row-${orderedLocalizations.indexOf(loc)}`}
                     product={product}
                     loc={loc}
                     isSource={isSource}
@@ -340,7 +340,8 @@ function LocalizationsTabImpl<L extends LocalizationLike, P extends ProductWithL
                     onEdit={() => setEditingLocale(loc.locale)}
                     onDone={() => setEditingLocale(null)}
                   />
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

@@ -52,8 +52,14 @@ function AddLanguagesSheetImpl<L extends LocalizationLike, P extends ProductWith
   const [saving, setSaving] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  const source = product.localizations[0] ?? null;
   const primaryLocale = config.primaryLocale;
+  // The source is the app's primary locale (e.g. en-US), not whichever
+  // localization happens to be first in the backend list. Mirrors the
+  // ordering rule in `LocalizationsTab`.
+  const source =
+    product.localizations.find((l) => l.locale === primaryLocale) ??
+    product.localizations[0] ??
+    null;
   /** True when the user is bootstrapping localizations from zero and the
    *  primary locale isn't saved yet. In that case the sheet auto-selects
    *  the primary and locks its checkbox so the user can't ship without
