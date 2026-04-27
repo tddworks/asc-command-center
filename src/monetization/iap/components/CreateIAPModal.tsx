@@ -3,6 +3,7 @@ import { observer } from 'mobx-react-lite';
 import { iaps } from '../iapsInstance.ts';
 import { workspace } from '../../../workspace/workspaceInstance.ts';
 import { InAppPurchase, InAppPurchaseType } from '../InAppPurchase.ts';
+import { PluginSlot } from '../../../extensibility/plugin/PluginSlot.tsx';
 
 interface Props {
   open: boolean;
@@ -129,7 +130,27 @@ function CreateIAPModalImpl({ open, onClose }: Props) {
           </div>
 
           <div className="form-group">
-            <label className="form-label" htmlFor="iap-ref">Reference Name *</label>
+            <label
+              className="form-label"
+              htmlFor="iap-ref"
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+            >
+              <span>Reference Name *</span>
+              {app && (
+                <PluginSlot
+                  slot="text.edit"
+                  ctx={{
+                    slot: 'text.edit',
+                    kind: 'iapCreate.referenceName',
+                    text: referenceName,
+                    onChange: (v) => setReferenceName(v),
+                    locale: 'en-US',
+                    app,
+                    meta: { iapType: type },
+                  }}
+                />
+              )}
+            </label>
             <input
               id="iap-ref"
               className="form-input"
