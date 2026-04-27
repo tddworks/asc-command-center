@@ -40,7 +40,10 @@ export type TextEditKind =
   | 'iapLocalization.name'
   | 'iapLocalization.description'
   | 'subscriptionLocalization.name'
-  | 'subscriptionLocalization.description';
+  | 'subscriptionLocalization.description'
+  | 'iapCreate.referenceName'
+  | 'subscriptionCreate.name'
+  | 'subscriptionGroupCreate.referenceName';
 
 /** Page-level areas where plugins can contribute buttons or status. */
 export type PageToolbarKind =
@@ -86,6 +89,12 @@ export interface TextEditSlotContext {
    *  of a field should carry `batch`; others omit it so their slot
    *  doesn't also show the button. */
   batch?: BatchTargets;
+  /** Free-form contextual hints plugins can read to shape prompts.
+   *  Used for create-time slots where the slot doesn't have a backing
+   *  domain entity (e.g. `iapCreate.referenceName` carries the pending
+   *  IAP type via `meta.iapType`). Keys are by convention; unknown keys
+   *  are ignored by older plugins. */
+  meta?: Record<string, string>;
 }
 
 /** Cross-locale targets for a single field. The source is the primary
