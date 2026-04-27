@@ -226,6 +226,20 @@ export function territoryName(iso3: string): string {
   return TERRITORIES[iso3]?.name ?? iso3;
 }
 
+export interface TerritoryEntry {
+  id: string;
+  name: string;
+  flag: string;
+}
+
+/** All known Apple territories sorted by display name — used by the
+ *  pricing picker's territory-selection step. */
+export function listTerritories(): TerritoryEntry[] {
+  return Object.entries(TERRITORIES)
+    .map(([id]) => ({ id, name: territoryName(id), flag: territoryFlag(id) }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
 /** Flag emoji for an Apple territory id, derived from the ISO-2 code. */
 export function territoryFlag(iso3: string): string {
   const iso2 = TERRITORIES[iso3]?.iso2;
