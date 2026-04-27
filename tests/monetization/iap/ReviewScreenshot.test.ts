@@ -31,4 +31,31 @@ describe('ReviewScreenshot', () => {
     expect(shot.fileName).toBe('');
     expect(shot.previewUrl).toBeNull();
   });
+
+  it('fromJSON hydrates the live imageAsset shape and resolves srcAt() URLs', () => {
+    // Mirrors the live backend payload — the asset comes back as an
+    // `imageAsset` with a `templateUrl` containing {w}/{h}/{f} placeholders.
+    const shot = ReviewScreenshot.fromJSON({
+      id: '2fbe9e69-f521-41ef-b279-11a7789a36d1',
+      fileName: 'SOURCE',
+      assetState: 'COMPLETE',
+      imageAsset: {
+        height: 2868,
+        width: 1320,
+        templateUrl: 'https://is1-ssl.mzstatic.com/image/thumb/abc/{w}x{h}bb.{f}',
+      },
+    });
+    // Display at 120 CSS pixels (2× retina → 240px). Aspect ratio preserved:
+    // 240 × (2868/1320) ≈ 521 tall.
+    expect(shot.srcAt(120)).toBe('https://is1-ssl.mzstatic.com/image/thumb/abc/240x521bb.jpg');
+  });
+
+  it('srcAt() falls back to previewUrl when no template is present (mock mode)', () => {
+    const shot = ReviewScreenshot.fromJSON({
+      id: 'shot-3',
+      fileName: 'a.png',
+      url: 'data:image/png;base64,abc',
+    });
+    expect(shot.srcAt(120)).toBe('data:image/png;base64,abc');
+  });
 });

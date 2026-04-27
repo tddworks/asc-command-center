@@ -2,9 +2,10 @@ import { useEffect, useRef, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 
 export interface ReviewScreenshotLike {
-  readonly previewUrl: string | null;
   readonly fileName: string;
   readonly canDelete: boolean;
+  /** Resolve a concrete image URL at the given display size (CSS px). */
+  srcAt(displayWidth: number): string | null;
 }
 
 /** Structural shape both `InAppPurchase` and `Subscription` already
@@ -132,19 +133,22 @@ function ReviewTabImpl<S extends ReviewScreenshotLike, P extends ProductWithRevi
                 borderRadius: 6,
               }}
             >
-              {screenshot.previewUrl ? (
-                <img
-                  src={screenshot.previewUrl}
-                  alt="Review screenshot"
-                  style={{
-                    maxWidth: 120, maxHeight: 160,
-                    border: '1px solid var(--border)',
-                    borderRadius: 6,
-                  }}
-                />
-              ) : (
-                <div className="muted" style={{ width: 120, textAlign: 'center' }}>No preview</div>
-              )}
+              {(() => {
+                const src = screenshot.srcAt(120);
+                return src ? (
+                  <img
+                    src={src}
+                    alt="Review screenshot"
+                    style={{
+                      maxWidth: 120, maxHeight: 160,
+                      border: '1px solid var(--border)',
+                      borderRadius: 6,
+                    }}
+                  />
+                ) : (
+                  <div className="muted" style={{ width: 120, textAlign: 'center' }}>No preview</div>
+                );
+              })()}
               <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
                 <span className="cell-mono">{screenshot.fileName}</span>
                 <span className="muted">Reviewers see this attached to your submission.</span>
