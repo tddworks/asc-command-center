@@ -7,7 +7,7 @@ import { InAppPurchaseOfferCode } from '../InAppPurchaseOfferCode.ts';
 import { IAPOneTimeUseCodeBatch, type CodeEnvironment } from '../OneTimeUseCodeBatch.ts';
 import { IAPCustomCode } from '../IAPCustomCode.ts';
 import { ReviewScreenshot } from '../ReviewScreenshot.ts';
-import { apiClient, type DataMode } from '../../../shared/api-client.tsx';
+import { apiClient, normalizeLinks, type DataMode } from '../../../shared/api-client.tsx';
 import type {
   CreateInAppPurchaseInput,
   CreateInAppPurchaseLocalizationInput,
@@ -123,10 +123,12 @@ export class RestInAppPurchaseRepository implements InAppPurchaseRepository {
     if (!res.ok) {
       throw new Error(`POST ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
     }
-    const body = await res.json().catch(() => ({}));
+    const body = normalizeLinks(await res.json().catch(() => ({}))) as { data?: unknown };
     // The asc-cli backend wraps the created resource in `data: [{…}]`
     // (single-element array, same envelope as list). Older cuts of the
-    // server returned the bare object — accept both.
+    // server returned the bare object — accept both. Run normalizeLinks
+    // first so the response's `_links` become flat `affordances` (the
+    // POST path doesn't go through apiClient.get's normalization).
     const raw = body.data ?? body;
     const row = (Array.isArray(raw) ? raw[0] : raw) as Record<string, unknown>;
     return InAppPurchaseLocalization.fromJSON(row);

@@ -12,7 +12,7 @@ import {
   SubscriptionPromotionalOffer,
 } from '../SubscriptionOffers.ts';
 import { WinBackOffer } from '../WinBackOffer.ts';
-import { apiClient, type DataMode } from '../../../shared/api-client.tsx';
+import { apiClient, normalizeLinks, type DataMode } from '../../../shared/api-client.tsx';
 import type {
   CreateIntroductoryOfferInput,
   CreatePromotionalOfferInput,
@@ -179,9 +179,11 @@ export class RestSubscriptionGroupRepository implements SubscriptionGroupReposit
       }),
     });
     if (!res.ok) throw new Error(`POST ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
-    const body = await res.json().catch(() => ({}));
     // asc-cli wraps create responses in `data: [{…}]`, same envelope as
-    // list. Tolerate both shapes.
+    // list. Tolerate both shapes. Run normalizeLinks so the response's
+    // `_links` become flat `affordances` (POST skips apiClient.get's
+    // normalization).
+    const body = normalizeLinks(await res.json().catch(() => ({}))) as { data?: unknown };
     const raw = body.data ?? body;
     const row = (Array.isArray(raw) ? raw[0] : raw) as Record<string, unknown>;
     return SubscriptionGroupLocalization.fromJSON(row);
@@ -228,7 +230,7 @@ export class RestSubscriptionGroupRepository implements SubscriptionGroupReposit
       }),
     });
     if (!res.ok) throw new Error(`POST ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
-    const body = await res.json().catch(() => ({}));
+    const body = normalizeLinks(await res.json().catch(() => ({}))) as { data?: unknown };
     const raw = body.data ?? body;
     const row = (Array.isArray(raw) ? raw[0] : raw) as Record<string, unknown>;
     return SubscriptionLocalization.fromJSON(row);

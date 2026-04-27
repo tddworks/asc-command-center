@@ -13,6 +13,8 @@
 import type { TextEditKind } from '../../extensibility/plugin/slots.ts';
 
 export interface LocalizationLike {
+  /** Backend resource id — empty for a locally-added locale awaiting save. */
+  readonly id: string;
   readonly locale: string;
   name: string;
   description: string | null;
