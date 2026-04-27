@@ -10,6 +10,8 @@
  * domain class only" rule) while letting the components share UI.
  */
 
+import type { TextEditKind } from '../../extensibility/plugin/slots.ts';
+
 export interface LocalizationLike {
   readonly locale: string;
   name: string;
@@ -48,10 +50,11 @@ export interface LocalizationsConfig {
   nameLimit: number;
   /** Description char limit (45 today for both slices). */
   descriptionLimit: number;
-  /** Strings the AI plugin sees as `context` — lets the plugin tailor
-   *  tone (e.g. "In-app purchase display name" vs "Subscription tier
-   *  display name"). */
-  aiContext: { name: string; description: string };
+  /** `text.edit` slot kinds for the name + description inputs. The plugin
+   *  filters per-kind via `enhancementsFor(kind)`, which is how IAP and
+   *  subscription localizations get distinct AI behavior without the
+   *  shared component knowing which slice it's in. */
+  slotKinds: { name: TextEditKind; description: TextEditKind };
 }
 
 // ── Availability ──────────────────────────────────────────────────

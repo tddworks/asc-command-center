@@ -36,7 +36,11 @@ export type TextEditKind =
   | 'version.whatsNew'
   | 'version.keywords'
   | 'version.promotionalText'
-  | 'review.response';
+  | 'review.response'
+  | 'iapLocalization.name'
+  | 'iapLocalization.description'
+  | 'subscriptionLocalization.name'
+  | 'subscriptionLocalization.description';
 
 /** Page-level areas where plugins can contribute buttons or status. */
 export type PageToolbarKind =
