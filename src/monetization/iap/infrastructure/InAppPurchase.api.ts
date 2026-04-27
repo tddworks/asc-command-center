@@ -217,7 +217,10 @@ export class RestInAppPurchaseRepository implements InAppPurchaseRepository {
   }
 
   async setPrice(iap: InAppPurchase, input: { territoryId: string; pricePointId: string }): Promise<void> {
-    const url = iap.affordances.setPrice ?? `/api/v1/iap/${iap.id}/price-schedule`;
+    // Same endpoint handles initial price and "change base territory" — POST
+    // replaces the schedule and Apple re-equalises every other territory off
+    // the new base.
+    const url = iap.affordances.setPrice ?? `/api/v1/iap/${iap.id}/prices/set`;
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

@@ -363,11 +363,17 @@ export class RestSubscriptionGroupRepository implements SubscriptionGroupReposit
     sub: Subscription,
     input: Array<{ territoryId: string; pricePointId: string }>,
   ): Promise<void> {
-    const url = sub.affordances.setPrices ?? `/api/v1/subscriptions/${sub.id}/price-schedule`;
+    const url = sub.affordances.setPrices ?? `/api/v1/subscriptions/${sub.id}/prices/set-batch`;
+    // Backend expects each entry as `{ territory, pricePointId }` — remap
+    // the domain's `territoryId` to the wire field name.
+    const prices = input.map(({ territoryId, pricePointId }) => ({
+      territory: territoryId,
+      pricePointId,
+    }));
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prices: input }),
+      body: JSON.stringify({ prices }),
     });
     if (!res.ok) throw new Error(`POST ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
   }
