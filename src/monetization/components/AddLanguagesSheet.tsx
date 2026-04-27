@@ -307,6 +307,74 @@ function AddLanguagesSheetImpl<L extends LocalizationLike, P extends ProductWith
                 </div>
               )}
 
+              {/* Panel-position plugin slot — drives the iOS-style
+                  "Auto Generate" + "AI Translate All" cards. Renders
+                  nothing when no plugin handles `meta.mode === 'panel'`,
+                  so the existing inline slots remain the only AI surface
+                  if no panel-aware plugin is installed. */}
+              {(() => {
+                const primaryContent = contents.find((c) => c.locale === primaryLocale);
+                const nonPrimaryContents = contents.filter((c) => c.locale !== primaryLocale);
+                const effectivePrimaryName = primaryContent?.name ?? source?.name ?? '';
+                const effectivePrimaryDescription =
+                  primaryContent?.description ?? source?.description ?? '';
+
+                const relatedFields = primaryContent
+                  ? {
+                      description: {
+                        kind: config.slotKinds.description,
+                        text: primaryContent.description,
+                        onChange: (v: string) =>
+                          updateContent(primaryLocale, { description: v }),
+                        maxLength: config.descriptionLimit,
+                      },
+                    }
+                  : undefined;
+
+                const batch = nonPrimaryContents.length > 0 && effectivePrimaryName
+                  ? {
+                      sourceLocale: primaryLocale,
+                      sourceText: effectivePrimaryName,
+                      sourceRelated: { description: effectivePrimaryDescription },
+                      targets: nonPrimaryContents.map((t) => ({
+                        locale: t.locale,
+                        current: t.name,
+                        setText: (v: string) => updateContent(t.locale, { name: v }),
+                        relatedFields: {
+                          description: {
+                            kind: config.slotKinds.description,
+                            text: t.description,
+                            onChange: (v: string) =>
+                              updateContent(t.locale, { description: v }),
+                            maxLength: config.descriptionLimit,
+                          },
+                        },
+                      })),
+                    }
+                  : undefined;
+
+                if (!batch && !relatedFields) return null;
+
+                return (
+                  <PluginSlot
+                    slot="text.edit"
+                    ctx={{
+                      slot: 'text.edit',
+                      kind: config.slotKinds.name,
+                      text: effectivePrimaryName,
+                      onChange: primaryContent
+                        ? (v) => updateContent(primaryLocale, { name: v })
+                        : () => { /* primary already saved — panel is read-only for it */ },
+                      locale: primaryLocale,
+                      maxLength: config.nameLimit,
+                      meta: { mode: 'panel' },
+                      batch,
+                      relatedFields,
+                    }}
+                  />
+                );
+              })()}
+
               {contents.map((c) => {
                 const isPrimaryRow = c.locale === primaryLocale;
                 const isEmpty = !c.name.trim() && !c.description.trim();

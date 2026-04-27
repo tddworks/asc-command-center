@@ -93,8 +93,30 @@ export interface TextEditSlotContext {
    *  Used for create-time slots where the slot doesn't have a backing
    *  domain entity (e.g. `iapCreate.referenceName` carries the pending
    *  IAP type via `meta.iapType`). Keys are by convention; unknown keys
-   *  are ignored by older plugins. */
+   *  are ignored by older plugins.
+   *
+   *  Reserved key: `mode = 'panel'` signals the plugin to render a
+   *  panel-style widget (prominent card) rather than the default inline
+   *  button. Used by AddLanguagesSheet's "Auto Generate" / "Translate
+   *  All" cards. */
   meta?: Record<string, string>;
+  /** Sibling fields the host wants the widget to optionally fill in the
+   *  same operation. The primary row's name slot in `AddLanguagesSheet`
+   *  carries `relatedFields.description` so an "Auto Generate" widget
+   *  can produce both name and description from one click. Plugins that
+   *  ignore this keep working — they just operate on `text` / `onChange`
+   *  alone. */
+  relatedFields?: Record<string, RelatedFieldHandle>;
+}
+
+/** Handle on a sibling editable field. The widget can read its current
+ *  value via `text`, write via `onChange`, and shape its prompt against
+ *  the same `kind` discriminator the slot system uses. */
+export interface RelatedFieldHandle {
+  kind: TextEditKind;
+  text: string;
+  onChange(next: string): void;
+  maxLength?: number;
 }
 
 /** Cross-locale targets for a single field. The source is the primary
@@ -103,6 +125,11 @@ export interface TextEditSlotContext {
 export interface BatchTargets {
   sourceLocale: string;
   sourceText: string;
+  /** Source-side values for sibling fields, keyed by the same string the
+   *  per-target `relatedFields` uses. Lets a panel-mode widget run a
+   *  multi-field batch (e.g. fan name *and* description across locales)
+   *  without the host having to drive the orchestration. */
+  sourceRelated?: Record<string, string>;
   targets: readonly BatchTarget[];
 }
 
@@ -110,6 +137,10 @@ export interface BatchTarget {
   locale: string;
   current: string;
   setText: (v: string) => void;
+  /** Sibling field setters for this target row — typically
+   *  `relatedFields.description`. Pair with `BatchTargets.sourceRelated`
+   *  so the widget can fill multiple fields per target in one pass. */
+  relatedFields?: Record<string, RelatedFieldHandle>;
 }
 
 export interface PageToolbarSlotContext {
