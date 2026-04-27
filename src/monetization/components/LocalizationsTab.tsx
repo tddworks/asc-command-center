@@ -8,6 +8,7 @@ import type {
 import { localeDisplayName } from '../../shared/AppStoreLocaleRegistry.ts';
 import { PluginSlot } from '../../extensibility/plugin/PluginSlot.tsx';
 import type { BatchTargets } from '../../extensibility/plugin/slots.ts';
+import { workspace } from '../../workspace/workspaceInstance.ts';
 import { AddLanguagesSheet } from './AddLanguagesSheet.tsx';
 
 interface Props<L extends LocalizationLike, P extends ProductWithLocalizations<L>> {
@@ -106,6 +107,8 @@ function LocaleRow<L extends LocalizationLike, P extends ProductWithLocalization
                   onChange: (v) => loc.setName(v),
                   locale: loc.locale,
                   maxLength: config.nameLimit,
+                  app: workspace.currentApp ?? undefined,
+                  meta: { productLabel: config.productLabel },
                   batch: nameBatch,
                 }}
               />
@@ -140,6 +143,8 @@ function LocaleRow<L extends LocalizationLike, P extends ProductWithLocalization
                   onChange: (v) => loc.setDescription(v || null),
                   locale: loc.locale,
                   maxLength: config.descriptionLimit,
+                  app: workspace.currentApp ?? undefined,
+                  meta: { productLabel: config.productLabel },
                   batch: descriptionBatch,
                 }}
               />
