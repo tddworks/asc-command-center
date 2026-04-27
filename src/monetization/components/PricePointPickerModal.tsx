@@ -1,6 +1,6 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { observer } from 'mobx-react-lite';
-import { territoryFlag } from '../../shared/territoryDirectory.ts';
+import { listTerritories, territoryFlag, territoryName } from '../../shared/territoryDirectory.ts';
 
 /** Structural shape of a single tier returned by the backend's price-point
  *  catalog. Both `IAPPricePoint` and `SubscriptionPricePoint` already
@@ -18,10 +18,11 @@ export interface PricePointPage<P extends PricePointLike> {
 }
 
 /** Structural shape of the parent product the picker needs — paginated
- *  catalog + paginated equalizations. */
+ *  catalog of price points for the chosen territory. The legacy
+ *  `loadEqualizations` is no longer used here (iOS commits without
+ *  previewing — the server equalises on `setPrice`). */
 export interface PricePointPickingProduct<P extends PricePointLike> {
   loadPricePoints(input: { territoryId: string; cursor: string | null; limit?: number }): Promise<PricePointPage<P>>;
-  loadEqualizations(input: { pricePointId: string; cursor: string | null; limit?: number }): Promise<PricePointPage<P>>;
 }
 
 export interface PricePointBucketPill {
@@ -34,7 +35,7 @@ export interface PricePointPickerConfig<P extends PricePointLike> {
   productLabel: string;
   /** Toggles "Set" vs "Change" in the title. */
   hasExistingPrice: boolean;
-  /** Initial territory the input renders with (IAP base or `'USA'`). */
+  /** Initial territory the list highlights (IAP base or `'USA'`). */
   initialTerritoryId: string;
   /** Field label — IAP uses "Base Territory", subscriptions "Anchor Territory". */
   territoryFieldLabel: string;
@@ -55,12 +56,19 @@ interface Props<P extends PricePointLike> {
   onClose: () => void;
 }
 
-const PAGE_SIZE = 25;
+const PAGE_SIZE = 50;
 
 /**
- * Shared two-step picker mirroring iOS's price-point picker. Step 1 picks
- * the territory + tier; Step 2 previews the equalised territory prices
- * before the user commits.
+ * Two-step pricing picker mirroring `IAPSetBasePriceSheet` from iOS:
+ *
+ *   Step 1 — Select Base Territory: searchable territory list, single-tap
+ *            selection, "Next: Set Price" advances to step 2.
+ *   Step 2 — Pick Price Tier: territory header + Change link, search +
+ *            bucket pills, scrollable price-point cards (single-select),
+ *            "Set Price · {price}" CTA commits.
+ *
+ * The previous "preview equalisations" step is dropped — Apple equalises
+ * server-side on commit, matching the iOS flow.
  */
 function PricePointPickerModalImpl<P extends PricePointLike>({
   product,
@@ -68,44 +76,47 @@ function PricePointPickerModalImpl<P extends PricePointLike>({
   open,
   onClose,
 }: Props<P>) {
-  const [step, setStep] = useState<'pick' | 'preview'>('pick');
-  const [territoryId, setTerritoryId] = useState(config.initialTerritoryId);
-  const [bucket, setBucket] = useState<string>(config.defaultBucket);
-  const [query, setQuery] = useState('');
+  const [step, setStep] = useState<'territory' | 'price'>('territory');
 
+  // Territory step
+  const [territoryId, setTerritoryId] = useState(config.initialTerritoryId);
+  const [territoryQuery, setTerritoryQuery] = useState('');
+
+  // Price step
   const [items, setItems] = useState<P[]>([]);
   const [cursor, setCursor] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-
-  const [picked, setPicked] = useState<P | null>(null);
-
-  const [equalizations, setEqualizations] = useState<P[]>([]);
-  const [eqLoading, setEqLoading] = useState(false);
+  const [bucket, setBucket] = useState<string>(config.defaultBucket);
+  const [priceQuery, setPriceQuery] = useState('');
+  const [pickedId, setPickedId] = useState<string | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
-    setStep('pick');
+    setStep('territory');
     setTerritoryId(config.initialTerritoryId);
-    setBucket(config.defaultBucket);
-    setQuery('');
+    setTerritoryQuery('');
     setItems([]);
     setCursor(null);
-    setPicked(null);
-    setEqualizations([]);
+    setBucket(config.defaultBucket);
+    setPriceQuery('');
+    setPickedId(null);
     setError(null);
     setSubmitting(false);
   }, [open, config.initialTerritoryId, config.defaultBucket]);
 
-  // Load the first page whenever the picker opens or the territory changes.
+  // Load price points whenever step 2 opens or the chosen territory changes.
   useEffect(() => {
-    if (!open || step !== 'pick') return;
+    if (!open || step !== 'price') return;
     let cancelled = false;
     setLoading(true);
     setItems([]);
-    product.loadPricePoints({ territoryId, cursor: null, limit: PAGE_SIZE })
+    setCursor(null);
+    setPickedId(null);
+    product
+      .loadPricePoints({ territoryId, cursor: null, limit: PAGE_SIZE })
       .then((page) => {
         if (cancelled) return;
         setItems(page.items);
@@ -115,6 +126,18 @@ function PricePointPickerModalImpl<P extends PricePointLike>({
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [open, step, territoryId, product]);
+
+  const territories = useMemo(() => listTerritories(), []);
+  const filteredTerritories = useMemo(() => {
+    const q = territoryQuery.trim().toLowerCase();
+    if (!q) return territories;
+    return territories.filter(
+      (t) => t.name.toLowerCase().includes(q) || t.id.toLowerCase().includes(q),
+    );
+  }, [territories, territoryQuery]);
+
+  const visiblePrices = items.filter((p) => config.filter(p, bucket, priceQuery));
+  const picked = items.find((p) => p.id === pickedId) ?? null;
 
   const loadMore = async () => {
     if (!cursor || loading) return;
@@ -127,28 +150,6 @@ function PricePointPickerModalImpl<P extends PricePointLike>({
       setError((err as Error).message);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const proceedToPreview = async (point: P) => {
-    setPicked(point);
-    setStep('preview');
-    setEqualizations([]);
-    setEqLoading(true);
-    try {
-      const all: P[] = [];
-      let next: string | null = null;
-      do {
-        const page: PricePointPage<P> =
-          await product.loadEqualizations({ pricePointId: point.id, cursor: next, limit: 50 });
-        all.push(...page.items);
-        next = page.nextCursor;
-      } while (next);
-      setEqualizations(all);
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setEqLoading(false);
     }
   };
 
@@ -167,20 +168,20 @@ function PricePointPickerModalImpl<P extends PricePointLike>({
 
   if (!open) return null;
 
-  const visible = items.filter((p) => config.filter(p, bucket, query));
+  const titleVerb = config.hasExistingPrice ? 'Change' : 'Set';
 
   return (
     <div className="modal-overlay open" onClick={onClose}>
       <div
         className="modal"
-        style={{ maxWidth: 640 }}
+        style={{ maxWidth: 560, width: '100%' }}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="modal-header">
           <h3>
-            {step === 'pick'
-              ? `${config.hasExistingPrice ? 'Change' : 'Set'} Price · ${config.productLabel}`
-              : `Confirm Equalised Prices · ${picked?.formattedPrice ?? ''}`}
+            {step === 'territory'
+              ? `${titleVerb} Price · ${config.productLabel}`
+              : `Select Price · ${territoryName(territoryId)}`}
           </h3>
           <button type="button" className="modal-close" onClick={onClose} aria-label="Close">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -189,20 +190,103 @@ function PricePointPickerModalImpl<P extends PricePointLike>({
           </button>
         </div>
 
-        {step === 'pick' && (
-          <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 8, maxHeight: '60vh' }}>
-            <div className="form-group" style={{ marginBottom: 0 }}>
-              <label className="form-label" htmlFor="picker-territory">{config.territoryFieldLabel}</label>
-              <input
-                id="picker-territory"
-                className="form-input"
-                type="text"
-                value={territoryId}
-                onChange={(e) => setTerritoryId(e.target.value.toUpperCase())}
-                placeholder="USA"
-              />
-              <div className="form-hint">Three-letter Apple territory code. Apple equalises every other territory off this one.</div>
+        {step === 'territory' && (
+          <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: '60vh' }}>
+            <div className="form-hint" style={{ marginTop: 0 }}>
+              Pick a {config.territoryFieldLabel.toLowerCase()}. Apple equalises every other territory off this one.
             </div>
+
+            <input
+              type="search"
+              className="form-input"
+              placeholder="Search territories…"
+              value={territoryQuery}
+              onChange={(e) => setTerritoryQuery(e.target.value)}
+            />
+
+            <div style={{ overflow: 'auto', flex: 1, minHeight: 240, border: '1px solid var(--border)', borderRadius: 8 }}>
+              {filteredTerritories.length === 0 ? (
+                <div className="muted" style={{ textAlign: 'center', padding: 16 }}>
+                  No matching territories.
+                </div>
+              ) : (
+                <ul style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+                  {filteredTerritories.map((t, idx) => {
+                    const selected = t.id === territoryId;
+                    return (
+                      <li key={t.id}>
+                        <button
+                          type="button"
+                          onClick={() => setTerritoryId(t.id)}
+                          style={{
+                            width: '100%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 12,
+                            padding: '10px 14px',
+                            background: selected ? 'var(--accent-light, rgba(0,122,255,0.08))' : 'transparent',
+                            border: 'none',
+                            borderTop: idx === 0 ? 'none' : '1px solid var(--border)',
+                            cursor: 'pointer',
+                            textAlign: 'left',
+                            color: 'inherit',
+                          }}
+                        >
+                          <span aria-hidden="true" style={{ fontSize: 20, lineHeight: 1 }}>{t.flag}</span>
+                          <span style={{ flex: 1, fontWeight: selected ? 600 : 500 }}>{t.name}</span>
+                          <span className="muted" style={{ fontSize: 11, fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace' }}>{t.id}</span>
+                          {selected && (
+                            <span style={{ color: 'var(--accent-text, var(--accent))', fontWeight: 700 }}>✓</span>
+                          )}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+
+            {error && (
+              <div className="form-hint" style={{ color: 'var(--danger-text)' }}>{error}</div>
+            )}
+          </div>
+        )}
+
+        {step === 'price' && (
+          <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: 10, maxHeight: '60vh' }}>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                padding: '10px 12px',
+                background: 'var(--bg)',
+                border: '1px solid var(--border)',
+                borderRadius: 8,
+              }}
+            >
+              <span aria-hidden="true" style={{ fontSize: 20 }}>{territoryFlag(territoryId)}</span>
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                <strong style={{ fontSize: 14 }}>{territoryName(territoryId)}</strong>
+                <span className="muted" style={{ fontSize: 12 }}>Select a price tier</span>
+              </div>
+              <button
+                type="button"
+                className="btn btn-secondary btn-sm"
+                onClick={() => setStep('territory')}
+                disabled={submitting}
+              >
+                Change
+              </button>
+            </div>
+
+            <input
+              type="search"
+              className="form-input"
+              placeholder="Search price tier…"
+              value={priceQuery}
+              onChange={(e) => setPriceQuery(e.target.value)}
+            />
 
             <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
               {config.buckets.map((b) => (
@@ -217,61 +301,67 @@ function PricePointPickerModalImpl<P extends PricePointLike>({
               ))}
             </div>
 
-            <input
-              type="search"
-              className="form-input"
-              placeholder="Search price or currency…"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-            />
+            <div className="muted" style={{ fontSize: 11 }}>
+              {visiblePrices.length} price {visiblePrices.length === 1 ? 'tier' : 'tiers'}
+            </div>
 
             <div style={{ overflow: 'auto', flex: 1, minHeight: 200 }}>
-              {visible.length === 0 && !loading ? (
+              {loading && items.length === 0 ? (
+                <div className="loading"><span className="spinner" /><span>Loading price tiers…</span></div>
+              ) : visiblePrices.length === 0 ? (
                 <div className="muted" style={{ textAlign: 'center', padding: 16 }}>
-                  No price points match the current filter.
+                  No price tiers match the current filter.
                 </div>
               ) : (
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Price</th>
-                      <th>Proceeds</th>
-                      <th></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {visible.map((p) => (
-                      <tr key={p.id}>
-                        <td className="cell-primary">{p.formattedPrice}</td>
-                        <td className="muted">{p.proceeds || '—'}</td>
-                        <td style={{ textAlign: 'right' }}>
-                          <button
-                            type="button"
-                            className="btn btn-secondary btn-sm"
-                            onClick={() => proceedToPreview(p)}
-                          >
-                            Pick
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <ul style={{ listStyle: 'none', margin: 0, padding: 0, display: 'flex', flexDirection: 'column', gap: 6 }}>
+                  {visiblePrices.map((p) => {
+                    const selected = p.id === pickedId;
+                    return (
+                      <li key={p.id}>
+                        <button
+                          type="button"
+                          onClick={() => setPickedId(p.id)}
+                          style={{
+                            width: '100%',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            padding: '12px 14px',
+                            background: selected ? 'var(--accent-light, rgba(0,122,255,0.08))' : 'var(--bg)',
+                            border: selected
+                              ? '1.5px solid var(--accent, #007aff)'
+                              : '1px solid var(--border)',
+                            borderRadius: 10,
+                            cursor: 'pointer',
+                            color: 'inherit',
+                          }}
+                        >
+                          <span style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-start' }}>
+                            <strong style={{ fontSize: 15 }}>{p.formattedPrice}</strong>
+                            {p.proceeds && (
+                              <span className="muted" style={{ fontSize: 11 }}>Proceeds {p.proceeds}</span>
+                            )}
+                          </span>
+                          {selected && (
+                            <span style={{ color: 'var(--accent-text, var(--accent))', fontWeight: 700 }}>✓</span>
+                          )}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
               )}
-              {cursor && (
+
+              {cursor && !loading && (
                 <div style={{ textAlign: 'center', padding: 8 }}>
                   <button
                     type="button"
                     className="btn btn-secondary btn-sm"
                     onClick={loadMore}
-                    disabled={loading}
                   >
-                    {loading ? 'Loading…' : 'Load more'}
+                    Load more
                   </button>
                 </div>
-              )}
-              {loading && items.length === 0 && (
-                <div className="loading"><span className="spinner" /><span>Loading price points…</span></div>
               )}
             </div>
 
@@ -281,62 +371,36 @@ function PricePointPickerModalImpl<P extends PricePointLike>({
           </div>
         )}
 
-        {step === 'preview' && picked && (
-          <div className="modal-body" style={{ maxHeight: '60vh', overflow: 'auto' }}>
-            <div style={{ marginBottom: 12 }}>
-              <strong>{territoryId}</strong> — {picked.formattedPrice} (proceeds {picked.proceeds || '—'})
-            </div>
-            {eqLoading ? (
-              <div className="loading"><span className="spinner" /><span>Loading equalised prices…</span></div>
-            ) : (
-              <table>
-                <thead>
-                  <tr>
-                    <th>Territory</th>
-                    <th>Price</th>
-                    <th>Proceeds</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {equalizations.map((p) => {
-                    const flag = territoryFlag(p.territoryId);
-                    return (
-                      <tr key={p.id}>
-                        <td className="cell-mono">
-                          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                            {flag && <span aria-hidden="true">{flag}</span>}
-                            <span>{p.territoryId}</span>
-                          </span>
-                        </td>
-                        <td>{p.formattedPrice}</td>
-                        <td className="muted">{p.proceeds || '—'}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            )}
-            {error && (
-              <div className="form-hint" style={{ color: 'var(--danger-text)', marginTop: 8 }}>{error}</div>
-            )}
-          </div>
-        )}
-
         <div className="modal-footer">
-          {step === 'pick' ? (
-            <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
+          {step === 'territory' ? (
+            <>
+              <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={() => setStep('price')}
+                disabled={!territoryId}
+              >
+                Next: Set Price
+              </button>
+            </>
           ) : (
             <>
-              <button type="button" className="btn btn-secondary" onClick={() => setStep('pick')} disabled={submitting}>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={() => setStep('territory')}
+                disabled={submitting}
+              >
                 Back
               </button>
               <button
                 type="button"
                 className="btn btn-primary"
                 onClick={confirm}
-                disabled={submitting || eqLoading}
+                disabled={submitting || !picked}
               >
-                {submitting ? 'Saving…' : `Set Price · ${picked?.formattedPrice ?? ''}`}
+                {submitting ? 'Saving…' : `Set Price${picked ? ` · ${picked.formattedPrice}` : ''}`}
               </button>
             </>
           )}

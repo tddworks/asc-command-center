@@ -31,22 +31,31 @@ function IAPPricingTabImpl({ iap }: Props) {
   if (!schedule) {
     return (
       <>
-        <div className="card" style={{ textAlign: 'center', padding: 32 }}>
-          <div style={{ fontSize: 32, opacity: 0.4 }}>💰</div>
-          <h4 style={{ marginTop: 8 }}>No price set</h4>
-          <p className="muted" style={{ marginTop: 4 }}>
-            Apple auto-equalises every territory once a base price is configured.
-          </p>
-          {iap.canSetPrice && (
-            <button
-              type="button"
-              className="btn btn-primary btn-sm"
-              style={{ marginTop: 12 }}
-              onClick={() => setSetPriceOpen(true)}
-            >
-              Set Base Price
-            </button>
-          )}
+        <div className="card">
+          <div className="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20.59 13.41L13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
+              <line x1="7" y1="7" x2="7.01" y2="7"/>
+              <line x1="2" y1="2" x2="22" y2="22"/>
+            </svg>
+            <h3>No Price Set</h3>
+            <p>
+              This in-app purchase doesn't have a price yet. Select a base territory and set a price to get started.
+            </p>
+            <div style={{ width: '100%', maxWidth: 320, margin: '0 auto' }}>
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ width: '100%', justifyContent: 'center', padding: '12px 16px', fontWeight: 600 }}
+                onClick={() => setSetPriceOpen(true)}
+              >
+                Select Base Territory
+              </button>
+              <p className="muted" style={{ fontSize: 11, marginTop: 8, marginBottom: 0 }}>
+                Apple will auto-generate prices for all territories
+              </p>
+            </div>
+          </div>
         </div>
         <IAPPricePointPickerModal iap={iap} open={setPriceOpen} onClose={() => setSetPriceOpen(false)} />
       </>
@@ -54,28 +63,44 @@ function IAPPricingTabImpl({ iap }: Props) {
   }
 
   const rows = schedule.filteredTerritoryPrices(query);
+  const baseCardClickable = iap.canSetPrice;
 
   return (
     <>
-      <div className="card" style={{ marginBottom: 12 }}>
+      <div
+        className="card"
+        style={{
+          marginBottom: 12,
+          background:
+            'linear-gradient(135deg, color-mix(in srgb, var(--accent) 8%, transparent), color-mix(in srgb, var(--accent) 4%, transparent))',
+          border: '1px solid color-mix(in srgb, var(--accent) 18%, var(--border))',
+          cursor: baseCardClickable ? 'pointer' : 'default',
+        }}
+        onClick={() => { if (baseCardClickable) setSetPriceOpen(true); }}
+        role={baseCardClickable ? 'button' : undefined}
+        tabIndex={baseCardClickable ? 0 : undefined}
+        onKeyDown={(e) => {
+          if (!baseCardClickable) return;
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setSetPriceOpen(true); }
+        }}
+      >
         <div className="toolbar">
-          <div className="toolbar-left">
-            <strong>⭐ Base Territory</strong>
-            <span className="muted" style={{ marginLeft: 8 }}>
-              {territoryFlag(schedule.baseTerritoryId)} {schedule.baseTerritoryName} · {schedule.basePrice} {schedule.baseCurrency}
-            </span>
+          <div className="toolbar-left" style={{ gap: 12 }}>
+            <span aria-hidden="true">⭐</span>
+            <div style={{ display: 'flex', flexDirection: 'column' }}>
+              <span className="muted" style={{ fontSize: 11, textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                Base Territory
+              </span>
+              <strong style={{ fontSize: 14 }}>
+                {territoryFlag(schedule.baseTerritoryId)} {schedule.baseTerritoryName} · {schedule.basePrice} {schedule.baseCurrency}
+              </strong>
+            </div>
           </div>
-          <div className="toolbar-right">
-            {iap.canSetPrice && (
-              <button
-                type="button"
-                className="btn btn-secondary btn-sm"
-                onClick={() => setSetPriceOpen(true)}
-              >
-                Change Base
-              </button>
-            )}
-          </div>
+          {baseCardClickable && (
+            <div className="toolbar-right" style={{ color: 'var(--accent-text, var(--accent))', fontSize: 12, fontWeight: 600 }}>
+              ↻ Change Base
+            </div>
+          )}
         </div>
       </div>
 

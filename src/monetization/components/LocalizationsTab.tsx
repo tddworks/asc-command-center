@@ -37,7 +37,14 @@ function LocaleRow<L extends LocalizationLike, P extends ProductWithLocalization
   const [busy, setBusy] = useState<'save' | 'delete' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const save = async () => {
+  const done = async () => {
+    // Done always exits edit mode. If the user actually changed something
+    // (and the backend allows it), persist first; otherwise it's a no-op
+    // exit — same as Cancel without the discard step.
+    if (!loc.hasUnsavedChanges || !loc.canUpdate) {
+      onDone();
+      return;
+    }
     setBusy('save'); setError(null);
     try {
       await loc.save();
@@ -173,9 +180,13 @@ function LocaleRow<L extends LocalizationLike, P extends ProductWithLocalization
               <button
                 type="button"
                 className="btn btn-primary btn-sm"
-                onClick={save}
-                disabled={!loc.hasUnsavedChanges || nameOver || descOver || !!busy || !loc.canUpdate}
-                title={!loc.canUpdate ? 'Backend does not allow updating this locale' : undefined}
+                onClick={done}
+                disabled={nameOver || descOver || !!busy || (loc.hasUnsavedChanges && !loc.canUpdate)}
+                title={
+                  loc.hasUnsavedChanges && !loc.canUpdate
+                    ? 'Backend does not allow updating this locale'
+                    : undefined
+                }
               >
                 {busy === 'save' ? 'Saving…' : 'Done'}
               </button>

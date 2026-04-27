@@ -30,22 +30,31 @@ function SubscriptionPricingTabImpl({ sub }: Props) {
   if (!schedule) {
     return (
       <>
-        <div className="card" style={{ textAlign: 'center', padding: 32 }}>
-          <div style={{ fontSize: 32, opacity: 0.4 }}>💰</div>
-          <h4 style={{ marginTop: 8 }}>No price set</h4>
-          <p className="muted" style={{ marginTop: 4 }}>
-            Apple auto-equalises every territory once an anchor price is configured.
-          </p>
-          {sub.canSetPrices && (
-            <button
-              type="button"
-              className="btn btn-primary btn-sm"
-              style={{ marginTop: 12 }}
-              onClick={() => setSetPriceOpen(true)}
-            >
-              Set Price
-            </button>
-          )}
+        <div className="card">
+          <div className="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20.59 13.41L13.42 20.58a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
+              <line x1="7" y1="7" x2="7.01" y2="7"/>
+              <line x1="2" y1="2" x2="22" y2="22"/>
+            </svg>
+            <h3>No Price Set</h3>
+            <p>
+              Set up a starting subscription price. Once created, you can set up an introductory or promotional offer.
+            </p>
+            <div style={{ width: '100%', maxWidth: 320, margin: '0 auto' }}>
+              <button
+                type="button"
+                className="btn btn-primary"
+                style={{ width: '100%', justifyContent: 'center', padding: '12px 16px', fontWeight: 600 }}
+                onClick={() => setSetPriceOpen(true)}
+              >
+                Add Subscription Price
+              </button>
+              <p className="muted" style={{ fontSize: 11, marginTop: 8, marginBottom: 0 }}>
+                Apple will auto-equalize prices for all territories
+              </p>
+            </div>
+          </div>
         </div>
         <SubscriptionPricePointPickerModal sub={sub} open={setPriceOpen} onClose={() => setSetPriceOpen(false)} />
       </>
