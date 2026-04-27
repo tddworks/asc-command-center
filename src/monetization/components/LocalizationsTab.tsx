@@ -190,12 +190,13 @@ function LocaleRow<L extends LocalizationLike, P extends ProductWithLocalization
               >
                 Edit
               </button>
-              {!isSource && loc.canDelete && (
+              {loc.canDelete && (
                 <button
                   type="button"
                   className="btn btn-secondary btn-sm"
                   onClick={remove}
                   disabled={!!busy}
+                  title={isSource ? 'Remove the source locale (you can re-add it later)' : undefined}
                 >
                   {busy === 'delete' ? 'Removing…' : 'Remove'}
                 </button>
@@ -250,11 +251,25 @@ function LocalizationsTabImpl<L extends LocalizationLike, P extends ProductWithL
     return <div className="loading"><span className="spinner" /><span>Loading localizations…</span></div>;
   }
 
-  const source = product.localizations[0] ?? null;
-  const nonSourceLocales = product.localizations.slice(1);
+  // The SOURCE row is the app's primary locale (e.g. en-US), not whichever
+  // row happens to be first in the backend's response. iOS uses the same
+  // rule — the SOURCE badge follows `app.primaryLocale`.
+  const source =
+    product.localizations.find((l) => l.locale === config.primaryLocale) ??
+    product.localizations[0] ??
+    null;
+  const nonSourceLocales = source
+    ? product.localizations.filter((l) => l !== source)
+    : product.localizations;
   const nameBatch = source ? buildBatch(source, nonSourceLocales, 'name') : undefined;
   const descriptionBatch = source ? buildBatch(source, nonSourceLocales, 'description') : undefined;
   const incompleteCount = product.localizations.filter((l) => !l.isComplete).length;
+
+  // Render order: source first, then the rest in backend order. Mirrors the
+  // iOS Localizations tab where the primary locale is always the top card.
+  const orderedLocalizations = source
+    ? [source, ...nonSourceLocales]
+    : product.localizations;
 
   return (
     <>
@@ -310,14 +325,16 @@ function LocalizationsTabImpl<L extends LocalizationLike, P extends ProductWithL
                 </tr>
               </thead>
               <tbody>
-                {product.localizations.map((loc, idx) => (
+                {orderedLocalizations.map((loc) => {
+                  const isSource = loc === source;
+                  return (
                   <ObservedLocaleRow
-                    key={loc.locale}
+                    key={loc.locale || loc.id || `row-${orderedLocalizations.indexOf(loc)}`}
                     product={product}
                     loc={loc}
-                    isSource={idx === 0}
-                    nameBatch={idx === 0 ? nameBatch : undefined}
-                    descriptionBatch={idx === 0 ? descriptionBatch : undefined}
+                    isSource={isSource}
+                    nameBatch={isSource ? nameBatch : undefined}
+                    descriptionBatch={isSource ? descriptionBatch : undefined}
                     config={config}
                     editing={editingLocale === loc.locale}
                     onEdit={() => setEditingLocale(loc.locale)}
