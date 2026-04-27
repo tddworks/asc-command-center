@@ -22,9 +22,9 @@ function IAPLocalizationsTabImpl({ iap }: Props) {
         productLabel: iap.referenceName,
         nameLimit: IAP_LOCALIZATION_NAME_LIMIT,
         descriptionLimit: IAP_LOCALIZATION_DESCRIPTION_LIMIT,
-        aiContext: {
-          name: 'In-app purchase display name',
-          description: 'In-app purchase description',
+        slotKinds: {
+          name: 'iapLocalization.name',
+          description: 'iapLocalization.description',
         },
       }}
     />

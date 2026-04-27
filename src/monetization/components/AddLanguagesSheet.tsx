@@ -9,7 +9,7 @@ import {
   APP_STORE_LOCALES,
   localeDisplayName,
 } from '../../shared/AppStoreLocaleRegistry.ts';
-import { getLocalizationAIService } from '../AILocalizationService.ts';
+import { PluginSlot } from '../../extensibility/plugin/PluginSlot.tsx';
 
 interface Props<L extends LocalizationLike, P extends ProductWithLocalizations<L>> {
   open: boolean;
@@ -24,7 +24,7 @@ interface PendingLocaleContent {
   locale: string;
   name: string;
   description: string;
-  status: 'idle' | 'translating' | 'translated' | 'saving' | 'saved' | 'error';
+  status: 'idle' | 'saving' | 'saved' | 'error';
   error?: string | null;
 }
 
@@ -33,8 +33,10 @@ interface PendingLocaleContent {
  * localizations. Mirrors the iOS `iOSMultiLanguageLocalizationSheet`:
  *
  *   Step 1 — multi-select locales (already-added shown but disabled).
- *   Step 2 — fill content for each picked locale, with AI batch translate
- *            via the registered plugin.
+ *   Step 2 — fill content for each picked locale. AI translate ships via
+ *            the `text.edit` plugin slot rendered next to each input — the
+ *            sheet owns no AI orchestration of its own; if no AI plugin is
+ *            installed the slot renders nothing.
  *
  * Removal happens from the parent table (Edit → Remove on each row), not
  * from this sheet — keeps the add flow focused.
@@ -46,11 +48,9 @@ function AddLanguagesSheetImpl<L extends LocalizationLike, P extends ProductWith
   const [query, setQuery] = useState('');
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [contents, setContents] = useState<PendingLocaleContent[]>([]);
-  const [batchRunning, setBatchRunning] = useState(false);
   const [saving, setSaving] = useState(false);
   const inputRef = useRef<HTMLInputElement | null>(null);
 
-  const aiService = getLocalizationAIService();
   const source = product.localizations[0] ?? null;
 
   useEffect(() => {
@@ -59,7 +59,6 @@ function AddLanguagesSheetImpl<L extends LocalizationLike, P extends ProductWith
     setQuery('');
     setSelected(new Set());
     setContents([]);
-    setBatchRunning(false);
     setSaving(false);
     requestAnimationFrame(() => inputRef.current?.focus());
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
@@ -103,40 +102,6 @@ function AddLanguagesSheetImpl<L extends LocalizationLike, P extends ProductWith
 
   const updateContent = (locale: string, patch: Partial<PendingLocaleContent>) => {
     setContents((prev) => prev.map((c) => c.locale === locale ? { ...c, ...patch } : c));
-  };
-
-  const translateOne = async (locale: string) => {
-    if (!aiService || !source || !source.name) return;
-    updateContent(locale, { status: 'translating', error: null });
-    try {
-      const name = await aiService.translate({
-        text: source.name,
-        fromLocale: source.locale,
-        toLocale: locale,
-        context: config.aiContext.name,
-      });
-      let description = '';
-      if (source.description) {
-        description = await aiService.translate({
-          text: source.description,
-          fromLocale: source.locale,
-          toLocale: locale,
-          context: config.aiContext.description,
-        });
-      }
-      updateContent(locale, { name, description, status: 'translated' });
-    } catch (err) {
-      updateContent(locale, { status: 'error', error: (err as Error).message });
-    }
-  };
-
-  const translateAll = async () => {
-    if (!aiService || !source || !source.name) return;
-    setBatchRunning(true);
-    for (const c of contents) {
-      await translateOne(c.locale);
-    }
-    setBatchRunning(false);
   };
 
   const save = async () => {
@@ -319,31 +284,6 @@ function AddLanguagesSheetImpl<L extends LocalizationLike, P extends ProductWith
                 </div>
               )}
 
-              {aiService && source && source.name && (
-                <div
-                  style={{
-                    padding: 12, borderRadius: 8,
-                    background: 'var(--accent-light)',
-                    display: 'flex', alignItems: 'center', gap: 12,
-                  }}
-                >
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 600 }}>✨ Translate All</div>
-                    <div className="form-hint">
-                      Auto-fill all {contents.length} languages from the source via the registered AI plugin.
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    className="btn btn-primary btn-sm"
-                    onClick={translateAll}
-                    disabled={batchRunning || saving}
-                  >
-                    {batchRunning ? 'Translating…' : 'Translate All'}
-                  </button>
-                </div>
-              )}
-
               {contents.map((c) => (
                 <div
                   key={c.locale}
@@ -362,48 +302,83 @@ function AddLanguagesSheetImpl<L extends LocalizationLike, P extends ProductWith
                     </div>
                     <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                       {c.status === 'saved' && <span className="status live">Saved</span>}
-                      {c.status === 'translating' && <span className="status pending">Translating…</span>}
                       {c.status === 'saving' && <span className="status pending">Saving…</span>}
                       {c.status === 'error' && <span className="status rejected">Error</span>}
-                      {aiService && source && source.name && c.status !== 'saved' && c.status !== 'saving' && (
-                        <button
-                          type="button"
-                          className="btn btn-secondary btn-sm"
-                          onClick={() => translateOne(c.locale)}
-                          disabled={c.status === 'translating' || batchRunning}
-                        >
-                          ✨ AI
-                        </button>
-                      )}
                     </div>
                   </div>
 
                   <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                     <div>
-                      <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span>Display Name</span>
                         <span className="form-hint">{c.name.length}/{config.nameLimit}</span>
                       </label>
-                      <input
-                        className="form-input"
-                        value={c.name}
-                        placeholder="Display name shown to users"
-                        onChange={(e) => updateContent(c.locale, { name: e.target.value })}
-                        disabled={c.status === 'saving' || c.status === 'saved'}
-                      />
+                      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                        <input
+                          className="form-input"
+                          value={c.name}
+                          placeholder="Display name shown to users"
+                          onChange={(e) => updateContent(c.locale, { name: e.target.value })}
+                          disabled={c.status === 'saving' || c.status === 'saved'}
+                          style={{ flex: 1 }}
+                        />
+                        <PluginSlot
+                          slot="text.edit"
+                          ctx={{
+                            slot: 'text.edit',
+                            kind: config.slotKinds.name,
+                            text: c.name,
+                            onChange: (v) => updateContent(c.locale, { name: v }),
+                            locale: c.locale,
+                            maxLength: config.nameLimit,
+                            batch: source && source.name ? {
+                              sourceLocale: source.locale,
+                              sourceText: source.name,
+                              targets: [{
+                                locale: c.locale,
+                                current: c.name,
+                                setText: (v) => updateContent(c.locale, { name: v }),
+                              }],
+                            } : undefined,
+                          }}
+                        />
+                      </div>
                     </div>
                     <div>
-                      <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                         <span>Description</span>
                         <span className="form-hint">{c.description.length}/{config.descriptionLimit}</span>
                       </label>
-                      <input
-                        className="form-input"
-                        value={c.description}
-                        placeholder="Short description"
-                        onChange={(e) => updateContent(c.locale, { description: e.target.value })}
-                        disabled={c.status === 'saving' || c.status === 'saved'}
-                      />
+                      <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                        <input
+                          className="form-input"
+                          value={c.description}
+                          placeholder="Short description"
+                          onChange={(e) => updateContent(c.locale, { description: e.target.value })}
+                          disabled={c.status === 'saving' || c.status === 'saved'}
+                          style={{ flex: 1 }}
+                        />
+                        <PluginSlot
+                          slot="text.edit"
+                          ctx={{
+                            slot: 'text.edit',
+                            kind: config.slotKinds.description,
+                            text: c.description,
+                            onChange: (v) => updateContent(c.locale, { description: v }),
+                            locale: c.locale,
+                            maxLength: config.descriptionLimit,
+                            batch: source && source.description ? {
+                              sourceLocale: source.locale,
+                              sourceText: source.description,
+                              targets: [{
+                                locale: c.locale,
+                                current: c.description,
+                                setText: (v) => updateContent(c.locale, { description: v }),
+                              }],
+                            } : undefined,
+                          }}
+                        />
+                      </div>
                     </div>
                     {c.error && (
                       <div className="form-hint" style={{ color: 'var(--danger-text)' }}>{c.error}</div>

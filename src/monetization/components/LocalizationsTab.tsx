@@ -6,7 +6,8 @@ import type {
   ProductWithLocalizations,
 } from './LocalizableProduct.ts';
 import { localeDisplayName } from '../../shared/AppStoreLocaleRegistry.ts';
-import { getLocalizationAIService } from '../AILocalizationService.ts';
+import { PluginSlot } from '../../extensibility/plugin/PluginSlot.tsx';
+import type { BatchTargets } from '../../extensibility/plugin/slots.ts';
 import { AddLanguagesSheet } from './AddLanguagesSheet.tsx';
 
 interface Props<L extends LocalizationLike, P extends ProductWithLocalizations<L>> {
@@ -17,7 +18,11 @@ interface Props<L extends LocalizationLike, P extends ProductWithLocalizations<L
 interface RowProps<L extends LocalizationLike, P extends ProductWithLocalizations<L>> {
   product: P;
   loc: L;
-  source: L | null;
+  /** Pre-built batch targets for the source row; `undefined` for non-source
+   *  rows. The shared slot reads this to expose the "All" fan-out button
+   *  only on the primary locale. */
+  nameBatch?: BatchTargets;
+  descriptionBatch?: BatchTargets;
   isSource: boolean;
   config: LocalizationsConfig;
   editing: boolean;
@@ -26,37 +31,10 @@ interface RowProps<L extends LocalizationLike, P extends ProductWithLocalization
 }
 
 function LocaleRow<L extends LocalizationLike, P extends ProductWithLocalizations<L>>({
-  product, loc, source, isSource, config, editing, onEdit, onDone,
+  product, loc, nameBatch, descriptionBatch, isSource, config, editing, onEdit, onDone,
 }: RowProps<L, P>) {
-  const [busy, setBusy] = useState<'save' | 'ai' | 'delete' | null>(null);
+  const [busy, setBusy] = useState<'save' | 'delete' | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  const aiService = getLocalizationAIService();
-  const canAI = !isSource && !!aiService && !!source && !!source.name;
-
-  const aiTranslate = async () => {
-    if (!aiService || !source) return;
-    setBusy('ai'); setError(null);
-    try {
-      const translatedName = await aiService.translate({
-        text: source.name,
-        fromLocale: source.locale,
-        toLocale: loc.locale,
-        context: config.aiContext.name,
-      });
-      loc.setName(translatedName);
-      if (source.description) {
-        const translatedDesc = await aiService.translate({
-          text: source.description,
-          fromLocale: source.locale,
-          toLocale: loc.locale,
-          context: config.aiContext.description,
-        });
-        loc.setDescription(translatedDesc);
-      }
-    } catch (err) { setError((err as Error).message); }
-    finally { setBusy(null); }
-  };
 
   const save = async () => {
     setBusy('save'); setError(null);
@@ -110,13 +88,28 @@ function LocaleRow<L extends LocalizationLike, P extends ProductWithLocalization
       <td>
         {editing ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <input
-              className="form-input"
-              value={loc.name}
-              placeholder="Display name"
-              onChange={(e) => loc.setName(e.target.value)}
-              maxLength={config.nameLimit + 10}
-            />
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <input
+                className="form-input"
+                value={loc.name}
+                placeholder="Display name"
+                onChange={(e) => loc.setName(e.target.value)}
+                maxLength={config.nameLimit + 10}
+                style={{ flex: 1 }}
+              />
+              <PluginSlot
+                slot="text.edit"
+                ctx={{
+                  slot: 'text.edit',
+                  kind: config.slotKinds.name,
+                  text: loc.name,
+                  onChange: (v) => loc.setName(v),
+                  locale: loc.locale,
+                  maxLength: config.nameLimit,
+                  batch: nameBatch,
+                }}
+              />
+            </div>
             <span className="form-hint" style={{ color: nameOver ? 'var(--danger-text)' : undefined }}>
               {(loc.name?.length ?? 0)}/{config.nameLimit}
             </span>
@@ -129,13 +122,28 @@ function LocaleRow<L extends LocalizationLike, P extends ProductWithLocalization
       <td>
         {editing ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
-            <input
-              className="form-input"
-              value={loc.description ?? ''}
-              placeholder="Description"
-              onChange={(e) => loc.setDescription(e.target.value || null)}
-              maxLength={config.descriptionLimit + 10}
-            />
+            <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+              <input
+                className="form-input"
+                value={loc.description ?? ''}
+                placeholder="Description"
+                onChange={(e) => loc.setDescription(e.target.value || null)}
+                maxLength={config.descriptionLimit + 10}
+                style={{ flex: 1 }}
+              />
+              <PluginSlot
+                slot="text.edit"
+                ctx={{
+                  slot: 'text.edit',
+                  kind: config.slotKinds.description,
+                  text: loc.description ?? '',
+                  onChange: (v) => loc.setDescription(v || null),
+                  locale: loc.locale,
+                  maxLength: config.descriptionLimit,
+                  batch: descriptionBatch,
+                }}
+              />
+            </div>
             <span className="form-hint" style={{ color: descOver ? 'var(--danger-text)' : undefined }}>
               {(loc.description?.length ?? 0)}/{config.descriptionLimit}
             </span>
@@ -149,17 +157,6 @@ function LocaleRow<L extends LocalizationLike, P extends ProductWithLocalization
         <div style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
           {editing ? (
             <>
-              {canAI && (
-                <button
-                  type="button"
-                  className="btn btn-secondary btn-sm"
-                  onClick={aiTranslate}
-                  disabled={!!busy}
-                  title={`Translate from ${localeDisplayName(source!.locale)} via AI plugin`}
-                >
-                  {busy === 'ai' ? 'Translating…' : '✨ AI'}
-                </button>
-              )}
               <button
                 type="button"
                 className="btn btn-secondary btn-sm"
@@ -184,7 +181,7 @@ function LocaleRow<L extends LocalizationLike, P extends ProductWithLocalization
                 type="button"
                 className="btn btn-secondary btn-sm"
                 onClick={onEdit}
-                disabled={!loc.canUpdate && !canAI}
+                disabled={!loc.canUpdate}
               >
                 Edit
               </button>
@@ -213,6 +210,28 @@ function LocaleRow<L extends LocalizationLike, P extends ProductWithLocalization
 
 const ObservedLocaleRow = observer(LocaleRow) as typeof LocaleRow;
 
+/** Build the cross-locale `BatchTargets` payload the source row's slot
+ *  carries to drive the plugin's "All" fan-out button. Each target is a
+ *  non-source locale with a setter for the requested field. */
+function buildBatch<L extends LocalizationLike>(
+  source: L,
+  targets: readonly L[],
+  field: 'name' | 'description',
+): BatchTargets {
+  return {
+    sourceLocale: source.locale,
+    sourceText: field === 'name' ? source.name : (source.description ?? ''),
+    targets: targets.map((t) => ({
+      locale: t.locale,
+      current: field === 'name' ? t.name : (t.description ?? ''),
+      setText: (v: string) => {
+        if (field === 'name') t.setName(v);
+        else t.setDescription(v || null);
+      },
+    })),
+  };
+}
+
 function LocalizationsTabImpl<L extends LocalizationLike, P extends ProductWithLocalizations<L>>({
   product, config,
 }: Props<L, P>) {
@@ -227,6 +246,9 @@ function LocalizationsTabImpl<L extends LocalizationLike, P extends ProductWithL
   }
 
   const source = product.localizations[0] ?? null;
+  const nonSourceLocales = product.localizations.slice(1);
+  const nameBatch = source ? buildBatch(source, nonSourceLocales, 'name') : undefined;
+  const descriptionBatch = source ? buildBatch(source, nonSourceLocales, 'description') : undefined;
   const incompleteCount = product.localizations.filter((l) => !l.isComplete).length;
 
   return (
@@ -288,8 +310,9 @@ function LocalizationsTabImpl<L extends LocalizationLike, P extends ProductWithL
                     key={loc.locale}
                     product={product}
                     loc={loc}
-                    source={source}
                     isSource={idx === 0}
+                    nameBatch={idx === 0 ? nameBatch : undefined}
+                    descriptionBatch={idx === 0 ? descriptionBatch : undefined}
                     config={config}
                     editing={editingLocale === loc.locale}
                     onEdit={() => setEditingLocale(loc.locale)}

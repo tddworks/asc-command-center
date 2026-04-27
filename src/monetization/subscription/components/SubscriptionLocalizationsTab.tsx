@@ -22,9 +22,9 @@ function SubscriptionLocalizationsTabImpl({ sub }: Props) {
         productLabel: sub.name,
         nameLimit: SUBSCRIPTION_LOCALIZATION_NAME_LIMIT,
         descriptionLimit: SUBSCRIPTION_LOCALIZATION_DESCRIPTION_LIMIT,
-        aiContext: {
-          name: 'Subscription tier display name',
-          description: 'Subscription tier description',
+        slotKinds: {
+          name: 'subscriptionLocalization.name',
+          description: 'subscriptionLocalization.description',
         },
       }}
     />
