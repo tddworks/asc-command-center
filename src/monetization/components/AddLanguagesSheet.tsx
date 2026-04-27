@@ -61,20 +61,25 @@ function AddLanguagesSheetImpl<L extends LocalizationLike, P extends ProductWith
   const primaryNotYetSaved =
     !product.localizations.some((l) => l.locale === primaryLocale);
 
+  // Reset only on `open` transition. We deliberately exclude
+  // `primaryNotYetSaved` and `onClose` from deps: after a save the
+  // localization list grows and that flag flips, which would otherwise
+  // re-run this effect and bounce the user back to step 'select' while
+  // the modal is still open. The fresh value is read inline.
   useEffect(() => {
     if (!open) return;
     setStep('select');
     setQuery('');
-    // Auto-include the primary locale when it isn't already saved. The
-    // user can add more on top but can't drop it.
-    setSelected(primaryNotYetSaved ? new Set([primaryLocale]) : new Set());
+    const primaryAlreadySaved = product.localizations.some((l) => l.locale === primaryLocale);
+    setSelected(primaryAlreadySaved ? new Set() : new Set([primaryLocale]));
     setContents([]);
     setSaving(false);
     requestAnimationFrame(() => inputRef.current?.focus());
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
     document.addEventListener('keydown', onKey);
     return () => document.removeEventListener('keydown', onKey);
-  }, [open, onClose, primaryLocale, primaryNotYetSaved]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open]);
 
   const taken = useMemo(
     () => new Set(product.localizations.map((l) => l.locale)),
