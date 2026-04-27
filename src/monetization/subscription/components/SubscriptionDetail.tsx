@@ -15,8 +15,8 @@ type TabKey = 'localizations' | 'pricing' | 'availability' | 'review' | 'offers'
 
 const TABS: { key: TabKey; label: string }[] = [
   { key: 'localizations', label: 'Localizations' },
-  { key: 'pricing', label: 'Pricing' },
   { key: 'availability', label: 'Availability' },
+  { key: 'pricing', label: 'Pricing' },
   { key: 'review', label: 'Review' },
   { key: 'offers', label: 'Offers' },
 ];
