@@ -7,17 +7,23 @@ import { SubscriptionPriceSchedule, SubscriptionTerritoryPrice } from '../Subscr
 import { SubscriptionPricePoint, type SubscriptionPricePointPage } from '../SubscriptionPricePoint.ts';
 import { SubscriptionReviewScreenshot } from '../SubscriptionReviewScreenshot.ts';
 import {
+  CodeEnvironment,
   OfferMode,
+  SubscriptionCustomCode,
   SubscriptionCustomerEligibility,
   SubscriptionDuration,
   SubscriptionIntroductoryOffer,
   SubscriptionOfferCode,
+  SubscriptionOneTimeUseCodeBatch,
   SubscriptionPromotionalOffer,
 } from '../SubscriptionOffers.ts';
 import { WinBackOffer, WinBackPriority } from '../WinBackOffer.ts';
 import type {
+  CreateSubscriptionCustomCodeInput,
   CreateSubscriptionInput,
   CreateSubscriptionLocalizationInput,
+  CreateSubscriptionOfferCodeInput,
+  GenerateSubscriptionOneTimeUseCodesInput,
   SubscriptionRepository,
 } from '../SubscriptionRepository.ts';
 import type {
@@ -36,6 +42,9 @@ export class MockSubscriptionGroupRepository implements SubscriptionGroupReposit
   private screenshotByTier = new Map<string, SubscriptionReviewScreenshot | null>();
   private availabilityByTier = new Map<string, SubscriptionAvailability>();
   private priceScheduleByTier = new Map<string, SubscriptionPriceSchedule | null>();
+  private offerCodesBySub = new Map<string, SubscriptionOfferCode[]>();
+  private batchesByOfferCode = new Map<string, SubscriptionOneTimeUseCodeBatch[]>();
+  private customCodesByOfferCode = new Map<string, SubscriptionCustomCode[]>();
   private nextLocId = 500;
   private nextShotId = 600;
 
@@ -339,7 +348,17 @@ export class MockSubscriptionGroupRepository implements SubscriptionGroupReposit
   async deletePromotionalOffer(_offer: SubscriptionPromotionalOffer): Promise<void> {}
 
   async offerCodes(sub: Subscription): Promise<SubscriptionOfferCode[]> {
-    return mockOfferCodesFor(sub);
+    let cached = this.offerCodesBySub.get(sub.id);
+    if (!cached) {
+      cached = mockOfferCodesFor(sub).map((code) => {
+        // Inject appId so the redemption-URL getter is realistic in mock mode.
+        const appId = this.appIdForSub(sub);
+        if (appId) code.affordances.appId = appId;
+        return code;
+      });
+      this.offerCodesBySub.set(sub.id, cached);
+    }
+    return cached.map((c) => c);
   }
 
   async winBackOffers(sub: Subscription): Promise<WinBackOffer[]> {
@@ -348,26 +367,115 @@ export class MockSubscriptionGroupRepository implements SubscriptionGroupReposit
 
   async createOfferCode(
     sub: Subscription,
-    input: {
-      name: string;
-      offerMode: OfferMode | string;
-      duration: SubscriptionDuration | string;
-      numberOfPeriods: number;
-      customerEligibilities: SubscriptionCustomerEligibility[];
-    },
+    input: CreateSubscriptionOfferCodeInput,
   ): Promise<SubscriptionOfferCode> {
-    void sub;
     const id = `sc-mock-${Date.now()}`;
-    return new SubscriptionOfferCode({
+    void input.prices;
+    const created = new SubscriptionOfferCode({
       id,
+      subscriptionId: sub.id,
       name: input.name,
       offerMode: input.offerMode,
       duration: input.duration,
       numberOfPeriods: input.numberOfPeriods,
       customerEligibilities: input.customerEligibilities,
+      autoRenewEnabled: input.autoRenewEnabled ?? true,
+      offerEligibility: input.offerEligibility ?? null,
       isActive: true,
       totalNumberOfCodes: 0,
+      affordances: {
+        deactivate: `/api/v1/subscription-offer-codes/${id}`,
+        appId: this.appIdForSub(sub),
+      },
     });
+    const list = this.offerCodesBySub.get(sub.id) ?? [];
+    list.push(created);
+    this.offerCodesBySub.set(sub.id, list);
+    return created;
+  }
+
+  async deactivateOfferCode(_code: SubscriptionOfferCode): Promise<void> {
+    // Domain flips `isActive` in place after the awaited call returns.
+  }
+
+  // ── Offer-code children ──
+
+  async oneTimeUseCodes(code: SubscriptionOfferCode): Promise<SubscriptionOneTimeUseCodeBatch[]> {
+    let cached = this.batchesByOfferCode.get(code.id);
+    if (!cached) {
+      cached = mockSubBatchesFor(code.id);
+      this.batchesByOfferCode.set(code.id, cached);
+    }
+    return [...cached];
+  }
+
+  async generateOneTimeUseCodes(
+    code: SubscriptionOfferCode,
+    input: GenerateSubscriptionOneTimeUseCodesInput,
+  ): Promise<SubscriptionOneTimeUseCodeBatch> {
+    const id = `sub-batch-${Date.now()}`;
+    const created = new SubscriptionOneTimeUseCodeBatch({
+      id,
+      numberOfCodes: input.count,
+      environment: input.environment,
+      isActive: true,
+      createdDate: new Date().toISOString(),
+      expirationDate: input.expirationDate ?? null,
+    });
+    const list = this.batchesByOfferCode.get(code.id) ?? [];
+    list.push(created);
+    this.batchesByOfferCode.set(code.id, list);
+    return created;
+  }
+
+  async customCodes(code: SubscriptionOfferCode): Promise<SubscriptionCustomCode[]> {
+    return this.customCodesByOfferCode.get(code.id) ?? [];
+  }
+
+  async createCustomCode(
+    code: SubscriptionOfferCode,
+    input: CreateSubscriptionCustomCodeInput,
+  ): Promise<SubscriptionCustomCode> {
+    const id = `sub-cc-${Date.now()}`;
+    const created = new SubscriptionCustomCode({
+      id,
+      customCode: input.customCode,
+      numberOfCodes: input.numberOfCodes,
+      expirationDate: input.expirationDate ?? null,
+      isActive: true,
+    });
+    const list = this.customCodesByOfferCode.get(code.id) ?? [];
+    list.push(created);
+    this.customCodesByOfferCode.set(code.id, list);
+    return created;
+  }
+
+  async oneTimeUseCodeValues(
+    _code: SubscriptionOfferCode,
+    batch: SubscriptionOneTimeUseCodeBatch,
+  ): Promise<string> {
+    const lines: string[] = [];
+    for (let i = 0; i < batch.numberOfCodes; i++) {
+      lines.push(pseudoSubCode(batch.id, i));
+    }
+    return lines.join('\n');
+  }
+
+  /** Resolve the App Store ID for a subscription's host app. The mock
+   *  doesn't carry the bidirectional link so we fall back to the appId
+   *  cached on the parent group; the REST repo relies on the backend
+   *  injecting the affordance directly. */
+  private appIdForSub(sub: Subscription): string {
+    for (const groups of this.groupsByApp.values()) {
+      for (const group of groups) {
+        if (group.id === sub.groupId) {
+          for (const [appId, gs] of this.groupsByApp.entries()) {
+            if (gs.includes(group)) return appId;
+          }
+        }
+      }
+    }
+    return '';
   }
 
   // ── Localizations ──
@@ -690,4 +798,33 @@ function mockWinBackOffersFor(sub: Subscription): WinBackOffer[] {
       priority: WinBackPriority.High,
     }),
   ];
+}
+
+/** Default fixture: one production batch on each seeded offer code. Lets
+ *  the detail page render something on first paint. */
+function mockSubBatchesFor(offerCodeId: string): SubscriptionOneTimeUseCodeBatch[] {
+  return [
+    new SubscriptionOneTimeUseCodeBatch({
+      id: `${offerCodeId}-batch-1`,
+      numberOfCodes: 100,
+      environment: CodeEnvironment.Production,
+      isActive: true,
+      createdDate: '2026-01-15',
+    }),
+  ];
+}
+
+/** Deterministic 12-char alphanumerics seeded from a batch id. Matches
+ *  the look of Apple's real redeemable codes without leaking any. */
+function pseudoSubCode(seed: string, index: number): string {
+  const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  h = (h + index * 2654435761) >>> 0;
+  let out = '';
+  for (let i = 0; i < 12; i++) {
+    out += ALPHABET[h % ALPHABET.length];
+    h = ((h * 1103515245) + 12345 + i) >>> 0;
+  }
+  return out;
 }

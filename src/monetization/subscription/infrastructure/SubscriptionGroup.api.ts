@@ -7,8 +7,10 @@ import { SubscriptionPriceSchedule } from '../SubscriptionPriceSchedule.ts';
 import { SubscriptionPricePoint, type SubscriptionPricePointPage } from '../SubscriptionPricePoint.ts';
 import { SubscriptionReviewScreenshot } from '../SubscriptionReviewScreenshot.ts';
 import {
+  SubscriptionCustomCode,
   SubscriptionIntroductoryOffer,
   SubscriptionOfferCode,
+  SubscriptionOneTimeUseCodeBatch,
   SubscriptionPromotionalOffer,
 } from '../SubscriptionOffers.ts';
 import { WinBackOffer } from '../WinBackOffer.ts';
@@ -16,9 +18,11 @@ import { apiClient, normalizeLinks, type DataMode } from '../../../shared/api-cl
 import type {
   CreateIntroductoryOfferInput,
   CreatePromotionalOfferInput,
+  CreateSubscriptionCustomCodeInput,
   CreateSubscriptionInput,
   CreateSubscriptionLocalizationInput,
   CreateSubscriptionOfferCodeInput,
+  GenerateSubscriptionOneTimeUseCodesInput,
   SubscriptionRepository,
 } from '../SubscriptionRepository.ts';
 import type {
@@ -487,12 +491,95 @@ export class RestSubscriptionGroupRepository implements SubscriptionGroupReposit
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(input),
+      body: JSON.stringify({
+        name: input.name,
+        offerMode: input.offerMode,
+        duration: input.duration,
+        numberOfPeriods: input.numberOfPeriods,
+        customerEligibilities: input.customerEligibilities,
+        autoRenewEnabled: input.autoRenewEnabled ?? true,
+        offerEligibility: input.offerEligibility ?? null,
+        prices: input.prices ?? [],
+      }),
     });
     if (!res.ok) throw new Error(`POST ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
     const body = await res.json().catch(() => ({}));
     const data = (body.data ?? body) as Record<string, unknown>;
-    return SubscriptionOfferCode.fromJSON(data);
+    return SubscriptionOfferCode.fromJSON({ ...data, subscriptionId: sub.id });
+  }
+
+  async deactivateOfferCode(code: SubscriptionOfferCode): Promise<void> {
+    const url = code.affordances.deactivate ?? `/api/v1/subscription-offer-codes/${code.id}`;
+    const res = await fetch(url, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ isActive: false }),
+    });
+    if (!res.ok) {
+      throw new Error(`PATCH ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
+    }
+  }
+
+  async oneTimeUseCodes(code: SubscriptionOfferCode): Promise<SubscriptionOneTimeUseCodeBatch[]> {
+    const url = `/api/v1/subscription-offer-codes/${code.id}/one-time-use-codes`;
+    const json = await apiClient.get<{ data: Record<string, unknown>[] }>(url);
+    return json.data.map(SubscriptionOneTimeUseCodeBatch.fromJSON);
+  }
+
+  async generateOneTimeUseCodes(
+    code: SubscriptionOfferCode,
+    input: GenerateSubscriptionOneTimeUseCodesInput,
+  ): Promise<SubscriptionOneTimeUseCodeBatch> {
+    const url = `/api/v1/subscription-offer-codes/${code.id}/one-time-use-codes`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        numberOfCodes: input.count,
+        environment: input.environment,
+        expirationDate: input.expirationDate ?? null,
+      }),
+    });
+    if (!res.ok) throw new Error(`POST ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
+    const body = await res.json().catch(() => ({}));
+    return SubscriptionOneTimeUseCodeBatch.fromJSON((body.data ?? body) as Record<string, unknown>);
+  }
+
+  async customCodes(code: SubscriptionOfferCode): Promise<SubscriptionCustomCode[]> {
+    const url = `/api/v1/subscription-offer-codes/${code.id}/custom-codes`;
+    const json = await apiClient.get<{ data: Record<string, unknown>[] }>(url);
+    return json.data.map(SubscriptionCustomCode.fromJSON);
+  }
+
+  async createCustomCode(
+    code: SubscriptionOfferCode,
+    input: CreateSubscriptionCustomCodeInput,
+  ): Promise<SubscriptionCustomCode> {
+    const url = `/api/v1/subscription-offer-codes/${code.id}/custom-codes`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        customCode: input.customCode,
+        numberOfCodes: input.numberOfCodes,
+        expirationDate: input.expirationDate ?? null,
+      }),
+    });
+    if (!res.ok) throw new Error(`POST ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
+    const body = await res.json().catch(() => ({}));
+    return SubscriptionCustomCode.fromJSON((body.data ?? body) as Record<string, unknown>);
+  }
+
+  async oneTimeUseCodeValues(
+    _code: SubscriptionOfferCode,
+    batch: SubscriptionOneTimeUseCodeBatch,
+  ): Promise<string> {
+    const url = `/api/v1/subscription-offer-code-one-time-use-codes/${batch.id}/values`;
+    const res = await fetch(url);
+    if (!res.ok) {
+      throw new Error(`GET ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
+    }
+    return res.text();
   }
 }
 

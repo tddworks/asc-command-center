@@ -65,6 +65,7 @@ function AvailabilityTabImpl<
     if (filter === 'unavailable') return !t.isAvailable;
     return true;
   });
+  const isFiltering = query.trim().length > 0 || filter !== 'all';
 
   const save = async () => {
     setSaving(true); setError(null);
@@ -156,19 +157,41 @@ function AvailabilityTabImpl<
         <button
           type="button"
           className="btn btn-secondary btn-sm"
-          onClick={() => avail.setAllAvailable(true, (t) => visible.includes(t))}
-          disabled={!product.canSetAvailability}
+          onClick={() => avail.setAllAvailable(true)}
+          disabled={!product.canSetAvailability || avail.availableCount === avail.totalCount}
         >
-          Select visible
+          Select all ({avail.totalCount})
         </button>
         <button
           type="button"
           className="btn btn-secondary btn-sm"
-          onClick={() => avail.setAllAvailable(false, (t) => visible.includes(t))}
-          disabled={!product.canSetAvailability}
+          onClick={() => avail.setAllAvailable(false)}
+          disabled={!product.canSetAvailability || avail.availableCount === 0}
         >
-          Deselect visible
+          Deselect all
         </button>
+        {isFiltering && (
+          <>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => avail.setAllAvailable(true, (t) => visible.includes(t))}
+              disabled={!product.canSetAvailability || visible.length === 0}
+              title="Select only the territories matching the current search/filter"
+            >
+              Select visible ({visible.length})
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => avail.setAllAvailable(false, (t) => visible.includes(t))}
+              disabled={!product.canSetAvailability || visible.length === 0}
+              title="Deselect only the territories matching the current search/filter"
+            >
+              Deselect visible ({visible.length})
+            </button>
+          </>
+        )}
       </div>
 
       {error && (
