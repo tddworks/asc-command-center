@@ -118,8 +118,6 @@ function CreateIAPOfferCodeModalImpl({ iap, open, onClose }: Props) {
     setSelectedTerritories(new Set(list.map((t) => t.territoryId)));
   }, [open, iap.availability, iap.isAvailabilityLoaded, selectedTerritories.size]);
 
-  if (!open) return null;
-
   const trimmed = name.trim();
   const stepIndex = STEPS.findIndex((s) => s.id === step);
 
@@ -138,6 +136,8 @@ function CreateIAPOfferCodeModalImpl({ iap, open, onClose }: Props) {
         t.currency.toLowerCase().includes(q),
     );
   }, [availableTerritories, territoryQuery]);
+
+  if (!open) return null;
 
   const canAdvance =
     step === 'name'
