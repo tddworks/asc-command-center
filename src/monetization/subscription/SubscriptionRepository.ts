@@ -5,11 +5,16 @@ import type { SubscriptionPriceSchedule } from './SubscriptionPriceSchedule.ts';
 import type { SubscriptionPricePointPage } from './SubscriptionPricePoint.ts';
 import type { SubscriptionReviewScreenshot } from './SubscriptionReviewScreenshot.ts';
 import type {
+  CodeEnvironment,
   OfferMode,
+  SubscriptionCustomCode,
   SubscriptionCustomerEligibility,
   SubscriptionDuration,
   SubscriptionIntroductoryOffer,
   SubscriptionOfferCode,
+  SubscriptionOfferCodePriceInput,
+  SubscriptionOfferEligibility,
+  SubscriptionOneTimeUseCodeBatch,
   SubscriptionPromotionalOffer,
 } from './SubscriptionOffers.ts';
 import type { WinBackOffer } from './WinBackOffer.ts';
@@ -20,6 +25,28 @@ export interface CreateSubscriptionOfferCodeInput {
   duration: SubscriptionDuration | string;
   numberOfPeriods: number;
   customerEligibilities: SubscriptionCustomerEligibility[];
+  /** Whether the offer renews automatically. Defaults to true at the
+   *  call site (mirrors iOS's wizard default). */
+  autoRenewEnabled?: boolean;
+  /** Stack-with-intro vs replace-intro. Only relevant when New/Expired
+   *  customers are eligible — wizard wires this only then. */
+  offerEligibility?: SubscriptionOfferEligibility | string | null;
+  /** Per-territory pricing for the offer code. Free offers send
+   *  `pricePointId: null` for every territory; paid offers send the
+   *  picked id for the anchor territory and `null` elsewhere. */
+  prices?: SubscriptionOfferCodePriceInput[];
+}
+
+export interface CreateSubscriptionCustomCodeInput {
+  customCode: string;
+  numberOfCodes: number;
+  expirationDate?: string | null;
+}
+
+export interface GenerateSubscriptionOneTimeUseCodesInput {
+  count: number;
+  environment: CodeEnvironment | string;
+  expirationDate?: string | null;
 }
 
 export interface CreateIntroductoryOfferInput {
@@ -117,6 +144,26 @@ export interface SubscriptionRepository {
 
   offerCodes(sub: Subscription): Promise<SubscriptionOfferCode[]>;
   createOfferCode(sub: Subscription, input: CreateSubscriptionOfferCodeInput): Promise<SubscriptionOfferCode>;
+  deactivateOfferCode(code: SubscriptionOfferCode): Promise<void>;
+
+  // ── Offer-code children ──
+  oneTimeUseCodes(code: SubscriptionOfferCode): Promise<SubscriptionOneTimeUseCodeBatch[]>;
+  generateOneTimeUseCodes(
+    code: SubscriptionOfferCode,
+    input: GenerateSubscriptionOneTimeUseCodesInput,
+  ): Promise<SubscriptionOneTimeUseCodeBatch>;
+  customCodes(code: SubscriptionOfferCode): Promise<SubscriptionCustomCode[]>;
+  createCustomCode(
+    code: SubscriptionOfferCode,
+    input: CreateSubscriptionCustomCodeInput,
+  ): Promise<SubscriptionCustomCode>;
+  /** Raw CSV of redeemable codes for a one-time-use batch. The domain
+   *  enriches each line with a redemption URL when an appId affordance
+   *  is present. */
+  oneTimeUseCodeValues(
+    code: SubscriptionOfferCode,
+    batch: SubscriptionOneTimeUseCodeBatch,
+  ): Promise<string>;
 
   // ── Win-back offers ──
   winBackOffers(sub: Subscription): Promise<WinBackOffer[]>;

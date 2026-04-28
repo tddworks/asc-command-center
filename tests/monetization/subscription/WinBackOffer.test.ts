@@ -40,6 +40,12 @@ function stubRepo(overrides: Partial<SubscriptionRepository> = {}): Subscription
     offerCodes: vi.fn().mockResolvedValue([]),
     createOfferCode: vi.fn(),
     winBackOffers: vi.fn().mockResolvedValue([]),
+    deactivateOfferCode: vi.fn().mockResolvedValue(undefined),
+    oneTimeUseCodes: vi.fn().mockResolvedValue([]),
+    generateOneTimeUseCodes: vi.fn(),
+    customCodes: vi.fn().mockResolvedValue([]),
+    createCustomCode: vi.fn(),
+    oneTimeUseCodeValues: vi.fn().mockResolvedValue(''),
     ...overrides,
   };
 }
