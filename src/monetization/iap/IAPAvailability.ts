@@ -146,10 +146,15 @@ export class IAPAvailability {
 
   static fromJSON(json: Record<string, unknown>): IAPAvailability {
     const rows = (json.territories as Record<string, unknown>[] | undefined) ?? [];
+    const autoInclude =
+      (json.availableInNewTerritories as boolean | undefined) ??
+      (json.isAvailableInNewTerritories as boolean | undefined) ??
+      false;
     return new IAPAvailability({
-      availableInNewTerritories: (json.availableInNewTerritories as boolean) ?? false,
+      availableInNewTerritories: autoInclude,
       territories: rows.map((r) => {
         const territory = r.territory as Record<string, unknown> | undefined;
+        const rawIsAvailable = r.isAvailable as boolean | undefined;
         return new TerritoryAvailability({
           territoryId: (r.id as string) ?? (r.territoryId as string) ?? (territory?.id as string) ?? '',
           territoryName:
@@ -159,7 +164,7 @@ export class IAPAvailability {
             (territory?.name as string) ??
             ((r.id as string) ?? (territory?.id as string) ?? ''),
           currency: (r.currency as string) ?? (territory?.currency as string) ?? '',
-          isAvailable: (r.isAvailable as boolean) ?? false,
+          isAvailable: rawIsAvailable ?? true,
         });
       }),
     });

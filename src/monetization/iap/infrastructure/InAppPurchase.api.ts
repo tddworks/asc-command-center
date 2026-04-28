@@ -393,9 +393,13 @@ export class RestInAppPurchaseRepository implements InAppPurchaseRepository {
       }),
     });
     if (!res.ok) throw new Error(`POST ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
-    const body = await res.json().catch(() => ({}));
-    const data = (body.data ?? body) as Record<string, unknown>;
-    return InAppPurchaseOfferCode.fromJSON({ ...data, iapId: iap.id });
+    const body = normalizeLinks(await res.json().catch(() => ({}))) as { data?: unknown };
+    // Backend wraps the created resource in `data: [{…}]`. Run
+    // normalizeLinks so the response's `_links` flatten into
+    // `affordances` (the POST path skips apiClient.get).
+    const raw = body.data ?? body;
+    const row = (Array.isArray(raw) ? raw[0] : raw) as Record<string, unknown>;
+    return InAppPurchaseOfferCode.fromJSON({ ...row, iapId: iap.id });
   }
 
   async oneTimeUseCodeValues(
