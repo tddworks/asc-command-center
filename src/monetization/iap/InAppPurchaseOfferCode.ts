@@ -169,6 +169,24 @@ export class InAppPurchaseOfferCode {
     return batch;
   }
 
+  /** Download the redeemable values for a one-time-use batch as a CSV.
+   *  When an appId affordance is present, each line becomes
+   *  `<code>,<redemption-url>` matching Apple's web download format;
+   *  otherwise the raw codes from the API pass through untouched.
+   *  Mirrors `InAppPurchaseOfferCode.downloadCodes(for:)` in the SDK. */
+  async downloadCodes(batch: IAPOneTimeUseCodeBatch): Promise<string> {
+    if (!this.repository) {
+      throw new Error(`OfferCode ${this.id} has no repository attached`);
+    }
+    const raw = await this.repository.oneTimeUseCodeValues(this, batch);
+    const appId = this.affordances.appId;
+    if (!appId) return raw;
+    const codes = raw.split('\n').filter((line) => line.length > 0);
+    return codes
+      .map((c) => `${c},https://apps.apple.com/redeem?ctx=offercodes&id=${appId}&code=${c}`)
+      .join('\n');
+  }
+
   async deactivate(): Promise<void> {
     if (!this.canDeactivate) {
       throw new Error(`OfferCode ${this.id} cannot deactivate (already inactive or no affordance)`);

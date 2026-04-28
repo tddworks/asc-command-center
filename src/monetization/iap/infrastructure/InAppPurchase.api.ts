@@ -14,6 +14,41 @@ import type {
   InAppPurchaseRepository,
 } from '../InAppPurchaseRepository.ts';
 
+/** Extract the next-page cursor from a paginated response.
+ *
+ *  asc-cli ships the canonical shape `{ data, nextCursor, totalCount }`
+ *  (top-level bare cursor string; key omitted on the last page) — see
+ *  `Sources/Domain/Shared/PaginatedResponse.swift` and
+ *  `restFormatPaginated` in the asc-cli REST routes. Older mocks/tests
+ *  use Apple's `meta.paging.nextCursor` or HAL's `links.next` URL — try
+ *  both as fallbacks so this stays compatible. */
+function readNextCursor(json: unknown): string | null {
+  if (!json || typeof json !== 'object') return null;
+  const obj = json as Record<string, unknown>;
+  // Primary: asc-cli's flat top-level field.
+  const flat = obj.nextCursor;
+  if (typeof flat === 'string' && flat) return flat;
+  // Fallback: Apple/openapi-style `meta.paging.nextCursor`.
+  const meta = obj.meta as Record<string, unknown> | undefined;
+  const paging = meta?.paging as Record<string, unknown> | undefined;
+  const fromMeta = paging?.nextCursor;
+  if (typeof fromMeta === 'string' && fromMeta) return fromMeta;
+  // Fallback: HAL `links.next` — could be a bare cursor or a full URL
+  // with the cursor in its query string.
+  const links = obj.links as Record<string, unknown> | undefined;
+  const next = links?.next;
+  if (typeof next === 'string' && next) {
+    try {
+      const parsed = new URL(next, 'https://placeholder.local');
+      const c = parsed.searchParams.get('cursor');
+      if (c) return c;
+    } catch {
+      return next;
+    }
+  }
+  return null;
+}
+
 /**
  * REST implementation of the IAP repository. Methods follow affordance
  * URLs published on each IAP resource — only `list`/`create` use the
@@ -193,10 +228,11 @@ export class RestInAppPurchaseRepository implements InAppPurchaseRepository {
     if (input.cursor) params.set('cursor', input.cursor);
     if (input.limit) params.set('limit', String(input.limit));
     const url = `/api/v1/iap/${iap.id}/price-points?${params.toString()}`;
-    const json = await apiClient.get<{ data: Record<string, unknown>[]; links?: { next?: string } }>(url);
+    const json = await apiClient.get<unknown>(url);
+    const data = (json as { data: Record<string, unknown>[] }).data ?? [];
     return {
-      items: json.data.map(IAPPricePoint.fromJSON),
-      nextCursor: json.links?.next ?? null,
+      items: data.map(IAPPricePoint.fromJSON),
+      nextCursor: readNextCursor(json),
     };
   }
 
@@ -209,10 +245,11 @@ export class RestInAppPurchaseRepository implements InAppPurchaseRepository {
     if (input.cursor) params.set('cursor', input.cursor);
     if (input.limit) params.set('limit', String(input.limit));
     const url = `/api/v1/iap/${iap.id}/price-points/equalizations?${params.toString()}`;
-    const json = await apiClient.get<{ data: Record<string, unknown>[]; links?: { next?: string } }>(url);
+    const json = await apiClient.get<unknown>(url);
+    const data = (json as { data: Record<string, unknown>[] }).data ?? [];
     return {
-      items: json.data.map(IAPPricePoint.fromJSON),
-      nextCursor: json.links?.next ?? null,
+      items: data.map(IAPPricePoint.fromJSON),
+      nextCursor: readNextCursor(json),
     };
   }
 
@@ -357,6 +394,18 @@ export class RestInAppPurchaseRepository implements InAppPurchaseRepository {
     const body = await res.json().catch(() => ({}));
     const data = (body.data ?? body) as Record<string, unknown>;
     return InAppPurchaseOfferCode.fromJSON({ ...data, iapId: iap.id });
+  }
+
+  async oneTimeUseCodeValues(
+    _code: InAppPurchaseOfferCode,
+    batch: IAPOneTimeUseCodeBatch,
+  ): Promise<string> {
+    const url = `/api/v1/iap-offer-code-one-time-use-codes/${batch.id}/values`;
+    const res = await fetch(url);
+    if (!res.ok) {
+      throw new Error(`GET ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
+    }
+    return res.text();
   }
 
   async deactivateOfferCode(code: InAppPurchaseOfferCode): Promise<void> {

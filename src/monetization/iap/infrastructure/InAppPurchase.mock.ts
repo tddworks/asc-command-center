@@ -250,6 +250,22 @@ export class MockInAppPurchaseRepository implements InAppPurchaseRepository {
     return created;
   }
 
+  async oneTimeUseCodeValues(
+    _code: InAppPurchaseOfferCode,
+    batch: IAPOneTimeUseCodeBatch,
+  ): Promise<string> {
+    // Deterministic per-batch fixture so tests/UI smoke runs are stable.
+    // Codes look like ASC's real format: 12-char base32-style strings,
+    // seeded from the batch id so the same batch always returns the same
+    // values across reloads.
+    const lines: string[] = [];
+    const seed = batch.id;
+    for (let i = 0; i < batch.numberOfCodes; i++) {
+      lines.push(`${pseudoCode(seed, i)}`);
+    }
+    return lines.join('\n');
+  }
+
   async generateOneTimeUseCodes(
     code: InAppPurchaseOfferCode,
     input: { count: number; environment: CodeEnvironment | string },
@@ -281,7 +297,7 @@ export class MockInAppPurchaseRepository implements InAppPurchaseRepository {
       isActive: true,
       productionCodeCount: 0,
       sandboxCodeCount: 0,
-      affordances: { deactivate: `/api/v1/iap-offer-codes/${id}` },
+      affordances: { deactivate: `/api/v1/iap-offer-codes/${id}`, appId: iap.appId },
     });
     const list = this.offerCodesByIap.get(iap.id) ?? [];
     list.push(created);
@@ -515,6 +531,23 @@ function mockPricePointsPage(
   return { items: slice, nextCursor: next };
 }
 
+/** Deterministic, looks-like-Apple offer code value for a given batch index.
+ *  Apple's redeemable codes are 12-character base32-style alphanumerics —
+ *  the mock mirrors the look so screenshots/UX feel real without leaking
+ *  any real codes. */
+function pseudoCode(seed: string, index: number): string {
+  const ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  h = (h + index * 2654435761) >>> 0;
+  let out = '';
+  for (let i = 0; i < 12; i++) {
+    out += ALPHABET[h % ALPHABET.length];
+    h = ((h * 1103515245) + 12345 + i) >>> 0;
+  }
+  return out;
+}
+
 function mockOfferCodesFor(iap: InAppPurchase): InAppPurchaseOfferCode[] {
   // Approved IAPs ship with one active offer code as a fixture so the page
   // renders something on first paint. Other IAPs start empty.
@@ -528,7 +561,10 @@ function mockOfferCodesFor(iap: InAppPurchase): InAppPurchaseOfferCode[] {
       isActive: true,
       productionCodeCount: 100,
       sandboxCodeCount: 25,
-      affordances: { deactivate: `/api/v1/iap-offer-codes/oc-${iap.id}-welcome` },
+      affordances: {
+        deactivate: `/api/v1/iap-offer-codes/oc-${iap.id}-welcome`,
+        appId: iap.appId,
+      },
     }),
     new InAppPurchaseOfferCode({
       id: `oc-${iap.id}-winback`,
@@ -537,6 +573,7 @@ function mockOfferCodesFor(iap: InAppPurchase): InAppPurchaseOfferCode[] {
       customerEligibilities: [IAPCustomerEligibility.ChurnedSpender],
       isActive: false,
       productionCodeCount: 50,
+      affordances: { appId: iap.appId },
     }),
   ];
 }
