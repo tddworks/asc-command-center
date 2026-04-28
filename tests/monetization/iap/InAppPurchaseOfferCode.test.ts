@@ -61,7 +61,7 @@ describe('InAppPurchaseOfferCode', () => {
       customerEligibilities: [IAPCustomerEligibility.NonSpender, IAPCustomerEligibility.ChurnedSpender],
       isActive: true,
     });
-    expect(code.eligibilityLabels).toEqual(['New', 'Churned']);
+    expect(code.eligibilityLabels).toEqual(['Non-Spender', 'Churned']);
   });
 
   it('totalCodes sums production + sandbox counts when present', () => {
@@ -219,7 +219,7 @@ describe('InAppPurchaseOfferCode', () => {
       id: 'oc-1',
       iapId: 'iap-1',
       name: 'WELCOME',
-      customerEligibilities: ['NEW', 'EXISTING'],
+      customerEligibilities: ['NON_SPENDER', 'ACTIVE_SPENDER'],
       isActive: true,
     });
     expect(code.id).toBe('oc-1');
