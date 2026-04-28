@@ -11,6 +11,7 @@ import { apiClient, normalizeLinks, type DataMode } from '../../../shared/api-cl
 import type {
   CreateInAppPurchaseInput,
   CreateInAppPurchaseLocalizationInput,
+  CreateInAppPurchaseOfferCodeInput,
   InAppPurchaseRepository,
 } from '../InAppPurchaseRepository.ts';
 
@@ -379,7 +380,7 @@ export class RestInAppPurchaseRepository implements InAppPurchaseRepository {
 
   async createOfferCode(
     iap: InAppPurchase,
-    input: { name: string; customerEligibilities: string[] },
+    input: CreateInAppPurchaseOfferCodeInput,
   ): Promise<InAppPurchaseOfferCode> {
     const url = iap.affordances.createOfferCode ?? `/api/v1/iap/${iap.id}/offer-codes`;
     const res = await fetch(url, {
@@ -388,6 +389,7 @@ export class RestInAppPurchaseRepository implements InAppPurchaseRepository {
       body: JSON.stringify({
         name: input.name,
         customerEligibilities: input.customerEligibilities,
+        prices: input.prices ?? [],
       }),
     });
     if (!res.ok) throw new Error(`POST ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);

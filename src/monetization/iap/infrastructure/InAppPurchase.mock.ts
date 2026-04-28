@@ -10,6 +10,7 @@ import { ReviewScreenshot } from '../ReviewScreenshot.ts';
 import type {
   CreateInAppPurchaseInput,
   CreateInAppPurchaseLocalizationInput,
+  CreateInAppPurchaseOfferCodeInput,
   InAppPurchaseRepository,
 } from '../InAppPurchaseRepository.ts';
 
@@ -286,9 +287,10 @@ export class MockInAppPurchaseRepository implements InAppPurchaseRepository {
 
   async createOfferCode(
     iap: InAppPurchase,
-    input: { name: string; customerEligibilities: IAPCustomerEligibility[] },
+    input: CreateInAppPurchaseOfferCodeInput,
   ): Promise<InAppPurchaseOfferCode> {
     const id = `oc-mock-${Date.now()}`;
+    void input.prices;
     const created = new InAppPurchaseOfferCode({
       id,
       iapId: iap.id,

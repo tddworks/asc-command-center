@@ -22,6 +22,15 @@ const ELIGIBILITY_LABELS: Record<string, string> = {
   [IAPCustomerEligibility.ChurnedSpender]: 'Churned',
 };
 
+/** One territory's pricing for a new offer code. `pricePointId === null`
+ *  means "free in this territory" — that's how Apple's API distinguishes
+ *  a paid offer with one missing territory from a fully-free offer
+ *  (which omits the field). */
+export interface OfferCodePriceInput {
+  territory: string;
+  pricePointId: string | null;
+}
+
 export interface InAppPurchaseOfferCodeInit {
   id: string;
   iapId: string;

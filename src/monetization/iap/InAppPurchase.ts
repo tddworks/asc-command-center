@@ -7,6 +7,7 @@ import type { IAPPricePointPage } from './IAPPricePoint.ts';
 import type {
   IAPCustomerEligibility,
   InAppPurchaseOfferCode,
+  OfferCodePriceInput,
 } from './InAppPurchaseOfferCode.ts';
 import type { ReviewScreenshot } from './ReviewScreenshot.ts';
 import type { InAppPurchaseRepository } from './InAppPurchaseRepository.ts';
@@ -377,7 +378,11 @@ export class InAppPurchase {
 
   // ── Offer codes ──
 
-  async createOfferCode(input: { name: string; customerEligibilities: IAPCustomerEligibility[] }): Promise<InAppPurchaseOfferCode> {
+  async createOfferCode(input: {
+    name: string;
+    customerEligibilities: IAPCustomerEligibility[];
+    prices?: OfferCodePriceInput[];
+  }): Promise<InAppPurchaseOfferCode> {
     if (!this.canCreateOfferCode) {
       throw new Error(`IAP ${this.id} cannot create offer code (no createOfferCode affordance)`);
     }

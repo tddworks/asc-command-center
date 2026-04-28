@@ -643,6 +643,35 @@ describe('InAppPurchase', () => {
     expect(created.repository).toBe(repo);
   });
 
+  it('createOfferCode forwards a prices array to the repo when supplied', async () => {
+    const created = new InAppPurchaseOfferCode({
+      id: 'oc-paid', iapId: 'iap-1', name: 'PAID',
+      customerEligibilities: [IAPCustomerEligibility.NonSpender],
+      isActive: true,
+    });
+    const createOfferCode = vi.fn().mockResolvedValue(created);
+    const repo = stubRepo({ createOfferCode });
+    const iap = new InAppPurchase(iapInit({ affordances: { createOfferCode: '/x' } }), repo);
+
+    await iap.createOfferCode({
+      name: 'PAID',
+      customerEligibilities: [IAPCustomerEligibility.NonSpender],
+      prices: [
+        { territory: 'USA', pricePointId: 'pp-1' },
+        { territory: 'GBR', pricePointId: null },
+      ],
+    });
+
+    expect(createOfferCode).toHaveBeenCalledWith(iap, {
+      name: 'PAID',
+      customerEligibilities: [IAPCustomerEligibility.NonSpender],
+      prices: [
+        { territory: 'USA', pricePointId: 'pp-1' },
+        { territory: 'GBR', pricePointId: null },
+      ],
+    });
+  });
+
   it('createOfferCode throws when affordance missing', async () => {
     const repo = stubRepo();
     const iap = new InAppPurchase(iapInit({ affordances: {} }), repo);
