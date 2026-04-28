@@ -1,21 +1,22 @@
 import { useEffect, useMemo, useState } from 'react';
 
 interface Props {
-  /** CSV string returned by `InAppPurchaseOfferCode.downloadCodes`. Each
-   *  line is either a bare code or `<code>,<redemption-url>`. */
+  /** CSV string returned by `*OfferCode.downloadCodes`. Each line is
+   *  either a bare code or `<code>,<redemption-url>`. */
   codes: string | null;
-  /** Reference name of the offer code — used in the modal title and the
-   *  filename when the user downloads the CSV. */
+  /** Reference name of the offer code — used in the modal title and as
+   *  the filename when downloading the CSV. */
   offerCodeName: string;
   onClose: () => void;
 }
 
 /**
- * Read-only sheet that renders codes the user just generated, mirroring
- * iOS's `iOSIAPRedeemCodesSheet`. Offers two takeaways: copy to clipboard
- * (whole CSV) or download as a `.csv` file.
+ * Read-only sheet that renders codes the user just generated. Offers two
+ * takeaways: copy to clipboard (whole CSV) or download as a `.csv` file.
+ * Shared by IAP and Subscription offer-code flows — mirrors iOS's
+ * `iOSIAPRedeemCodesSheet`.
  */
-export function IAPRedeemCodesModal({ codes, offerCodeName, onClose }: Props) {
+export function RedeemCodesModal({ codes, offerCodeName, onClose }: Props) {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -38,7 +39,7 @@ export function IAPRedeemCodesModal({ codes, offerCodeName, onClose }: Props) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
-      console.warn('[iap-offer-code] copy CSV failed:', err);
+      console.warn('[offer-code] copy CSV failed:', err);
     }
   };
 

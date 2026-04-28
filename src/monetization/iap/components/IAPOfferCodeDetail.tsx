@@ -7,7 +7,7 @@ import { CodeEnvironment } from '../OneTimeUseCodeBatch.ts';
 import { EligibilityBadges } from '../../components/EligibilityBadges.tsx';
 import { IAPGenerateOneTimeCodesModal } from './IAPGenerateOneTimeCodesModal.tsx';
 import { IAPCustomCodesModal } from './IAPCustomCodesModal.tsx';
-import { IAPRedeemCodesModal } from './IAPRedeemCodesModal.tsx';
+import { RedeemCodesModal } from '../../components/RedeemCodesModal.tsx';
 
 interface Props {
   iap: InAppPurchase;
@@ -360,7 +360,7 @@ function IAPOfferCodeDetailImpl({ iap, code, onBack }: Props) {
         open={customOpen}
         onClose={() => setCustomOpen(false)}
       />
-      <IAPRedeemCodesModal
+      <RedeemCodesModal
         codes={downloadedCsv}
         offerCodeName={code.name}
         onClose={() => setDownloadedCsv(null)}
