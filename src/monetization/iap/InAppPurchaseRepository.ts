@@ -6,6 +6,7 @@ import type { IAPPricePointPage } from './IAPPricePoint.ts';
 import type {
   IAPCustomerEligibility,
   InAppPurchaseOfferCode,
+  OfferCodePriceInput,
 } from './InAppPurchaseOfferCode.ts';
 import type { CodeEnvironment, IAPOneTimeUseCodeBatch } from './OneTimeUseCodeBatch.ts';
 import type { IAPCustomCode } from './IAPCustomCode.ts';
@@ -19,6 +20,11 @@ export interface CreateIAPCustomCodeInput {
 export interface CreateInAppPurchaseOfferCodeInput {
   name: string;
   customerEligibilities: IAPCustomerEligibility[];
+  /** Per-territory pricing for the offer code. Omit for a fully-free
+   *  offer that inherits the IAP's availability. Provide entries with
+   *  `pricePointId: null` to mark specific territories free, or with a
+   *  picked `pricePointId` for the paid case. */
+  prices?: OfferCodePriceInput[];
 }
 import type { ReviewScreenshot } from './ReviewScreenshot.ts';
 
