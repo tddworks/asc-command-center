@@ -123,4 +123,18 @@ describe('IAPAvailability', () => {
     expect(avail.totalCount).toBe(2);
     expect(avail.availableTerritoryIds).toEqual(['USA']);
   });
+
+  it('fromJSON treats listed territories as available when the API omits isAvailable (backend ships only the available list)', () => {
+    const avail = IAPAvailability.fromJSON({
+      isAvailableInNewTerritories: true,
+      territories: [
+        { id: 'USA', currency: 'USD' },
+        { id: 'FRA', currency: 'EUR' },
+        { id: 'JPN', currency: 'JPY' },
+      ],
+    });
+    expect(avail.availableInNewTerritories).toBe(true);
+    expect(avail.totalCount).toBe(3);
+    expect(avail.availableTerritoryIds).toEqual(['USA', 'FRA', 'JPN']);
+  });
 });
