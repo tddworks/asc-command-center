@@ -144,6 +144,11 @@ function CreateSubscriptionOfferCodeModalImpl({ sub, open, onClose }: Props) {
   const [paidPricePointId, setPaidPricePointId] = useState<string | null>(null);
   const [paidPricePointLabel, setPaidPricePointLabel] = useState<string | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  /** Equalised price points for the picked anchor — one per territory.
+   *  Loaded when transitioning into the confirm step for paid modes; the
+   *  per-territory `pricePointId` for `prices` is read from this list. */
+  const [equalizations, setEqualizations] = useState<SubscriptionPricePoint[]>([]);
+  const [isLoadingEqualizations, setIsLoadingEqualizations] = useState(false);
 
   // Step 4
   const [submitting, setSubmitting] = useState(false);
@@ -165,6 +170,8 @@ function CreateSubscriptionOfferCodeModalImpl({ sub, open, onClose }: Props) {
     setPaidPricePointId(null);
     setPaidPricePointLabel(null);
     setPickerOpen(false);
+    setEqualizations([]);
+    setIsLoadingEqualizations(false);
     setSubmitting(false);
     setError(null);
 
@@ -236,7 +243,37 @@ function CreateSubscriptionOfferCodeModalImpl({ sub, open, onClose }: Props) {
   const advance = () => {
     if (step === 'confirm') { void create(); return; }
     const next = STEPS[stepIndex + 1];
-    if (next) setStep(next.id);
+    if (!next) return;
+    // Eagerly load equalisations on the way into the confirm step so the
+    // create call has the per-territory price-point ids ready.
+    if (next.id === 'confirm' && requiresPricePoint(mode) && paidPricePointId) {
+      void loadEqualizationsForOffer();
+    }
+    setStep(next.id);
+  };
+
+  const loadEqualizationsForOffer = async () => {
+    if (!paidPricePointId) return;
+    setIsLoadingEqualizations(true);
+    try {
+      const all: SubscriptionPricePoint[] = [];
+      let cursor: string | null = null;
+      do {
+        const page = await sub.loadEqualizations({
+          pricePointId: paidPricePointId,
+          cursor,
+          limit: 200,
+        });
+        all.push(...page.items);
+        cursor = page.nextCursor;
+      } while (cursor);
+      setEqualizations(all);
+    } catch (err) {
+      console.warn('[sub-offer-code] loadEqualizations failed:', err);
+      setEqualizations([]);
+    } finally {
+      setIsLoadingEqualizations(false);
+    }
   };
 
   const goBack = () => {
@@ -296,9 +333,18 @@ function CreateSubscriptionOfferCodeModalImpl({ sub, open, onClose }: Props) {
     if (!requiresPricePoint(mode)) {
       return territories.map((territory) => ({ territory, pricePointId: null }));
     }
+    // Subscription price points are per-territory. Look up each
+    // selected territory's equalised price-point id; fall back to the
+    // anchor when the equalisation list doesn't cover a territory
+    // (which shouldn't happen, but keeps the offer valid). Mirrors
+    // iOS's `buildPricePointIds` from CreateOfferCodeFlow.
+    const byTerritory = new Map<string, string>();
+    for (const eq of equalizations) {
+      if (eq.territoryId) byTerritory.set(eq.territoryId, eq.id);
+    }
     return territories.map((territory) => ({
       territory,
-      pricePointId: territory === paidTerritoryId ? paidPricePointId : null,
+      pricePointId: byTerritory.get(territory) ?? paidPricePointId,
     }));
   };
 
@@ -728,6 +774,16 @@ function CreateSubscriptionOfferCodeModalImpl({ sub, open, onClose }: Props) {
                   : 'Not picked'}
             </strong>
           </div>
+          {requiresPricePoint(mode) && paidPricePointId && (
+            <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span className="muted">Equalised territories</span>
+              <strong>
+                {isLoadingEqualizations
+                  ? 'Loading…'
+                  : `${equalizations.length} of ${selectedTerritories.size}`}
+              </strong>
+            </div>
+          )}
         </div>
       </div>
 

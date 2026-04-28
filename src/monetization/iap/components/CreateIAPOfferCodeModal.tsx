@@ -198,10 +198,12 @@ function CreateIAPOfferCodeModalImpl({ iap, open, onClose }: Props) {
     if (isFree) {
       return territories.map((territory) => ({ territory, pricePointId: null }));
     }
-    return territories.map((territory) => ({
-      territory,
-      pricePointId: territory === paidTerritoryId ? paidPricePointId : null,
-    }));
+    // Match iOS: send the picked anchor pricePointId for every selected
+    // territory. Apple's prices relationship equalises the local price
+    // for each territory server-side; sending null for non-anchor
+    // territories would mark them as free, which isn't what the user
+    // picked.
+    return territories.map((territory) => ({ territory, pricePointId: paidPricePointId }));
   };
 
   const create = async () => {

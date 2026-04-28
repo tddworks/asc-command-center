@@ -497,7 +497,9 @@ export class RestSubscriptionGroupRepository implements SubscriptionGroupReposit
         duration: input.duration,
         numberOfPeriods: input.numberOfPeriods,
         customerEligibilities: input.customerEligibilities,
-        autoRenewEnabled: input.autoRenewEnabled ?? true,
+        // Canonical asc-cli field name. Backend also accepts `autoRenew`
+        // but `isAutoRenewEnabled` matches Apple's `Attributes` shape.
+        isAutoRenewEnabled: input.autoRenewEnabled ?? true,
         offerEligibility: input.offerEligibility ?? null,
         prices: input.prices ?? [],
       }),
