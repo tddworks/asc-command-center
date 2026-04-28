@@ -22,8 +22,9 @@ interface Props {
 
 const ELIGIBILITY_OPTIONS: { value: SubscriptionCustomerEligibility; label: string; subtitle: string }[] = [
   { value: SubscriptionCustomerEligibility.New, label: 'New subscribers', subtitle: 'Have not subscribed before' },
-  { value: SubscriptionCustomerEligibility.Existing, label: 'Existing subscribers', subtitle: 'Currently subscribed' },
-  { value: SubscriptionCustomerEligibility.Expired, label: 'Expired subscribers', subtitle: 'Previously subscribed' },
+  { value: SubscriptionCustomerEligibility.PaidSubscriber, label: 'Paid subscribers', subtitle: 'Currently paying for the subscription' },
+  { value: SubscriptionCustomerEligibility.Lapsed, label: 'Lapsed subscribers', subtitle: 'Previously subscribed; subscription has expired' },
+  { value: SubscriptionCustomerEligibility.WinBack, label: 'Win-back', subtitle: 'Targeted re-engagement of churned subscribers' },
 ];
 
 const PERIOD_OPTIONS: { value: SubscriptionDuration; label: string }[] = [
@@ -47,14 +48,19 @@ const OFFER_ELIGIBILITY_OPTIONS: {
   subtitle: string;
 }[] = [
   {
-    value: SubscriptionOfferEligibility.StackWithIntroOffers,
+    value: SubscriptionOfferEligibility.Stackable,
     label: 'Stackable',
-    subtitle: 'Can be redeemed alongside an existing intro offer',
+    subtitle: 'Redeemable alongside an existing intro offer',
   },
   {
-    value: SubscriptionOfferEligibility.ReplaceIntroOffers,
-    label: 'Replaces intro offers',
-    subtitle: 'Customers redeeming this offer give up their intro offer',
+    value: SubscriptionOfferEligibility.Introductory,
+    label: 'Introductory',
+    subtitle: "Treated as the customer's intro offer — they forfeit any other intro offer",
+  },
+  {
+    value: SubscriptionOfferEligibility.SubscriptionOffer,
+    label: 'Subscription offer',
+    subtitle: 'Treated as a standard subscription offer (post-intro)',
   },
 ];
 
@@ -101,7 +107,7 @@ function requiresPricePoint(mode: OfferMode): boolean {
  * 4-step wizard mirroring iOS's `iOSCreateOfferCodeSheet`:
  *
  *   1. Name + customer eligibility + auto-renew + offer eligibility
- *      (intro-offer stack/replace question only shown when New/Expired
+ *      (intro-offer stack/replace question only shown when New/Lapsed
  *      customers are selected — and disabled when auto-renew is off).
  *   2. Territories (multi-select; defaults to all available).
  *   3. Offer type — mode (Free Trial / Pay as You Go / Pay Up Front),
@@ -122,7 +128,7 @@ function CreateSubscriptionOfferCodeModalImpl({ sub, open, onClose }: Props) {
   ]);
   const [autoRenew, setAutoRenew] = useState(true);
   const [offerEligibility, setOfferEligibility] = useState<SubscriptionOfferEligibility>(
-    SubscriptionOfferEligibility.StackWithIntroOffers,
+    SubscriptionOfferEligibility.Stackable,
   );
 
   // Step 2
@@ -149,7 +155,7 @@ function CreateSubscriptionOfferCodeModalImpl({ sub, open, onClose }: Props) {
     setName('');
     setEligibilities([SubscriptionCustomerEligibility.New]);
     setAutoRenew(true);
-    setOfferEligibility(SubscriptionOfferEligibility.StackWithIntroOffers);
+    setOfferEligibility(SubscriptionOfferEligibility.Stackable);
     setSelectedTerritories(new Set());
     setTerritoryQuery('');
     setMode(OfferMode.FreeTrial);
@@ -211,7 +217,8 @@ function CreateSubscriptionOfferCodeModalImpl({ sub, open, onClose }: Props) {
 
   const showIntroductoryOffersChoice =
     eligibilities.includes(SubscriptionCustomerEligibility.New) ||
-    eligibilities.includes(SubscriptionCustomerEligibility.Expired);
+    eligibilities.includes(SubscriptionCustomerEligibility.Lapsed) ||
+    eligibilities.includes(SubscriptionCustomerEligibility.WinBack);
 
   const trimmed = name.trim();
 
@@ -400,7 +407,7 @@ function CreateSubscriptionOfferCodeModalImpl({ sub, open, onClose }: Props) {
         <div className="form-group">
           <label className="form-label">Stacks with intro offers?</label>
           <div className="form-hint" style={{ marginBottom: 8 }}>
-            Only applies when New or Expired subscribers are eligible.
+            Only applies when New, Lapsed, or Win-Back subscribers are eligible.
             {!autoRenew && ' Stacking is only meaningful for auto-renewing offers.'}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
@@ -691,9 +698,7 @@ function CreateSubscriptionOfferCodeModalImpl({ sub, open, onClose }: Props) {
             <div style={{ display: 'flex', justifyContent: 'space-between' }}>
               <span className="muted">Intro offers</span>
               <strong>
-                {offerEligibility === SubscriptionOfferEligibility.StackWithIntroOffers
-                  ? 'Stackable'
-                  : 'Replaces intro'}
+                {OFFER_ELIGIBILITY_OPTIONS.find((o) => o.value === offerEligibility)?.label ?? offerEligibility}
               </strong>
             </div>
           )}
