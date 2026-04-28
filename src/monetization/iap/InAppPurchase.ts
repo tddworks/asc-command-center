@@ -164,7 +164,10 @@ export class InAppPurchase {
   }
   get canSetPrice(): boolean { return 'setPrice' in this.affordances; }
   get canViewAvailability(): boolean { return 'getAvailability' in this.affordances; }
-  get canSetAvailability(): boolean { return 'setAvailability' in this.affordances; }
+  get canSetAvailability(): boolean {
+    if ('setAvailability' in this.affordances) return true;
+    return 'getAvailability' in this.affordances && 'update' in this.affordances;
+  }
   get canViewOfferCodes(): boolean { return 'listOfferCodes' in this.affordances; }
   get canCreateOfferCode(): boolean { return 'createOfferCode' in this.affordances; }
   get canViewReviewScreenshot(): boolean { return 'getReviewScreenshot' in this.affordances; }
