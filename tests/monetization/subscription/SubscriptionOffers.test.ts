@@ -128,12 +128,13 @@ describe('SubscriptionOfferCode', () => {
       numberOfPeriods: 1,
       customerEligibilities: [
         SubscriptionCustomerEligibility.New,
-        SubscriptionCustomerEligibility.Existing,
-        SubscriptionCustomerEligibility.Expired,
+        SubscriptionCustomerEligibility.Lapsed,
+        SubscriptionCustomerEligibility.WinBack,
+        SubscriptionCustomerEligibility.PaidSubscriber,
       ],
       isActive: true,
     });
-    expect(code.eligibilityLabels).toEqual(['New', 'Existing', 'Expired']);
+    expect(code.eligibilityLabels).toEqual(['New', 'Lapsed', 'Win-Back', 'Paid Subscriber']);
   });
 
   it('isActive defaults to false when missing in payload', () => {
@@ -154,12 +155,12 @@ describe('SubscriptionOfferCode', () => {
       id: 'c-3', subscriptionId: 'sub-1', name: 'X',
       offerMode: OfferMode.PayAsYouGo, duration: SubscriptionDuration.OneMonth,
       numberOfPeriods: 1, customerEligibilities: [],
-      offerEligibility: SubscriptionOfferEligibility.StackWithIntroOffers,
+      offerEligibility: SubscriptionOfferEligibility.Stackable,
       isActive: true,
     });
     expect(code.subscriptionId).toBe('sub-1');
     expect(code.autoRenewEnabled).toBe(true);
-    expect(code.offerEligibility).toBe(SubscriptionOfferEligibility.StackWithIntroOffers);
+    expect(code.offerEligibility).toBe(SubscriptionOfferEligibility.Stackable);
   });
 
   it('autoRenewEnabled honours explicit false', () => {
