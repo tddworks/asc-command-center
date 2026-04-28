@@ -46,26 +46,40 @@ function IAPOffersTabImpl({ iap }: Props) {
     );
   }
 
+  const createButton = (
+    <button
+      type="button"
+      className="btn btn-primary btn-sm"
+      onClick={() => setCreateOpen(true)}
+      disabled={!iap.canCreateOfferCode}
+      title={
+        iap.canCreateOfferCode
+          ? 'Create a new offer code'
+          : 'Backend does not allow creating an offer code for this IAP yet — set up localization, pricing, and submit for approval first.'
+      }
+    >
+      + Create Offer Code
+    </button>
+  );
+
   return (
     <>
       <OffersSection
         title="Offer Codes"
         subtitle={`${iap.offerCodes.length} total · ${iap.activeOfferCodeCount} active`}
-        actions={iap.canCreateOfferCode && (
-          <button
-            type="button"
-            className="btn btn-primary btn-sm"
-            onClick={() => setCreateOpen(true)}
-          >
-            + New Offer Code
-          </button>
-        )}
+        actions={createButton}
         isSupported={iap.canViewOfferCodes}
         isLoaded={iap.isOfferCodesLoaded}
         isEmpty={iap.offerCodes.length === 0}
         notSupportedMessage="Backend does not expose offer codes for this IAP."
-        emptyMessage="No offer codes for this IAP yet."
-        emptyDecoration={<div style={{ fontSize: 28, opacity: 0.4 }}>🎟️</div>}
+        emptyTitle="No offer codes yet"
+        emptyMessage={
+          iap.canCreateOfferCode
+            ? 'Generate redeemable codes to give customers free or discounted access.'
+            : 'Add a localization, set a base price, and submit the IAP for approval before creating offer codes.'
+        }
+        emptyDecoration={<div style={{ fontSize: 32, opacity: 0.4 }}>🎟️</div>}
+        emptyCta={createButton}
       >
         <div className="table-wrapper">
           <table>

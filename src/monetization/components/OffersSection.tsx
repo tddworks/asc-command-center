@@ -17,8 +17,14 @@ interface Props {
   notSupportedMessage: string;
   /** Copy shown when loaded + empty. */
   emptyMessage: string;
+  /** Optional title shown above `emptyMessage`. Pairs with the bigger
+   *  decoration to match the Localizations tab's empty state. */
+  emptyTitle?: string;
   /** Optional decoration shown in the empty state (emoji, etc.). */
   emptyDecoration?: ReactNode;
+  /** Optional CTA rendered below the empty-state copy — typically the same
+   *  primary button surfaced in the toolbar, mirroring Localizations. */
+  emptyCta?: ReactNode;
   /** Body shown when supported, loaded, and non-empty. */
   children: ReactNode;
   /** marginBottom applied to the wrapping `.card`. Defaults to 12. */
@@ -39,7 +45,9 @@ export function OffersSection({
   isEmpty,
   notSupportedMessage,
   emptyMessage,
+  emptyTitle,
   emptyDecoration,
+  emptyCta,
   children,
   marginBottom = 12,
 }: Props) {
@@ -59,9 +67,19 @@ export function OffersSection({
       ) : !isLoaded ? (
         <div className="card-body"><div className="loading"><span className="spinner" /><span>Loading…</span></div></div>
       ) : isEmpty ? (
-        <div className="card-body" style={{ textAlign: 'center', padding: 24 }}>
+        <div className="card-body" style={{ textAlign: 'center', padding: 32 }}>
           {emptyDecoration}
-          <p className="muted" style={{ marginTop: emptyDecoration ? 8 : 0 }}>{emptyMessage}</p>
+          {emptyTitle && (
+            <h4 style={{ marginTop: emptyDecoration ? 8 : 0 }}>{emptyTitle}</h4>
+          )}
+          <p className="muted" style={{ marginTop: emptyTitle ? 4 : (emptyDecoration ? 8 : 0) }}>
+            {emptyMessage}
+          </p>
+          {emptyCta && (
+            <div style={{ marginTop: 12 }}>
+              {emptyCta}
+            </div>
+          )}
         </div>
       ) : (
         children
