@@ -56,7 +56,7 @@ interface Props<P extends PricePointLike> {
   onClose: () => void;
 }
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = 200;
 
 /**
  * Two-step pricing picker mirroring `IAPSetBasePriceSheet` from iOS:
@@ -108,6 +108,10 @@ function PricePointPickerModalImpl<P extends PricePointLike>({
   }, [open, config.initialTerritoryId, config.defaultBucket]);
 
   // Load price points whenever step 2 opens or the chosen territory changes.
+  // Eager-paginates after the first page so the bucket filter pills (which
+  // partition the loaded set numerically) see the whole catalog — otherwise
+  // a filter like "$50–$100" can show "0 tiers" simply because the matching
+  // tiers happened to land on a later page.
   useEffect(() => {
     if (!open || step !== 'price') return;
     let cancelled = false;
@@ -115,15 +119,29 @@ function PricePointPickerModalImpl<P extends PricePointLike>({
     setItems([]);
     setCursor(null);
     setPickedId(null);
-    product
-      .loadPricePoints({ territoryId, cursor: null, limit: PAGE_SIZE })
-      .then((page) => {
-        if (cancelled) return;
-        setItems(page.items);
-        setCursor(page.nextCursor);
-      })
-      .catch((err) => { if (!cancelled) setError((err as Error).message); })
-      .finally(() => { if (!cancelled) setLoading(false); });
+
+    (async () => {
+      try {
+        let next: string | null = null;
+        let firstPage = true;
+        do {
+          const page = await product.loadPricePoints({ territoryId, cursor: next, limit: PAGE_SIZE });
+          if (cancelled) return;
+          setItems((prev) => (firstPage ? page.items : [...prev, ...page.items]));
+          setCursor(page.nextCursor);
+          next = page.nextCursor;
+          firstPage = false;
+          // Show the first page immediately; remaining pages append in the
+          // background while the user is already browsing.
+          if (firstPage === false) setLoading(false);
+        } while (next);
+      } catch (err) {
+        if (!cancelled) setError((err as Error).message);
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+
     return () => { cancelled = true; };
   }, [open, step, territoryId, product]);
 
@@ -138,20 +156,6 @@ function PricePointPickerModalImpl<P extends PricePointLike>({
 
   const visiblePrices = items.filter((p) => config.filter(p, bucket, priceQuery));
   const picked = items.find((p) => p.id === pickedId) ?? null;
-
-  const loadMore = async () => {
-    if (!cursor || loading) return;
-    setLoading(true);
-    try {
-      const page = await product.loadPricePoints({ territoryId, cursor, limit: PAGE_SIZE });
-      setItems((prev) => [...prev, ...page.items]);
-      setCursor(page.nextCursor);
-    } catch (err) {
-      setError((err as Error).message);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const confirm = async () => {
     if (!picked) return;
@@ -303,6 +307,7 @@ function PricePointPickerModalImpl<P extends PricePointLike>({
 
             <div className="muted" style={{ fontSize: 11 }}>
               {visiblePrices.length} price {visiblePrices.length === 1 ? 'tier' : 'tiers'}
+              {cursor && ' (loading more…)'}
             </div>
 
             <div style={{ overflow: 'auto', flex: 1, minHeight: 200 }}>
@@ -352,17 +357,6 @@ function PricePointPickerModalImpl<P extends PricePointLike>({
                 </ul>
               )}
 
-              {cursor && !loading && (
-                <div style={{ textAlign: 'center', padding: 8 }}>
-                  <button
-                    type="button"
-                    className="btn btn-secondary btn-sm"
-                    onClick={loadMore}
-                  >
-                    Load more
-                  </button>
-                </div>
-              )}
             </div>
 
             {error && (

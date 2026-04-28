@@ -38,6 +38,7 @@ function stubRepo(overrides: Partial<InAppPurchaseRepository> = {}): InAppPurcha
     generateOneTimeUseCodes: vi.fn(),
     customCodes: vi.fn().mockResolvedValue([]),
     createCustomCode: vi.fn(),
+    oneTimeUseCodeValues: vi.fn().mockResolvedValue(''),
     ...overrides,
   };
 }

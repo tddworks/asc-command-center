@@ -32,6 +32,37 @@ function isGroup(target: SubscriptionGroup | Subscription): target is Subscripti
   return (target as SubscriptionGroup).appId !== undefined;
 }
 
+/** Extract the next-page cursor from a paginated response.
+ *
+ *  asc-cli ships the canonical shape `{ data, nextCursor, totalCount }`
+ *  (top-level bare cursor string; key omitted on the last page) — see
+ *  `Sources/Domain/Shared/PaginatedResponse.swift` and
+ *  `restFormatPaginated` in the asc-cli REST routes. Older mocks/tests
+ *  use Apple's `meta.paging.nextCursor` or HAL's `links.next` URL — try
+ *  both as fallbacks so this stays compatible. */
+function readNextCursor(json: unknown): string | null {
+  if (!json || typeof json !== 'object') return null;
+  const obj = json as Record<string, unknown>;
+  const flat = obj.nextCursor;
+  if (typeof flat === 'string' && flat) return flat;
+  const meta = obj.meta as Record<string, unknown> | undefined;
+  const paging = meta?.paging as Record<string, unknown> | undefined;
+  const fromMeta = paging?.nextCursor;
+  if (typeof fromMeta === 'string' && fromMeta) return fromMeta;
+  const links = obj.links as Record<string, unknown> | undefined;
+  const next = links?.next;
+  if (typeof next === 'string' && next) {
+    try {
+      const parsed = new URL(next, 'https://placeholder.local');
+      const c = parsed.searchParams.get('cursor');
+      if (c) return c;
+    } catch {
+      return next;
+    }
+  }
+  return null;
+}
+
 /**
  * REST implementation of both the SubscriptionGroup and per-tier
  * Subscription ports. Sharing one class so a Subscription hydrated under a
@@ -336,10 +367,11 @@ export class RestSubscriptionGroupRepository implements SubscriptionGroupReposit
     if (input.cursor) params.set('cursor', input.cursor);
     if (input.limit) params.set('limit', String(input.limit));
     const url = `/api/v1/subscriptions/${sub.id}/price-points?${params.toString()}`;
-    const json = await apiClient.get<{ data: Record<string, unknown>[]; links?: { next?: string } }>(url);
+    const json = await apiClient.get<unknown>(url);
+    const data = (json as { data: Record<string, unknown>[] }).data ?? [];
     return {
-      items: json.data.map(SubscriptionPricePoint.fromJSON),
-      nextCursor: json.links?.next ?? null,
+      items: data.map(SubscriptionPricePoint.fromJSON),
+      nextCursor: readNextCursor(json),
     };
   }
 
@@ -352,10 +384,11 @@ export class RestSubscriptionGroupRepository implements SubscriptionGroupReposit
     if (input.cursor) params.set('cursor', input.cursor);
     if (input.limit) params.set('limit', String(input.limit));
     const url = `/api/v1/subscriptions/${sub.id}/price-points/equalizations?${params.toString()}`;
-    const json = await apiClient.get<{ data: Record<string, unknown>[]; links?: { next?: string } }>(url);
+    const json = await apiClient.get<unknown>(url);
+    const data = (json as { data: Record<string, unknown>[] }).data ?? [];
     return {
-      items: json.data.map(SubscriptionPricePoint.fromJSON),
-      nextCursor: json.links?.next ?? null,
+      items: data.map(SubscriptionPricePoint.fromJSON),
+      nextCursor: readNextCursor(json),
     };
   }
 

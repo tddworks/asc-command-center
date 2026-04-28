@@ -3,6 +3,7 @@ import {
   IAPCustomerEligibility,
   InAppPurchaseOfferCode,
 } from '../../../src/monetization/iap/InAppPurchaseOfferCode.ts';
+import { IAPOneTimeUseCodeBatch, CodeEnvironment } from '../../../src/monetization/iap/OneTimeUseCodeBatch.ts';
 import type { InAppPurchaseRepository } from '../../../src/monetization/iap/InAppPurchaseRepository.ts';
 
 function stubRepo(overrides: Partial<InAppPurchaseRepository> = {}): InAppPurchaseRepository {
@@ -34,8 +35,18 @@ function stubRepo(overrides: Partial<InAppPurchaseRepository> = {}): InAppPurcha
     generateOneTimeUseCodes: vi.fn(),
     customCodes: vi.fn().mockResolvedValue([]),
     createCustomCode: vi.fn(),
+    oneTimeUseCodeValues: vi.fn().mockResolvedValue(''),
     ...overrides,
   };
+}
+
+function batch(id: string, count: number): IAPOneTimeUseCodeBatch {
+  return new IAPOneTimeUseCodeBatch({
+    id,
+    numberOfCodes: count,
+    environment: CodeEnvironment.Production,
+    isActive: true,
+  });
 }
 
 describe('InAppPurchaseOfferCode', () => {
@@ -134,6 +145,71 @@ describe('InAppPurchaseOfferCode', () => {
       affordances: { deactivate: '/x' },
     });
     await expect(code.deactivate()).rejects.toThrow(/no repository/);
+  });
+
+  // ── downloadCodes ──
+
+  it('downloadCodes returns CSV of <code>,<redemption-url> using affordances.appId', async () => {
+    const repo = stubRepo({
+      oneTimeUseCodeValues: vi.fn().mockResolvedValue('ABC123\nDEF456\nGHI789'),
+    });
+    const code = new InAppPurchaseOfferCode({
+      id: 'oc-1', iapId: 'iap-1', name: 'WELCOME',
+      customerEligibilities: [], isActive: true,
+      affordances: { appId: '1000000003' },
+    });
+    code.setRepository(repo);
+    const b = batch('batch-1', 3);
+
+    const csv = await code.downloadCodes(b);
+
+    expect(csv).toBe(
+      'ABC123,https://apps.apple.com/redeem?ctx=offercodes&id=1000000003&code=ABC123\n' +
+      'DEF456,https://apps.apple.com/redeem?ctx=offercodes&id=1000000003&code=DEF456\n' +
+      'GHI789,https://apps.apple.com/redeem?ctx=offercodes&id=1000000003&code=GHI789',
+    );
+    expect(repo.oneTimeUseCodeValues).toHaveBeenCalledWith(code, b);
+  });
+
+  it('downloadCodes returns the raw CSV when affordances.appId is missing', async () => {
+    const repo = stubRepo({
+      oneTimeUseCodeValues: vi.fn().mockResolvedValue('ABC123\nDEF456'),
+    });
+    const code = new InAppPurchaseOfferCode({
+      id: 'oc-1', iapId: 'iap-1', name: 'WELCOME',
+      customerEligibilities: [], isActive: true,
+    });
+    code.setRepository(repo);
+
+    const csv = await code.downloadCodes(batch('batch-1', 2));
+
+    expect(csv).toBe('ABC123\nDEF456');
+  });
+
+  it('downloadCodes filters blank lines so the CSV stays clean', async () => {
+    const repo = stubRepo({
+      oneTimeUseCodeValues: vi.fn().mockResolvedValue('ABC\n\nDEF\n'),
+    });
+    const code = new InAppPurchaseOfferCode({
+      id: 'oc-1', iapId: 'iap-1', name: 'X',
+      customerEligibilities: [], isActive: true,
+      affordances: { appId: '111' },
+    });
+    code.setRepository(repo);
+
+    const csv = await code.downloadCodes(batch('b', 2));
+
+    expect(csv.split('\n')).toHaveLength(2);
+    expect(csv).toContain('ABC,https://apps.apple.com/redeem?ctx=offercodes&id=111&code=ABC');
+    expect(csv).toContain('DEF,https://apps.apple.com/redeem?ctx=offercodes&id=111&code=DEF');
+  });
+
+  it('downloadCodes throws when no repository is attached', async () => {
+    const code = new InAppPurchaseOfferCode({
+      id: 'oc-1', iapId: 'iap-1', name: 'X',
+      customerEligibilities: [], isActive: true,
+    });
+    await expect(code.downloadCodes(batch('b', 1))).rejects.toThrow(/no repository/);
   });
 
   // ── fromJSON ──

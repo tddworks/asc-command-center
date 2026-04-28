@@ -93,4 +93,10 @@ export interface InAppPurchaseRepository {
   ): Promise<IAPOneTimeUseCodeBatch>;
   customCodes(code: InAppPurchaseOfferCode): Promise<IAPCustomCode[]>;
   createCustomCode(code: InAppPurchaseOfferCode, input: CreateIAPCustomCodeInput): Promise<IAPCustomCode>;
+
+  /** Raw CSV of redeemable codes for a one-time-use batch. The values
+   *  endpoint returns plain text — one code per line, no URLs. The
+   *  `InAppPurchaseOfferCode.downloadCodes` mutator wraps this and
+   *  appends Apple's redemption URL when an appId is known. */
+  oneTimeUseCodeValues(code: InAppPurchaseOfferCode, batch: IAPOneTimeUseCodeBatch): Promise<string>;
 }
