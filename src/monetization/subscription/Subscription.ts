@@ -11,6 +11,8 @@ import type {
   SubscriptionDuration,
   SubscriptionIntroductoryOffer,
   SubscriptionOfferCode,
+  SubscriptionOfferCodePriceInput,
+  SubscriptionOfferEligibility,
   SubscriptionPromotionalOffer,
 } from './SubscriptionOffers.ts';
 import type { WinBackOffer } from './WinBackOffer.ts';
@@ -477,12 +479,17 @@ export class Subscription {
     duration: SubscriptionDuration | string;
     numberOfPeriods: number;
     customerEligibilities: SubscriptionCustomerEligibility[];
+    autoRenewEnabled?: boolean;
+    offerEligibility?: SubscriptionOfferEligibility | string | null;
+    prices?: SubscriptionOfferCodePriceInput[];
   }): Promise<SubscriptionOfferCode> {
     if (!this.canCreateOfferCode) {
       throw new Error(`Subscription ${this.id} cannot create offer code (no createOfferCode affordance)`);
     }
-    const created = await this.requireRepo().createOfferCode(this, input);
+    const repo = this.requireRepo();
+    const created = await repo.createOfferCode(this, input);
     runInAction(() => {
+      created.setRepository(repo);
       this.offerCodes = [...this.offerCodes, created];
     });
     return created;
