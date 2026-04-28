@@ -183,19 +183,23 @@ export class SubscriptionPromotionalOffer {
 
 // ── Offer Code ──
 
+/** Customer eligibility flags for subscription offer codes. Raw values
+ *  match the asc-cli REST handler exactly. */
 export const SubscriptionCustomerEligibility = {
   New: 'NEW',
-  Existing: 'EXISTING',
-  Expired: 'EXPIRED',
+  Lapsed: 'LAPSED',
+  WinBack: 'WIN_BACK',
+  PaidSubscriber: 'PAID_SUBSCRIBER',
 } as const;
 export type SubscriptionCustomerEligibility = typeof SubscriptionCustomerEligibility[keyof typeof SubscriptionCustomerEligibility];
 
-/** Whether the offer code stacks with intro offers or replaces them. iOS
- *  drives this off the auto-renew + customer-eligibility combo; Apple's
- *  REST takes the explicit value. */
+/** Whether the offer code stacks with intro offers, replaces them, or is
+ *  treated as a standalone subscription offer. Raw values match the
+ *  asc-cli REST handler. */
 export const SubscriptionOfferEligibility = {
-  StackWithIntroOffers: 'STACK_WITH_INTRO_OFFERS',
-  ReplaceIntroOffers: 'REPLACE_INTRO_OFFERS',
+  Stackable: 'STACKABLE',
+  Introductory: 'INTRODUCTORY',
+  SubscriptionOffer: 'SUBSCRIPTION_OFFER',
 } as const;
 export type SubscriptionOfferEligibility = typeof SubscriptionOfferEligibility[keyof typeof SubscriptionOfferEligibility];
 
@@ -306,8 +310,9 @@ export class SubscriptionOneTimeUseCodeBatch {
 
 const SUB_ELIGIBILITY_LABELS: Record<string, string> = {
   [SubscriptionCustomerEligibility.New]: 'New',
-  [SubscriptionCustomerEligibility.Existing]: 'Existing',
-  [SubscriptionCustomerEligibility.Expired]: 'Expired',
+  [SubscriptionCustomerEligibility.Lapsed]: 'Lapsed',
+  [SubscriptionCustomerEligibility.WinBack]: 'Win-Back',
+  [SubscriptionCustomerEligibility.PaidSubscriber]: 'Paid Subscriber',
 };
 
 export interface SubscriptionOfferCodeInit {

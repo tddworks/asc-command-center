@@ -503,7 +503,11 @@ export class Subscription {
       });
       return [];
     }
-    const list = await this.requireRepo().offerCodes(this);
+    const repo = this.requireRepo();
+    const list = await repo.offerCodes(this);
+    // Attach the repo so loaded codes can navigate to their children
+    // (one-time-use batches, custom codes) without re-threading.
+    for (const code of list) code.setRepository(repo);
     runInAction(() => {
       this.offerCodes = list;
       this.isOfferCodesLoaded = true;

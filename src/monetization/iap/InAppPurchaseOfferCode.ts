@@ -4,21 +4,21 @@ import type { InAppPurchaseRepository } from './InAppPurchaseRepository.ts';
 import type { CodeEnvironment, IAPOneTimeUseCodeBatch } from './OneTimeUseCodeBatch.ts';
 import type { IAPCustomCode } from './IAPCustomCode.ts';
 
-/** Customer eligibility flags for IAP offer codes — Apple's three buckets:
- *  users who have never bought (`NonSpender` = "new"), users actively
- *  spending (`ActiveSpender` = "existing"), and lapsed buyers
- *  (`ChurnedSpender` = "churned"). The string values mirror Apple's API
- *  but the enum keys avoid the marketing language. */
+/** Customer eligibility flags for IAP offer codes — Apple's three buckets.
+ *  Raw values match the asc-cli REST handler exactly: `NON_SPENDER` (no
+ *  prior purchases), `ACTIVE_SPENDER` (currently spending), and
+ *  `CHURNED_SPENDER` (lapsed). The enum keys preserve the same names so
+ *  call sites read naturally. */
 export const IAPCustomerEligibility = {
-  NonSpender: 'NEW',
-  ActiveSpender: 'EXISTING',
-  ChurnedSpender: 'CHURNED',
+  NonSpender: 'NON_SPENDER',
+  ActiveSpender: 'ACTIVE_SPENDER',
+  ChurnedSpender: 'CHURNED_SPENDER',
 } as const;
 export type IAPCustomerEligibility = typeof IAPCustomerEligibility[keyof typeof IAPCustomerEligibility];
 
 const ELIGIBILITY_LABELS: Record<string, string> = {
-  [IAPCustomerEligibility.NonSpender]: 'New',
-  [IAPCustomerEligibility.ActiveSpender]: 'Existing',
+  [IAPCustomerEligibility.NonSpender]: 'Non-Spender',
+  [IAPCustomerEligibility.ActiveSpender]: 'Active',
   [IAPCustomerEligibility.ChurnedSpender]: 'Churned',
 };
 
