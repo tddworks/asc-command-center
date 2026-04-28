@@ -6,6 +6,7 @@ import type {
   ProductWithAvailability,
   TerritoryAvailabilityLike,
 } from './LocalizableProduct.ts';
+import { territoryFlag, territoryName } from '../../shared/territoryDirectory.ts';
 
 interface Props<
   T extends TerritoryAvailabilityLike,
@@ -213,21 +214,38 @@ function AvailabilityTabImpl<
           <tbody>
             {visible.length === 0 ? (
               <tr><td colSpan={4} className="muted" style={{ textAlign: 'center', padding: 16 }}>No matching territories.</td></tr>
-            ) : visible.map((t) => (
-              <tr key={t.territoryId}>
-                <td>
-                  <input
-                    type="checkbox"
-                    checked={t.isAvailable}
-                    onChange={() => avail.toggleTerritory(t.territoryId)}
-                    disabled={!product.canSetAvailability}
-                  />
-                </td>
-                <td className="cell-primary">{t.territoryName}</td>
-                <td className="cell-mono">{t.territoryId}</td>
-                <td>{t.currency}</td>
-              </tr>
-            ))}
+            ) : visible.map((t) => {
+              const flag = territoryFlag(t.territoryId);
+              const directoryName = territoryName(t.territoryId);
+              const displayName =
+                directoryName !== t.territoryId
+                  ? directoryName
+                  : (t.territoryName && t.territoryName !== t.territoryId)
+                    ? t.territoryName
+                    : directoryName;
+              return (
+                <tr key={t.territoryId}>
+                  <td>
+                    <input
+                      type="checkbox"
+                      checked={t.isAvailable}
+                      onChange={() => avail.toggleTerritory(t.territoryId)}
+                      disabled={!product.canSetAvailability}
+                    />
+                  </td>
+                  <td className="cell-primary">
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                      {flag && (
+                        <span aria-hidden="true" style={{ fontSize: 18, lineHeight: 1 }}>{flag}</span>
+                      )}
+                      <span>{displayName}</span>
+                    </span>
+                  </td>
+                  <td className="cell-mono">{t.territoryId}</td>
+                  <td>{t.currency}</td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

@@ -490,6 +490,23 @@ describe('InAppPurchase', () => {
     expect(closed.canSetAvailability).toBe(false);
   });
 
+  it('canSetAvailability is true for an editable IAP whose availability is viewable, even if the backend omits a discrete setAvailability link', () => {
+    // The asc-cli backend returns `getAvailability` + `update` on the IAP
+    // resource but not a separate `setAvailability` link — the same URL
+    // accepts PATCH. An editable, view-able IAP should be settable.
+    const iap = new InAppPurchase(iapInit({
+      affordances: { getAvailability: '/x', update: '/y' },
+    }));
+    expect(iap.canSetAvailability).toBe(true);
+  });
+
+  it('canSetAvailability is false when the IAP itself is not editable (no update affordance) and no explicit setAvailability link is present', () => {
+    const iap = new InAppPurchase(iapInit({
+      affordances: { getAvailability: '/x' },
+    }));
+    expect(iap.canSetAvailability).toBe(false);
+  });
+
   it('loadAvailability short-circuits to null when affordance missing', async () => {
     const repo = stubRepo();
     const iap = new InAppPurchase(iapInit({ affordances: {} }), repo);

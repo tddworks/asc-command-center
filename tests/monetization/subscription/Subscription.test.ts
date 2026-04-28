@@ -396,6 +396,13 @@ describe('Subscription', () => {
     expect(closed.canSetAvailability).toBe(false);
   });
 
+  it('canSetAvailability is true for an editable subscription whose availability is viewable, even if the backend omits a discrete setAvailability link', () => {
+    const sub = new Subscription(subInit({
+      affordances: { getAvailability: '/x', update: '/y' },
+    }));
+    expect(sub.canSetAvailability).toBe(true);
+  });
+
   it('loadAvailability short-circuits to null when affordance missing', async () => {
     const repo = stubRepo();
     const sub = new Subscription(subInit({ affordances: {} }), repo);

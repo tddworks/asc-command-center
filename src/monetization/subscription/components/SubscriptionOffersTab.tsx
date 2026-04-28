@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react';
 import { observer } from 'mobx-react-lite';
 import type { Subscription } from '../Subscription.ts';
+import type { SubscriptionOfferCode } from '../SubscriptionOffers.ts';
 import { CreateIntroductoryOfferModal } from './CreateIntroductoryOfferModal.tsx';
 import { CreatePromotionalOfferModal } from './CreatePromotionalOfferModal.tsx';
 import { CreateSubscriptionOfferCodeModal } from './CreateSubscriptionOfferCodeModal.tsx';
+import { SubscriptionOfferCodeDetail } from './SubscriptionOfferCodeDetail.tsx';
 import { OffersSection } from '../../components/OffersSection.tsx';
 import { EligibilityBadges } from '../../components/EligibilityBadges.tsx';
 
@@ -15,6 +17,7 @@ function SubscriptionOffersTabImpl({ sub }: Props) {
   const [createCodeOpen, setCreateCodeOpen] = useState(false);
   const [createIntroOpen, setCreateIntroOpen] = useState(false);
   const [createPromoOpen, setCreatePromoOpen] = useState(false);
+  const [selectedCodeId, setSelectedCodeId] = useState<string | null>(null);
 
   const deleteIntro = async (offer: import('../SubscriptionOffers.ts').SubscriptionIntroductoryOffer) => {
     if (!window.confirm(`Delete intro offer "${offer.summaryLabel}"?`)) return;
@@ -41,6 +44,45 @@ function SubscriptionOffersTabImpl({ sub }: Props) {
       void sub.loadWinBackOffers().catch((err) => console.warn('[subscription] win-back offers failed:', err));
     }
   }, [sub]);
+
+  // Drop the offer-code selection if the underlying code is no longer in
+  // the list — happens after a refresh / data-mode swap.
+  useEffect(() => {
+    if (!selectedCodeId) return;
+    if (!sub.offerCodes.some((c) => c.id === selectedCodeId)) {
+      setSelectedCodeId(null);
+    }
+  }, [sub.offerCodes, selectedCodeId]);
+
+  const selected: SubscriptionOfferCode | undefined = selectedCodeId
+    ? sub.offerCodes.find((c) => c.id === selectedCodeId)
+    : undefined;
+
+  if (selected) {
+    return (
+      <SubscriptionOfferCodeDetail
+        sub={sub}
+        code={selected}
+        onBack={() => setSelectedCodeId(null)}
+      />
+    );
+  }
+
+  const createCodeButton = (
+    <button
+      type="button"
+      className="btn btn-primary btn-sm"
+      onClick={() => setCreateCodeOpen(true)}
+      disabled={!sub.canCreateOfferCode}
+      title={
+        sub.canCreateOfferCode
+          ? 'Create a new offer code'
+          : 'Backend does not allow creating an offer code for this subscription yet — set up localization, pricing, and submit for approval first.'
+      }
+    >
+      + Create Offer Code
+    </button>
+  );
 
   return (
     <div>
@@ -190,20 +232,19 @@ function SubscriptionOffersTabImpl({ sub }: Props) {
         title="Offer Codes"
         subtitle={sub.offerCodes.length}
         marginBottom={0}
-        actions={sub.canCreateOfferCode && (
-          <button
-            type="button"
-            className="btn btn-primary btn-sm"
-            onClick={() => setCreateCodeOpen(true)}
-          >
-            + New Offer Code
-          </button>
-        )}
+        actions={createCodeButton}
         isSupported={sub.canViewOfferCodes}
         isLoaded={sub.isOfferCodesLoaded}
         isEmpty={sub.offerCodes.length === 0}
         notSupportedMessage="Backend does not expose offer codes."
-        emptyMessage="No offer codes yet."
+        emptyTitle="No offer codes yet"
+        emptyMessage={
+          sub.canCreateOfferCode
+            ? 'Generate redeemable codes to give subscribers free trials or discounts.'
+            : 'Add a localization, set a base price, and submit the subscription for approval before creating offer codes.'
+        }
+        emptyDecoration={<div style={{ fontSize: 32, opacity: 0.4 }}>🎟️</div>}
+        emptyCta={createCodeButton}
       >
         <div className="table-wrapper">
           <table>
@@ -214,11 +255,16 @@ function SubscriptionOffersTabImpl({ sub }: Props) {
                 <th>Summary</th>
                 <th>Status</th>
                 <th>Codes</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
               {sub.offerCodes.map((c) => (
-                <tr key={c.id}>
+                <tr
+                  key={c.id}
+                  style={{ cursor: 'pointer' }}
+                  onClick={() => setSelectedCodeId(c.id)}
+                >
                   <td className="cell-primary">{c.name}</td>
                   <td><EligibilityBadges labels={c.eligibilityLabels} /></td>
                   <td>{c.summaryLabel}</td>
@@ -228,6 +274,9 @@ function SubscriptionOffersTabImpl({ sub }: Props) {
                     </span>
                   </td>
                   <td>{c.totalNumberOfCodes?.toLocaleString('en-US') ?? '—'}</td>
+                  <td style={{ textAlign: 'right' }}>
+                    <span className="muted" style={{ fontSize: 13 }}>›</span>
+                  </td>
                 </tr>
               ))}
             </tbody>

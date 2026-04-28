@@ -171,7 +171,10 @@ export class Subscription {
   get canViewReviewScreenshot(): boolean { return 'getReviewScreenshot' in this.affordances; }
   get canUploadReviewScreenshot(): boolean { return 'uploadReviewScreenshot' in this.affordances; }
   get canViewAvailability(): boolean { return 'getAvailability' in this.affordances; }
-  get canSetAvailability(): boolean { return 'setAvailability' in this.affordances; }
+  get canSetAvailability(): boolean {
+    if ('setAvailability' in this.affordances) return true;
+    return 'getAvailability' in this.affordances && 'update' in this.affordances;
+  }
   get canViewIntroductoryOffers(): boolean { return 'listIntroductoryOffers' in this.affordances; }
   get canViewPromotionalOffers(): boolean { return 'listPromotionalOffers' in this.affordances; }
   get canViewOfferCodes(): boolean { return 'listOfferCodes' in this.affordances; }
