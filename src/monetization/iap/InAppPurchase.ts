@@ -154,7 +154,8 @@ export class InAppPurchase {
   // ── Capability Checks (server-supplied affordances + state) ──
 
   get canSubmit(): boolean {
-    return this.isReadyToSubmit && 'submit' in this.affordances;
+    if (!this.isReadyToSubmit) return false;
+    return 'submit' in this.affordances || 'addToNextVersion' in this.affordances;
   }
 
   get canUnsubmit(): boolean {
@@ -280,21 +281,22 @@ export class InAppPurchase {
 
   // ── Mutators ──
 
-  /** Submit this IAP for App Store review. Gate on canSubmit; the call sets
-   *  hasSubmission=true and flips state to WaitingForReview to match what the
-   *  backend will return on the next refresh. */
+  /** Submit this IAP for App Store review. The iris flow queues it for
+   *  the next app version and keeps state at READY_TO_SUBMIT (only
+   *  `submitWithNextAppStoreVersion` flips); the legacy flow flipped
+   *  state to WAITING_FOR_REVIEW. We optimistically set `hasSubmission`
+   *  so the "Remove from Next Version" button appears immediately, then
+   *  reload to let the server's response replace the rest. */
   async submit(): Promise<void> {
     if (!this.canSubmit) {
       throw new Error(`IAP ${this.id} cannot submit (state=${this.state})`);
     }
     await this.requireRepo().submit(this);
-    runInAction(() => {
-      this.hasSubmission = true;
-      this.state = InAppPurchaseState.WaitingForReview;
-    });
+    runInAction(() => { this.hasSubmission = true; });
+    await this.reload().catch(() => undefined);
   }
 
-  /** Cancel a pending review submission. Reverts state to ReadyToSubmit. */
+  /** Cancel a pending review submission / remove from next version. */
   async unsubmit(): Promise<void> {
     if (!this.canUnsubmit) {
       throw new Error(`IAP ${this.id} has no active submission to cancel`);
@@ -304,6 +306,7 @@ export class InAppPurchase {
       this.hasSubmission = false;
       this.state = InAppPurchaseState.ReadyToSubmit;
     });
+    await this.reload().catch(() => undefined);
   }
 
   /** Update editable fields (referenceName + reviewNote). Local mutation

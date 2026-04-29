@@ -129,7 +129,11 @@ export class RestInAppPurchaseRepository implements InAppPurchaseRepository {
   }
 
   async submit(iap: InAppPurchase): Promise<void> {
-    const url = iap.affordances.submit;
+    // The iris-backed asc-cli emits `addToNextVersion` (POST to
+    // /iris/iap/:id/submissions) for first-time IAPs that need to be
+    // queued for the next app version's review. Older shapes used the
+    // discrete `submit` link. Either is a POST.
+    const url = iap.affordances.addToNextVersion ?? iap.affordances.submit;
     if (!url) throw new Error(`IAP ${iap.id} has no submit affordance`);
     const res = await fetch(url, { method: 'POST' });
     if (!res.ok) {
