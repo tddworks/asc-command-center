@@ -57,6 +57,7 @@ function IAPDetailImpl({ iap }: Props) {
         canUnsubmit={iap.canUnsubmit}
         onSubmit={() => iap.submit()}
         onUnsubmit={() => iap.unsubmit()}
+        isFirstTimeSubmission={iap.isFirstTimeSubmission}
         submitHint={submitHint}
       />
 

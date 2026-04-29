@@ -138,6 +138,17 @@ export class RestInAppPurchaseRepository implements InAppPurchaseRepository {
   }
 
   async unsubmit(iap: InAppPurchase): Promise<void> {
+    // The iris-backed asc-cli emits `removeFromNextVersion` (POST) for
+    // queued first-time IAPs; older shapes used `unsubmit` (DELETE).
+    // Prefer the newer link when present.
+    const removeUrl = iap.affordances.removeFromNextVersion;
+    if (removeUrl) {
+      const res = await fetch(removeUrl, { method: 'POST' });
+      if (!res.ok) {
+        throw new Error(`POST ${removeUrl} failed: ${res.status} ${await res.text().catch(() => '')}`);
+      }
+      return;
+    }
     const url = iap.affordances.unsubmit;
     if (!url) throw new Error(`IAP ${iap.id} has no unsubmit affordance`);
     const res = await fetch(url, { method: 'DELETE' });
