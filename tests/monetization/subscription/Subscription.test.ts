@@ -120,6 +120,7 @@ describe('Subscription', () => {
   it('statusLabel and statusTone map known states', () => {
     expect(new Subscription(subInit({ state: SubscriptionState.Approved })).statusTone).toBe('success');
     expect(new Subscription(subInit({ state: SubscriptionState.Rejected })).statusTone).toBe('danger');
+    expect(new Subscription(subInit({ state: SubscriptionState.ReadyToSubmit })).statusTone).toBe('info');
     expect(new Subscription(subInit({ state: SubscriptionState.MissingMetadata })).statusLabel).toBe('Missing Metadata');
   });
 

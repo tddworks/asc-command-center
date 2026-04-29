@@ -5,7 +5,7 @@ export type StatusTone = 'success' | 'info' | 'warning' | 'danger' | 'neutral';
 
 const STATUS_CLASS: Record<StatusTone, string> = {
   success: 'live',
-  info: 'pending',
+  info: 'review',
   warning: 'pending',
   danger: 'rejected',
   neutral: 'draft',
