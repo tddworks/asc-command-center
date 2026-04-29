@@ -150,7 +150,23 @@ function GroupCard({
         </div>
       </div>
       {group.subscriptions.length === 0 ? (
-        <div className="card-body"><span className="muted">No tiers yet.</span></div>
+        <div className="empty-state">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <line x1="5" y1="12" x2="19" y2="12" />
+          </svg>
+          <h3>No tiers in this group yet</h3>
+          <p>Add a subscription tier — pick a product ID, name, and renewal period.</p>
+          <button
+            type="button"
+            className="btn btn-primary btn-sm"
+            onClick={() => onAddTier(group)}
+            disabled={!group.canCreateSubscription}
+            title={group.canCreateSubscription ? 'Add a subscription tier' : 'Backend does not allow adding tiers'}
+          >
+            + Add Subscription
+          </button>
+        </div>
       ) : (
         <div className="table-wrapper">
           <table>

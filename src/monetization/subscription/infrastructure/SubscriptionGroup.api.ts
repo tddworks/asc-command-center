@@ -95,9 +95,10 @@ export class RestSubscriptionGroupRepository implements SubscriptionGroupReposit
       body: JSON.stringify({ referenceName: input.referenceName }),
     });
     if (!res.ok) throw new Error(`POST ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
-    const body = await res.json().catch(() => ({}));
-    const data = (body.data ?? body) as Record<string, unknown>;
-    return SubscriptionGroup.fromJSON({ ...data, appId: input.appId }, this);
+    const body = normalizeLinks(await res.json().catch(() => ({}))) as { data?: unknown };
+    const raw = body.data ?? body;
+    const row = (Array.isArray(raw) ? raw[0] : raw) as Record<string, unknown>;
+    return SubscriptionGroup.fromJSON({ ...row, appId: input.appId }, this);
   }
 
   async subscriptions(group: SubscriptionGroup): Promise<Subscription[]> {
