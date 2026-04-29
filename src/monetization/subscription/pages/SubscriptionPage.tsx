@@ -15,7 +15,7 @@ const STATUS_CLASS: Record<string, string> = {
   info: 'pending',
   warning: 'pending',
   danger: 'rejected',
-  neutral: '',
+  neutral: 'draft',
 };
 
 function TierRow({
