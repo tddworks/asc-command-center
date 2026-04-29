@@ -41,8 +41,6 @@ export type TextEditKind =
   | 'iapLocalization.description'
   | 'subscriptionLocalization.name'
   | 'subscriptionLocalization.description'
-  | 'subscriptionGroupLocalization.name'
-  | 'subscriptionGroupLocalization.customAppName'
   | 'iapCreate.referenceName'
   | 'subscriptionCreate.name'
   | 'subscriptionGroupCreate.referenceName';

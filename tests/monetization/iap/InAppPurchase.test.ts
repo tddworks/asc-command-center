@@ -372,6 +372,26 @@ describe('InAppPurchase', () => {
     expect(closed.canUploadReviewScreenshot).toBe(false);
   });
 
+  it('canUploadReviewScreenshot is true for an editable IAP whose screenshot is viewable, even without an explicit uploadReviewScreenshot link', () => {
+    // The asc-cli backend returns `getReviewScreenshot` + `update` on an
+    // editable IAP but not always a discrete uploadReviewScreenshot link;
+    // POST to the same URL handles both create and replace. Match the
+    // same fallback shape canSetAvailability uses.
+    const iap = new InAppPurchase(iapInit({
+      state: InAppPurchaseState.MissingMetadata,
+      affordances: { getReviewScreenshot: '/x', update: '/y' },
+    }));
+    expect(iap.canUploadReviewScreenshot).toBe(true);
+  });
+
+  it('canUploadReviewScreenshot stays false when the IAP itself is not editable and no explicit upload link is present', () => {
+    const approved = new InAppPurchase(iapInit({
+      state: InAppPurchaseState.Approved,
+      affordances: { getReviewScreenshot: '/x', update: '/y' },
+    }));
+    expect(approved.canUploadReviewScreenshot).toBe(false);
+  });
+
   it('loadReviewScreenshot short-circuits to null when affordance missing', async () => {
     const repo = stubRepo();
     const iap = new InAppPurchase(iapInit({ affordances: {} }), repo);
@@ -454,6 +474,26 @@ describe('InAppPurchase', () => {
     expect(closed.canViewImages).toBe(false);
     expect(closed.canCreateImage).toBe(false);
     expect(closed.canUploadImage).toBe(false);
+  });
+
+  it('canCreateImage is true for an editable IAP whose images are viewable, even without an explicit createImage link', () => {
+    // Same fallback as canSetAvailability — backend exposes listImages +
+    // update without a separate createImage link, but POST on the listImages
+    // URL accepts new uploads.
+    const iap = new InAppPurchase(iapInit({
+      state: InAppPurchaseState.MissingMetadata,
+      affordances: { listImages: '/x', update: '/y' },
+    }));
+    expect(iap.canCreateImage).toBe(true);
+    expect(iap.canUploadImage).toBe(true);
+  });
+
+  it('canCreateImage stays false when the IAP is not editable', () => {
+    const approved = new InAppPurchase(iapInit({
+      state: InAppPurchaseState.Approved,
+      affordances: { listImages: '/x', update: '/y' },
+    }));
+    expect(approved.canCreateImage).toBe(false);
   });
 
   it('canUploadImage is false once a completed image exists (Apple allows one)', async () => {

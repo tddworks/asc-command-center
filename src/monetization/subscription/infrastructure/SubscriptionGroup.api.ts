@@ -6,6 +6,7 @@ import { SubscriptionAvailability } from '../SubscriptionAvailability.ts';
 import { SubscriptionPriceSchedule } from '../SubscriptionPriceSchedule.ts';
 import { SubscriptionPricePoint, type SubscriptionPricePointPage } from '../SubscriptionPricePoint.ts';
 import { SubscriptionReviewScreenshot } from '../SubscriptionReviewScreenshot.ts';
+import { SubscriptionImage } from '../SubscriptionImage.ts';
 import {
   SubscriptionCustomCode,
   SubscriptionIntroductoryOffer,
@@ -316,6 +317,39 @@ export class RestSubscriptionGroupRepository implements SubscriptionGroupReposit
 
   async deleteReviewScreenshot(sub: Subscription, screenshot: SubscriptionReviewScreenshot): Promise<void> {
     const url = screenshot.deleteUrl ?? `/api/v1/subscriptions/${sub.id}/review-screenshot`;
+    const res = await fetch(url, { method: 'DELETE' });
+    if (!res.ok) throw new Error(`DELETE ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
+  }
+
+  // ── Promotional images ──
+
+  async images(sub: Subscription): Promise<SubscriptionImage[]> {
+    const url = sub.affordances.listImages ?? `/api/v1/subscriptions/${sub.id}/images`;
+    try {
+      const json = await apiClient.get<{ data: Record<string, unknown>[] }>(url);
+      return (json.data ?? []).map(SubscriptionImage.fromJSON);
+    } catch (err) {
+      const msg = (err as Error).message ?? '';
+      if (msg.includes('404')) return [];
+      throw err;
+    }
+  }
+
+  async uploadImage(sub: Subscription, file: File): Promise<SubscriptionImage> {
+    const url = sub.affordances.createImage ?? `/api/v1/subscriptions/${sub.id}/images`;
+    const body = new FormData();
+    body.append('file', file, file.name);
+    const res = await fetch(url, { method: 'POST', body });
+    if (!res.ok) throw new Error(`POST ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
+    const json = normalizeLinks(await res.json().catch(() => ({}))) as { data?: unknown };
+    const raw = json.data ?? json;
+    const row = (Array.isArray(raw) ? raw[0] : raw) as Record<string, unknown>;
+    return SubscriptionImage.fromJSON(row);
+  }
+
+  async deleteImage(sub: Subscription, image: SubscriptionImage): Promise<void> {
+    const url = image.deleteUrl ?? `/api/v1/subscription-images/${image.id}`;
+    void sub;
     const res = await fetch(url, { method: 'DELETE' });
     if (!res.ok) throw new Error(`DELETE ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
   }
