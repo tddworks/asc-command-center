@@ -129,6 +129,18 @@ describe('InAppPurchase', () => {
     expect(notSubmitted.canUnsubmit).toBe(false);
   });
 
+  it('canUnsubmit also accepts the iris-style `removeFromNextVersion` affordance', () => {
+    // The asc-cli backend (iris private API) emits `removeFromNextVersion`
+    // instead of `unsubmit` once the IAP is queued for the next app
+    // version's review. Treat both as the same capability.
+    const queued = new InAppPurchase(iapInit({
+      state: InAppPurchaseState.ReadyToSubmit,
+      hasSubmission: true,
+      affordances: { removeFromNextVersion: '/api/v1/iap/iap-1/unsubmit' },
+    }));
+    expect(queued.canUnsubmit).toBe(true);
+  });
+
   it('canDelete maps to delete affordance presence', () => {
     expect(new InAppPurchase(iapInit({ affordances: { delete: '/api/v1/iap/iap-1' } })).canDelete).toBe(true);
     expect(new InAppPurchase(iapInit({ affordances: {} })).canDelete).toBe(false);
@@ -1138,5 +1150,31 @@ describe('InAppPurchase', () => {
     expect(iap.referenceName).toBe('Aliased');
     expect(iap.inAppPurchaseType).toBe('CONSUMABLE');
     expect(iap.hasSubmission).toBe(true);
+  });
+
+  it('fromJSON reads `submitWithNextAppStoreVersion` as a hasSubmission source and `isFirstTimeSubmission`', () => {
+    // Live asc-cli (iris) shape — IAPs queued for the next app version
+    // submission set `submitWithNextAppStoreVersion: true` and expose a
+    // `removeFromNextVersion` link instead of the old `unsubmit`.
+    const iap = InAppPurchase.fromJSON({
+      id: '6764009834',
+      appId: '6760926018',
+      referenceName: 'ASC Premium Unlock',
+      productId: 'onegai.BriRus.asc_cli_premium_unlock',
+      type: 'NON_CONSUMABLE',
+      state: 'READY_TO_SUBMIT',
+      isFirstTimeSubmission: true,
+      submitWithNextAppStoreVersion: true,
+      affordances: { removeFromNextVersion: '/api/v1/iap/6764009834/unsubmit' },
+    });
+
+    expect(iap.hasSubmission).toBe(true);
+    expect(iap.isFirstTimeSubmission).toBe(true);
+    expect(iap.canUnsubmit).toBe(true);
+  });
+
+  it('fromJSON defaults isFirstTimeSubmission to false when absent', () => {
+    const iap = InAppPurchase.fromJSON({ id: 'i', appId: 'a', state: 'APPROVED' });
+    expect(iap.isFirstTimeSubmission).toBe(false);
   });
 });

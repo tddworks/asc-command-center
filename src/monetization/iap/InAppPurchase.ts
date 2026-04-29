@@ -44,6 +44,9 @@ export interface InAppPurchaseInit {
   reviewNote?: string | null;
   /** Set when the IAP is currently selected for the app's review submission. */
   hasSubmission?: boolean;
+  /** True when this IAP has never shipped — its first review must be
+   *  bundled with an app version submission per Apple's rules. */
+  isFirstTimeSubmission?: boolean;
   affordances: Affordances;
 }
 
@@ -65,6 +68,7 @@ export class InAppPurchase {
   state: string;
   reviewNote: string | null;
   hasSubmission: boolean;
+  isFirstTimeSubmission: boolean;
   affordances: Affordances;
 
   /** Localizations loaded for this IAP (empty until `loadLocalizations()`). */
@@ -112,6 +116,7 @@ export class InAppPurchase {
     this.state = init.state;
     this.reviewNote = init.reviewNote ?? null;
     this.hasSubmission = init.hasSubmission ?? false;
+    this.isFirstTimeSubmission = init.isFirstTimeSubmission ?? false;
     this.affordances = init.affordances;
     this.repository = repository;
 
@@ -153,7 +158,8 @@ export class InAppPurchase {
   }
 
   get canUnsubmit(): boolean {
-    return this.hasSubmission && 'unsubmit' in this.affordances;
+    if (!this.hasSubmission) return false;
+    return 'unsubmit' in this.affordances || 'removeFromNextVersion' in this.affordances;
   }
 
   get canDelete(): boolean {
@@ -674,10 +680,15 @@ export class InAppPurchase {
 
   static fromJSON(json: Record<string, unknown>, repo?: InAppPurchaseRepository): InAppPurchase {
     const submission = json.submission;
+    // The asc-cli (iris) backend exposes `submitWithNextAppStoreVersion`
+    // — true when the IAP is queued for the next app version's review.
+    // Older shapes used `hasSubmission` or a nested `submission` object.
     const hasSubmission =
       typeof json.hasSubmission === 'boolean'
         ? (json.hasSubmission as boolean)
-        : submission !== undefined && submission !== null;
+        : typeof json.submitWithNextAppStoreVersion === 'boolean'
+          ? (json.submitWithNextAppStoreVersion as boolean)
+          : submission !== undefined && submission !== null;
 
     return new InAppPurchase(
       {
@@ -689,6 +700,7 @@ export class InAppPurchase {
         state: (json.state as string) ?? '',
         reviewNote: (json.reviewNote as string | null | undefined) ?? null,
         hasSubmission,
+        isFirstTimeSubmission: (json.isFirstTimeSubmission as boolean | undefined) ?? false,
         affordances: (json.affordances as Affordances) ?? {},
       },
       repo ?? null,

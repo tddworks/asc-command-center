@@ -31,6 +31,10 @@ interface Props {
   canUnsubmit: boolean;
   onSubmit(): Promise<void>;
   onUnsubmit(): Promise<void>;
+  /** When true, the unsubmit button uses the "Remove from Next Version"
+   *  copy — Apple's wording for first-time IAPs queued for an app
+   *  version's review. */
+  isFirstTimeSubmission?: boolean;
 
   /** Below-the-actions hint shown when `canSubmit` is true but readiness
    *  isn't met (e.g. missing localizations). */
@@ -57,6 +61,7 @@ export function ProductDetailHeader({
   canUnsubmit,
   onSubmit,
   onUnsubmit,
+  isFirstTimeSubmission,
   submitHint,
 }: Props) {
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -91,10 +96,14 @@ export function ProductDetailHeader({
         </div>
         <div className="toolbar-right" style={{ display: 'flex', gap: 6 }}>
           {canSubmit && (
-            <button type="button" className="btn btn-primary btn-sm" onClick={submit}>Submit for Review</button>
+            <button type="button" className="btn btn-primary btn-sm" onClick={submit}>
+              {isFirstTimeSubmission ? 'Submit with Next Version' : 'Submit for Review'}
+            </button>
           )}
           {canUnsubmit && (
-            <button type="button" className="btn btn-secondary btn-sm" onClick={unsubmit}>Cancel Submission</button>
+            <button type="button" className="btn btn-secondary btn-sm" onClick={unsubmit}>
+              {isFirstTimeSubmission ? 'Remove from Next Version' : 'Cancel Submission'}
+            </button>
           )}
         </div>
       </div>
