@@ -8,7 +8,7 @@ const STATUS_CLASS: Record<StatusTone, string> = {
   info: 'pending',
   warning: 'pending',
   danger: 'rejected',
-  neutral: '',
+  neutral: 'draft',
 };
 
 interface Props {
