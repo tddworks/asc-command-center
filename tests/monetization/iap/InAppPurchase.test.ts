@@ -227,13 +227,23 @@ describe('InAppPurchase', () => {
     expect(repo.submit).not.toHaveBeenCalled();
   });
 
-  it('unsubmit calls the repo, clears hasSubmission, and reverts state to ReadyToSubmit', async () => {
-    const repo = stubRepo();
+  it('unsubmit calls the repo and reloads to pick up cleared submission state', async () => {
+    // Atomic update through reload: after the DELETE succeeds, the list
+    // endpoint returns the IAP with hasSubmission=false AND the
+    // affordance swapped back to addToNextVersion in one go. Without
+    // this, the UI flickers between two "neither button visible"
+    // re-renders (optimistic mutation can't swap affordance URLs).
+    const refreshed = new InAppPurchase(iapInit({
+      state: InAppPurchaseState.ReadyToSubmit,
+      hasSubmission: false,
+      affordances: { addToNextVersion: '/api/v1/iris/iap/iap-1/submissions' },
+    }));
+    const repo = stubRepo({ list: vi.fn().mockResolvedValue([refreshed]) });
     const iap = new InAppPurchase(
       iapInit({
-        state: InAppPurchaseState.WaitingForReview,
+        state: InAppPurchaseState.ReadyToSubmit,
         hasSubmission: true,
-        affordances: { unsubmit: '/api/v1/iap/iap-1/submit' },
+        affordances: { removeFromNextVersion: '/api/v1/iris/iap-submissions/iap-1' },
       }),
       repo,
     );
@@ -243,6 +253,9 @@ describe('InAppPurchase', () => {
     expect(repo.unsubmit).toHaveBeenCalledWith(iap);
     expect(iap.hasSubmission).toBe(false);
     expect(iap.state).toBe(InAppPurchaseState.ReadyToSubmit);
+    // Affordances flipped — submit button can light up immediately.
+    expect(iap.canSubmit).toBe(true);
+    expect(iap.canUnsubmit).toBe(false);
   });
 
   it('unsubmit throws and does not call the repo when there is no submission', async () => {

@@ -281,18 +281,17 @@ export class InAppPurchase {
 
   // ── Mutators ──
 
-  /** Submit this IAP for App Store review. The iris flow queues it for
-   *  the next app version and keeps state at READY_TO_SUBMIT (only
-   *  `submitWithNextAppStoreVersion` flips); the legacy flow flipped
-   *  state to WAITING_FOR_REVIEW. We optimistically set `hasSubmission`
-   *  so the "Remove from Next Version" button appears immediately, then
-   *  reload to let the server's response replace the rest. */
+  /** Submit this IAP for App Store review (or queue it for the next app
+   *  version, in the iris flow). Reload is the single source of truth:
+   *  the new affordances (e.g. addToNextVersion → removeFromNextVersion)
+   *  and `hasSubmission` flag arrive together so the UI swaps buttons
+   *  in one re-render instead of flickering through a "neither button"
+   *  intermediate state. */
   async submit(): Promise<void> {
     if (!this.canSubmit) {
       throw new Error(`IAP ${this.id} cannot submit (state=${this.state})`);
     }
     await this.requireRepo().submit(this);
-    runInAction(() => { this.hasSubmission = true; });
     await this.reload().catch(() => undefined);
   }
 
@@ -302,10 +301,6 @@ export class InAppPurchase {
       throw new Error(`IAP ${this.id} has no active submission to cancel`);
     }
     await this.requireRepo().unsubmit(this);
-    runInAction(() => {
-      this.hasSubmission = false;
-      this.state = InAppPurchaseState.ReadyToSubmit;
-    });
     await this.reload().catch(() => undefined);
   }
 
