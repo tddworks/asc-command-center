@@ -567,6 +567,91 @@ describe('InAppPurchase', () => {
     expect(iap.images).toContain(created);
   });
 
+  it('uploadImage reloads the IAP after success so state transitions land', async () => {
+    // Adding the first image often transitions the IAP from MISSING_METADATA
+    // to READY_TO_SUBMIT on the backend. Front-end pulls the new state by
+    // re-fetching the IAP after the upload completes.
+    const created = new InAppPurchaseImage({
+      id: 'img-new', fileName: 'p.jpg', state: InAppPurchaseImageState.UploadComplete,
+    });
+    const refreshed = new InAppPurchase(iapInit({
+      state: InAppPurchaseState.ReadyToSubmit,
+      reviewNote: 'note from server',
+      affordances: { listImages: '/x', createImage: '/y', submit: '/s' },
+    }));
+    const repo = stubRepo({
+      uploadImage: vi.fn().mockResolvedValue(created),
+      get: vi.fn().mockResolvedValue(refreshed),
+    });
+    const iap = new InAppPurchase(iapInit({
+      state: InAppPurchaseState.MissingMetadata,
+      affordances: { listImages: '/x', createImage: '/y' },
+    }), repo);
+
+    await iap.uploadImage(new File([''], 'p.jpg'));
+
+    expect(repo.get).toHaveBeenCalledWith(iap.id);
+    expect(iap.state).toBe(InAppPurchaseState.ReadyToSubmit);
+    expect(iap.affordances.submit).toBe('/s');
+    expect(iap.reviewNote).toBe('note from server');
+    // Locally appended image survives the reload — reload is for the IAP
+    // header, not its loaded children.
+    expect(iap.images).toContain(created);
+  });
+
+  it('deleteImage reloads the IAP after success so state transitions land', async () => {
+    const a = new InAppPurchaseImage({
+      id: 'img-1', fileName: 'a.png', state: InAppPurchaseImageState.Approved,
+      affordances: { delete: '/d1' },
+    });
+    const refreshed = new InAppPurchase(iapInit({
+      state: InAppPurchaseState.MissingMetadata,
+      affordances: { listImages: '/x' },
+    }));
+    const repo = stubRepo({
+      images: vi.fn().mockResolvedValue([a]),
+      get: vi.fn().mockResolvedValue(refreshed),
+    });
+    const iap = new InAppPurchase(iapInit({
+      state: InAppPurchaseState.ReadyToSubmit,
+      affordances: { listImages: '/x' },
+    }), repo);
+    await iap.loadImages();
+
+    await iap.deleteImage(a);
+
+    expect(repo.get).toHaveBeenCalledWith(iap.id);
+    expect(iap.state).toBe(InAppPurchaseState.MissingMetadata);
+  });
+
+  it('reload merges state, hasSubmission, affordances, reviewNote, referenceName from repo.get', async () => {
+    const refreshed = new InAppPurchase(iapInit({
+      referenceName: 'New Name',
+      state: InAppPurchaseState.WaitingForReview,
+      hasSubmission: true,
+      reviewNote: 'updated',
+      affordances: { unsubmit: '/u' },
+    }));
+    const repo = stubRepo({ get: vi.fn().mockResolvedValue(refreshed) });
+    const iap = new InAppPurchase(iapInit({
+      referenceName: 'Old Name',
+      state: InAppPurchaseState.ReadyToSubmit,
+      hasSubmission: false,
+      reviewNote: null,
+      affordances: { submit: '/s' },
+    }), repo);
+
+    await iap.reload();
+
+    expect(repo.get).toHaveBeenCalledWith(iap.id);
+    expect(iap.referenceName).toBe('New Name');
+    expect(iap.state).toBe(InAppPurchaseState.WaitingForReview);
+    expect(iap.hasSubmission).toBe(true);
+    expect(iap.reviewNote).toBe('updated');
+    expect(iap.affordances.unsubmit).toBe('/u');
+    expect('submit' in iap.affordances).toBe(false);
+  });
+
   it('uploadImage throws when the affordance is missing', async () => {
     const repo = stubRepo();
     const iap = new InAppPurchase(iapInit({ affordances: {} }), repo);

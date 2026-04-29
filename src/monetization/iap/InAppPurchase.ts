@@ -566,6 +566,10 @@ export class InAppPurchase {
     runInAction(() => {
       this.images = [...this.images, created];
     });
+    // Backend may transition state (MISSING_METADATA → READY_TO_SUBMIT)
+    // and add a submit affordance — best-effort reload to reflect that
+    // in the header. Failures are swallowed (matches iOS `try? reload`).
+    await this.reload().catch(() => undefined);
     return created;
   }
 
@@ -583,6 +587,7 @@ export class InAppPurchase {
         .filter((img) => img !== old)
         .concat(fresh);
     });
+    await this.reload().catch(() => undefined);
     return fresh;
   }
 
@@ -594,6 +599,7 @@ export class InAppPurchase {
     runInAction(() => {
       this.images = this.images.filter((img) => img !== image);
     });
+    await this.reload().catch(() => undefined);
   }
 
   async deleteReviewScreenshot(): Promise<void> {
@@ -609,6 +615,23 @@ export class InAppPurchase {
 
   setRepository(repo: InAppPurchaseRepository): void {
     this.repository = repo;
+  }
+
+  /** Re-fetch this IAP and merge the mutable header fields back onto
+   *  `this`. Used after operations that the backend may transition state
+   *  for — e.g. uploading the first promotional image bumps the IAP from
+   *  MISSING_METADATA to READY_TO_SUBMIT and adds a `submit` affordance.
+   *  Loaded children (images, localizations, ...) are intentionally left
+   *  alone — reload is for the IAP header, not its sub-aggregates. */
+  async reload(): Promise<void> {
+    const fresh = await this.requireRepo().get(this.id);
+    runInAction(() => {
+      this.referenceName = fresh.referenceName;
+      this.state = fresh.state;
+      this.hasSubmission = fresh.hasSubmission;
+      this.reviewNote = fresh.reviewNote;
+      this.affordances = fresh.affordances;
+    });
   }
 
   private requireRepo(): InAppPurchaseRepository {
