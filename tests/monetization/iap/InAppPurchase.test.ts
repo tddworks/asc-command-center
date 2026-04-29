@@ -114,6 +114,17 @@ describe('InAppPurchase', () => {
     expect(wrongState.canSubmit).toBe(false);
   });
 
+  it('canSubmit accepts the iris-style `addToNextVersion` affordance', () => {
+    // First-time IAPs queue for the next app version's review via
+    // POST /iris/iap/:id/submissions (the asc-cli iris route). The affordance
+    // is `addToNextVersion`; legacy backends still emit `submit`.
+    const iap = new InAppPurchase(iapInit({
+      state: InAppPurchaseState.ReadyToSubmit,
+      affordances: { addToNextVersion: '/api/v1/iris/iap/iap-1/submissions' },
+    }));
+    expect(iap.canSubmit).toBe(true);
+  });
+
   it('canUnsubmit requires hasSubmission AND unsubmit affordance', () => {
     const submitted = new InAppPurchase(iapInit({
       state: InAppPurchaseState.WaitingForReview,
@@ -179,12 +190,22 @@ describe('InAppPurchase', () => {
 
   // ── Mutators ──
 
-  it('submit calls the repo, sets hasSubmission, and flips state to WaitingForReview', async () => {
-    const repo = stubRepo();
+  it('submit calls the repo, sets hasSubmission, and reloads to pick up server state', async () => {
+    // The new iris flow keeps state at READY_TO_SUBMIT after queueing —
+    // only `submitWithNextAppStoreVersion` flips. Old flow flipped state
+    // to WAITING_FOR_REVIEW. Reload is the source of truth either way;
+    // submit only sets the optimistic hasSubmission so canUnsubmit /
+    // "Remove from Next Version" appears immediately.
+    const refreshed = new InAppPurchase(iapInit({
+      state: InAppPurchaseState.ReadyToSubmit,
+      hasSubmission: true,
+      affordances: { removeFromNextVersion: '/api/v1/iap/iap-1/unsubmit' },
+    }));
+    const repo = stubRepo({ list: vi.fn().mockResolvedValue([refreshed]) });
     const iap = new InAppPurchase(
       iapInit({
         state: InAppPurchaseState.ReadyToSubmit,
-        affordances: { submit: '/api/v1/iap/iap-1/submit' },
+        affordances: { addToNextVersion: '/api/v1/iris/iap/iap-1/submissions' },
       }),
       repo,
     );
@@ -193,7 +214,9 @@ describe('InAppPurchase', () => {
 
     expect(repo.submit).toHaveBeenCalledWith(iap);
     expect(iap.hasSubmission).toBe(true);
-    expect(iap.state).toBe(InAppPurchaseState.WaitingForReview);
+    expect(repo.list).toHaveBeenCalledWith(iap.appId);
+    // Reload bring server-side affordances onto `this`, so unsubmit lights up.
+    expect(iap.canUnsubmit).toBe(true);
   });
 
   it('submit throws and does not call the repo when canSubmit is false', async () => {
