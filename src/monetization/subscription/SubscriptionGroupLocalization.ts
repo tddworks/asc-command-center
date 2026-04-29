@@ -61,6 +61,15 @@ export class SubscriptionGroupLocalization {
   setName(name: string): void { this.name = name; }
   setCustomAppName(value: string | null): void { this.customAppName = value; }
 
+  // ── LocalizationLike adapter ──
+  // Lets the shared `LocalizationsTab` / `AddLanguagesSheet` render this
+  // class. App Store calls the second field "Custom App Name" for groups
+  // and "Description" for IAP/tier — the UI renames it via config.
+
+  get description(): string | null { return this.customAppName; }
+  setDescription(value: string | null): void { this.setCustomAppName(value); }
+  get descriptionRemaining(): number { return this.customAppNameRemaining; }
+
   // ── Capability checks ──
 
   private static readonly UPDATE_KEYS = ['update', 'updateLocalization'] as const;

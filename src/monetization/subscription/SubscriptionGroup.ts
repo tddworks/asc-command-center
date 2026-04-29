@@ -89,6 +89,25 @@ export class SubscriptionGroup {
     return created;
   }
 
+  // ── ProductWithLocalizations adapter ──
+  // Lets the shared `LocalizationsTab` / `AddLanguagesSheet` render this
+  // aggregate. The shared interface uses `localizations` / `description` —
+  // map them onto our group-specific names so groups and tiers/IAPs share
+  // one UI without renaming the underlying domain fields.
+
+  get localizations(): SubscriptionGroupLocalization[] { return this.groupLocalizations; }
+  get isLocalizationsLoaded(): boolean { return this.isGroupLocalizationsLoaded; }
+  get canCreateLocalization(): boolean { return this.canCreateGroupLocalization; }
+  loadLocalizations(): Promise<SubscriptionGroupLocalization[]> { return this.loadGroupLocalizations(); }
+  addLocalization(input: { locale: string; name: string; description?: string | null }): Promise<SubscriptionGroupLocalization> {
+    return this.addGroupLocalization({
+      locale: input.locale,
+      name: input.name,
+      customAppName: input.description ?? null,
+    });
+  }
+  removeLocalization(loc: SubscriptionGroupLocalization): Promise<void> { return this.removeGroupLocalization(loc); }
+
   // ── Group localization navigation (mutating) ──
 
   async loadGroupLocalizations(): Promise<SubscriptionGroupLocalization[]> {

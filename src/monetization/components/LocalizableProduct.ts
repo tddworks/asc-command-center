@@ -61,6 +61,12 @@ export interface LocalizationsConfig {
    *  badges and auto-selection in `AddLanguagesSheet`. Threaded from
    *  `workspace.currentApp.primaryLocale` by the slice wrapper. */
   primaryLocale: string;
+  /** Override the second field's label. Defaults to "Description" for
+   *  IAP/tier; subscription groups pass "Custom App Name". */
+  descriptionFieldLabel?: string;
+  /** Override the second field's placeholder. Defaults to "Short
+   *  description" / "Description" depending on context. */
+  descriptionPlaceholder?: string;
 }
 
 // ── Availability ──────────────────────────────────────────────────

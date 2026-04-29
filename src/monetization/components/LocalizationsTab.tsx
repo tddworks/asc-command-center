@@ -136,7 +136,7 @@ function LocaleRow<L extends LocalizationLike, P extends ProductWithLocalization
               <input
                 className="form-input"
                 value={loc.description ?? ''}
-                placeholder="Description"
+                placeholder={config.descriptionPlaceholder ?? config.descriptionFieldLabel ?? 'Description'}
                 onChange={(e) => loc.setDescription(e.target.value || null)}
                 maxLength={config.descriptionLimit + 10}
                 style={{ flex: 1 }}
@@ -331,7 +331,7 @@ function LocalizationsTabImpl<L extends LocalizationLike, P extends ProductWithL
                 <tr>
                   <th>Locale</th>
                   <th>Display Name</th>
-                  <th>Description</th>
+                  <th>{config.descriptionFieldLabel ?? 'Description'}</th>
                   <th style={{ textAlign: 'right' }}>Actions</th>
                 </tr>
               </thead>

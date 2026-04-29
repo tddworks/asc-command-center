@@ -10,6 +10,7 @@ import type {
   OfferCodePriceInput,
 } from './InAppPurchaseOfferCode.ts';
 import type { ReviewScreenshot } from './ReviewScreenshot.ts';
+import type { InAppPurchaseImage } from './InAppPurchaseImage.ts';
 import type { InAppPurchaseRepository } from './InAppPurchaseRepository.ts';
 
 export const InAppPurchaseType = {
@@ -94,6 +95,12 @@ export class InAppPurchase {
   offerCodes: InAppPurchaseOfferCode[] = [];
   isOfferCodesLoaded = false;
 
+  /** Promotional images for the App Store product page. Apple allows one
+   *  completed image per IAP — `hasExistingImage` and `canUploadImage`
+   *  enforce that constraint. Empty until `loadImages()` resolves. */
+  images: InAppPurchaseImage[] = [];
+  isImagesLoaded = false;
+
   repository: InAppPurchaseRepository | null;
 
   constructor(init: InAppPurchaseInit, repository: InAppPurchaseRepository | null = null) {
@@ -172,6 +179,20 @@ export class InAppPurchase {
   get canCreateOfferCode(): boolean { return 'createOfferCode' in this.affordances; }
   get canViewReviewScreenshot(): boolean { return 'getReviewScreenshot' in this.affordances; }
   get canUploadReviewScreenshot(): boolean { return 'uploadReviewScreenshot' in this.affordances; }
+  get canViewImages(): boolean { return 'listImages' in this.affordances; }
+  get canCreateImage(): boolean { return 'createImage' in this.affordances; }
+  /** True when the IAP can accept a new promotional image upload. Apple
+   *  allows one completed image per IAP, so this drops to false once any
+   *  loaded image is `isCompleted`. */
+  get canUploadImage(): boolean {
+    return this.canCreateImage && !this.hasExistingImage;
+  }
+  /** True when at least one image has finished uploading (is past
+   *  AWAITING_UPLOAD/FAILED). Failed/awaiting uploads don't count toward
+   *  Apple's one-image limit. */
+  get hasExistingImage(): boolean {
+    return this.images.some((img) => img.isCompleted);
+  }
 
   // ── Localization aggregation ──
 
@@ -497,6 +518,70 @@ export class InAppPurchase {
       this.isPriceScheduleLoaded = true;
     });
     return fetched;
+  }
+
+  // ── Promotional images ──
+
+  /** Lazy-load the IAP's promotional images. Short-circuits to `[]` when
+   *  the affordance is missing — fresh IAPs sometimes don't expose the
+   *  list link until other metadata is set. */
+  async loadImages(): Promise<InAppPurchaseImage[]> {
+    if (!this.canViewImages) {
+      runInAction(() => {
+        this.images = [];
+        this.isImagesLoaded = true;
+      });
+      return [];
+    }
+    const list = await this.requireRepo().images(this);
+    runInAction(() => {
+      this.images = list;
+      this.isImagesLoaded = true;
+    });
+    return list;
+  }
+
+  /** Upload a new promotional image. Throws when the affordance is missing
+   *  or when a completed image already exists (Apple's one-image rule). */
+  async uploadImage(file: File): Promise<InAppPurchaseImage> {
+    if (!this.canCreateImage) {
+      throw new Error(`IAP ${this.id} cannot upload promotional image (no createImage affordance)`);
+    }
+    if (this.hasExistingImage) {
+      throw new Error(`IAP ${this.id} already has a promotional image (Apple allows one)`);
+    }
+    const created = await this.requireRepo().uploadImage(this, file);
+    runInAction(() => {
+      this.images = [...this.images, created];
+    });
+    return created;
+  }
+
+  /** Delete `old` then upload `file` — the page-level "Replace" button.
+   *  Mutates `this.images` in place so the card swaps without reordering. */
+  async replaceImage(old: InAppPurchaseImage, file: File): Promise<InAppPurchaseImage> {
+    if (!old.canDelete) {
+      throw new Error(`Image ${old.id} cannot be deleted (no delete affordance)`);
+    }
+    const repo = this.requireRepo();
+    await repo.deleteImage(this, old);
+    const fresh = await repo.uploadImage(this, file);
+    runInAction(() => {
+      this.images = this.images
+        .filter((img) => img !== old)
+        .concat(fresh);
+    });
+    return fresh;
+  }
+
+  async deleteImage(image: InAppPurchaseImage): Promise<void> {
+    if (!image.canDelete) {
+      throw new Error(`Image ${image.id} cannot be deleted (no delete affordance)`);
+    }
+    await this.requireRepo().deleteImage(this, image);
+    runInAction(() => {
+      this.images = this.images.filter((img) => img !== image);
+    });
   }
 
   async deleteReviewScreenshot(): Promise<void> {

@@ -7,6 +7,7 @@ import { InAppPurchaseOfferCode } from '../InAppPurchaseOfferCode.ts';
 import { IAPOneTimeUseCodeBatch, type CodeEnvironment } from '../OneTimeUseCodeBatch.ts';
 import { IAPCustomCode } from '../IAPCustomCode.ts';
 import { ReviewScreenshot } from '../ReviewScreenshot.ts';
+import { InAppPurchaseImage } from '../InAppPurchaseImage.ts';
 import { apiClient, normalizeLinks, type DataMode } from '../../../shared/api-client.tsx';
 import type {
   CreateInAppPurchaseInput,
@@ -318,6 +319,45 @@ export class RestInAppPurchaseRepository implements InAppPurchaseRepository {
 
   async deleteReviewScreenshot(iap: InAppPurchase, screenshot: ReviewScreenshot): Promise<void> {
     const url = screenshot.deleteUrl ?? `/api/v1/iap/${iap.id}/review-screenshot`;
+    const res = await fetch(url, { method: 'DELETE' });
+    if (!res.ok) {
+      throw new Error(`DELETE ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
+    }
+  }
+
+  // ── Promotional images ──
+
+  async images(iap: InAppPurchase): Promise<InAppPurchaseImage[]> {
+    const url = iap.affordances.listImages ?? `/api/v1/iap/${iap.id}/images`;
+    try {
+      const json = await apiClient.get<{ data: Record<string, unknown>[] }>(url);
+      return (json.data ?? []).map(InAppPurchaseImage.fromJSON);
+    } catch (err) {
+      // 404 = endpoint missing or no images yet — surface as empty list so
+      // the page renders the "Add promotional image" call to action.
+      const msg = (err as Error).message ?? '';
+      if (msg.includes('404')) return [];
+      throw err;
+    }
+  }
+
+  async uploadImage(iap: InAppPurchase, file: File): Promise<InAppPurchaseImage> {
+    const url = iap.affordances.createImage ?? `/api/v1/iap/${iap.id}/images`;
+    const body = new FormData();
+    body.append('file', file, file.name);
+    const res = await fetch(url, { method: 'POST', body });
+    if (!res.ok) {
+      throw new Error(`POST ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
+    }
+    const json = normalizeLinks(await res.json().catch(() => ({}))) as { data?: unknown };
+    const raw = json.data ?? json;
+    const row = (Array.isArray(raw) ? raw[0] : raw) as Record<string, unknown>;
+    return InAppPurchaseImage.fromJSON(row);
+  }
+
+  async deleteImage(iap: InAppPurchase, image: InAppPurchaseImage): Promise<void> {
+    const url = image.deleteUrl ?? `/api/v1/iap-images/${image.id}`;
+    void iap;
     const res = await fetch(url, { method: 'DELETE' });
     if (!res.ok) {
       throw new Error(`DELETE ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);

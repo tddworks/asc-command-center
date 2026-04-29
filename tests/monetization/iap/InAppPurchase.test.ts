@@ -7,6 +7,10 @@ import {
 } from '../../../src/monetization/iap/InAppPurchase.ts';
 import { InAppPurchaseLocalization } from '../../../src/monetization/iap/InAppPurchaseLocalization.ts';
 import { ReviewScreenshot } from '../../../src/monetization/iap/ReviewScreenshot.ts';
+import {
+  InAppPurchaseImage,
+  InAppPurchaseImageState,
+} from '../../../src/monetization/iap/InAppPurchaseImage.ts';
 import { IAPPriceSchedule } from '../../../src/monetization/iap/IAPPriceSchedule.ts';
 import { IAPAvailability, TerritoryAvailability } from '../../../src/monetization/iap/IAPAvailability.ts';
 import { IAPCustomerEligibility, InAppPurchaseOfferCode } from '../../../src/monetization/iap/InAppPurchaseOfferCode.ts';
@@ -29,6 +33,9 @@ function stubRepo(overrides: Partial<InAppPurchaseRepository> = {}): InAppPurcha
     reviewScreenshot: vi.fn().mockResolvedValue(null),
     uploadReviewScreenshot: vi.fn(),
     deleteReviewScreenshot: vi.fn().mockResolvedValue(undefined),
+    images: vi.fn().mockResolvedValue([]),
+    uploadImage: vi.fn(),
+    deleteImage: vi.fn().mockResolvedValue(undefined),
     priceSchedule: vi.fn().mockResolvedValue(null),
     availability: vi.fn().mockResolvedValue(null),
     setAvailability: vi.fn().mockResolvedValue(undefined),
@@ -431,6 +438,174 @@ describe('InAppPurchase', () => {
     const repo = stubRepo();
     const iap = new InAppPurchase(iapInit(), repo);
     await expect(iap.deleteReviewScreenshot()).rejects.toThrow(/no review screenshot to delete/);
+  });
+
+  // ── Promotional images ──
+
+  it('canViewImages / canCreateImage / canUploadImage map to affordances', () => {
+    const open = new InAppPurchase(iapInit({
+      affordances: { listImages: '/x', createImage: '/y' },
+    }));
+    expect(open.canViewImages).toBe(true);
+    expect(open.canCreateImage).toBe(true);
+    expect(open.canUploadImage).toBe(true);
+
+    const closed = new InAppPurchase(iapInit({ affordances: {} }));
+    expect(closed.canViewImages).toBe(false);
+    expect(closed.canCreateImage).toBe(false);
+    expect(closed.canUploadImage).toBe(false);
+  });
+
+  it('canUploadImage is false once a completed image exists (Apple allows one)', async () => {
+    const completed = new InAppPurchaseImage({
+      id: 'img-1', fileName: 'a.png', state: InAppPurchaseImageState.Approved,
+    });
+    const repo = stubRepo({ images: vi.fn().mockResolvedValue([completed]) });
+    const iap = new InAppPurchase(iapInit({
+      affordances: { listImages: '/x', createImage: '/y' },
+    }), repo);
+    await iap.loadImages();
+
+    expect(iap.hasExistingImage).toBe(true);
+    expect(iap.canUploadImage).toBe(false);
+  });
+
+  it('canUploadImage stays true when only a failed/awaiting image is present', async () => {
+    const awaiting = new InAppPurchaseImage({
+      id: 'img-1', fileName: 'a.png', state: InAppPurchaseImageState.AwaitingUpload,
+    });
+    const repo = stubRepo({ images: vi.fn().mockResolvedValue([awaiting]) });
+    const iap = new InAppPurchase(iapInit({
+      affordances: { listImages: '/x', createImage: '/y' },
+    }), repo);
+    await iap.loadImages();
+
+    expect(iap.hasExistingImage).toBe(false);
+    expect(iap.canUploadImage).toBe(true);
+  });
+
+  it('loadImages short-circuits to [] when affordance is missing', async () => {
+    const repo = stubRepo();
+    const iap = new InAppPurchase(iapInit({ affordances: {} }), repo);
+
+    const result = await iap.loadImages();
+
+    expect(result).toEqual([]);
+    expect(iap.isImagesLoaded).toBe(true);
+    expect(repo.images).not.toHaveBeenCalled();
+  });
+
+  it('loadImages populates images from the repo', async () => {
+    const a = new InAppPurchaseImage({ id: 'img-1', fileName: 'a.png', state: InAppPurchaseImageState.Approved });
+    const b = new InAppPurchaseImage({ id: 'img-2', fileName: 'b.png', state: InAppPurchaseImageState.AwaitingUpload });
+    const repo = stubRepo({ images: vi.fn().mockResolvedValue([a, b]) });
+    const iap = new InAppPurchase(iapInit({ affordances: { listImages: '/x' } }), repo);
+
+    const list = await iap.loadImages();
+
+    expect(list).toEqual([a, b]);
+    expect(iap.images).toEqual([a, b]);
+    expect(iap.isImagesLoaded).toBe(true);
+    expect(repo.images).toHaveBeenCalledWith(iap);
+  });
+
+  it('uploadImage appends the created image to the list', async () => {
+    const created = new InAppPurchaseImage({
+      id: 'img-new', fileName: 'promo.jpg', state: InAppPurchaseImageState.UploadComplete,
+    });
+    const uploadImage = vi.fn().mockResolvedValue(created);
+    const repo = stubRepo({ uploadImage });
+    const iap = new InAppPurchase(iapInit({
+      affordances: { listImages: '/x', createImage: '/y' },
+    }), repo);
+
+    const file = new File(['jpg-bytes'], 'promo.jpg', { type: 'image/jpeg' });
+    const result = await iap.uploadImage(file);
+
+    expect(uploadImage).toHaveBeenCalledWith(iap, file);
+    expect(result).toBe(created);
+    expect(iap.images).toContain(created);
+  });
+
+  it('uploadImage throws when the affordance is missing', async () => {
+    const repo = stubRepo();
+    const iap = new InAppPurchase(iapInit({ affordances: {} }), repo);
+
+    await expect(iap.uploadImage(new File([''], 'a.jpg'))).rejects.toThrow(/cannot upload promotional image/);
+    expect(repo.uploadImage).not.toHaveBeenCalled();
+  });
+
+  it('uploadImage throws when a completed image already exists (Apple allows one)', async () => {
+    const completed = new InAppPurchaseImage({
+      id: 'img-1', fileName: 'a.png', state: InAppPurchaseImageState.Approved,
+    });
+    const repo = stubRepo({ images: vi.fn().mockResolvedValue([completed]) });
+    const iap = new InAppPurchase(iapInit({
+      affordances: { listImages: '/x', createImage: '/y' },
+    }), repo);
+    await iap.loadImages();
+
+    await expect(iap.uploadImage(new File([''], 'a.jpg'))).rejects.toThrow(/already has a promotional image/);
+    expect(repo.uploadImage).not.toHaveBeenCalled();
+  });
+
+  it('replaceImage deletes the old image then uploads the new one and replaces in place', async () => {
+    const old = new InAppPurchaseImage({
+      id: 'img-old', fileName: 'old.jpg', state: InAppPurchaseImageState.Approved,
+      affordances: { delete: '/d' },
+    });
+    const fresh = new InAppPurchaseImage({
+      id: 'img-new', fileName: 'new.jpg', state: InAppPurchaseImageState.UploadComplete,
+    });
+    const repo = stubRepo({
+      images: vi.fn().mockResolvedValue([old]),
+      uploadImage: vi.fn().mockResolvedValue(fresh),
+    });
+    const iap = new InAppPurchase(iapInit({
+      affordances: { listImages: '/x', createImage: '/y' },
+    }), repo);
+    await iap.loadImages();
+
+    const file = new File(['jpg'], 'new.jpg', { type: 'image/jpeg' });
+    const result = await iap.replaceImage(old, file);
+
+    expect(repo.deleteImage).toHaveBeenCalledWith(iap, old);
+    expect(repo.uploadImage).toHaveBeenCalledWith(iap, file);
+    expect(result).toBe(fresh);
+    expect(iap.images).not.toContain(old);
+    expect(iap.images).toContain(fresh);
+  });
+
+  it('deleteImage calls the repo and prunes the list', async () => {
+    const a = new InAppPurchaseImage({
+      id: 'img-1', fileName: 'a.png', state: InAppPurchaseImageState.Approved,
+      affordances: { delete: '/d1' },
+    });
+    const b = new InAppPurchaseImage({
+      id: 'img-2', fileName: 'b.png', state: InAppPurchaseImageState.UploadComplete,
+      affordances: { delete: '/d2' },
+    });
+    const repo = stubRepo({ images: vi.fn().mockResolvedValue([a, b]) });
+    const iap = new InAppPurchase(iapInit({ affordances: { listImages: '/x' } }), repo);
+    await iap.loadImages();
+
+    await iap.deleteImage(a);
+
+    expect(repo.deleteImage).toHaveBeenCalledWith(iap, a);
+    expect(iap.images).toEqual([b]);
+  });
+
+  it('deleteImage throws when the image cannot be deleted', async () => {
+    const noDelete = new InAppPurchaseImage({
+      id: 'img-1', fileName: 'a.png', state: InAppPurchaseImageState.Approved,
+      affordances: {},
+    });
+    const repo = stubRepo({ images: vi.fn().mockResolvedValue([noDelete]) });
+    const iap = new InAppPurchase(iapInit({ affordances: { listImages: '/x' } }), repo);
+    await iap.loadImages();
+
+    await expect(iap.deleteImage(noDelete)).rejects.toThrow(/cannot be deleted/);
+    expect(repo.deleteImage).not.toHaveBeenCalled();
   });
 
   // ── Pricing ──
