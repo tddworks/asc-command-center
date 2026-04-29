@@ -16,6 +16,17 @@ import type {
   InAppPurchaseRepository,
 } from '../InAppPurchaseRepository.ts';
 
+/** Read a File as a `data:` URL — used as a local fallback for image
+ *  previews while the server-side asset pipeline finishes processing. */
+function readDataUrl(file: File): Promise<string> {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
+
 /** Extract the next-page cursor from a paginated response.
  *
  *  asc-cli ships the canonical shape `{ data, nextCursor, totalCount }`
@@ -313,13 +324,28 @@ export class RestInAppPurchaseRepository implements InAppPurchaseRepository {
       `/api/v1/iap/${iap.id}/review-screenshot`;
     const body = new FormData();
     body.append('file', file, file.name);
+    // Read file as a data URL in parallel with the upload — used as a
+    // local previewUrl fallback when the response's imageAsset is still
+    // processing and lacks a renderable templateUrl.
+    const localPreview = readDataUrl(file);
     const res = await fetch(url, { method: 'POST', body });
     if (!res.ok) {
       throw new Error(`POST ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
     }
-    const json = await res.json().catch(() => ({}));
-    const data = (json.data ?? json) as Record<string, unknown>;
-    return ReviewScreenshot.fromJSON(data);
+    // Backend wraps the created resource in `data: [{…}]` — accept both
+    // the wrapped and bare shapes. Run normalizeLinks so `_links` flatten
+    // to `affordances` (the POST path skips apiClient.get).
+    const json = normalizeLinks(await res.json().catch(() => ({}))) as { data?: unknown };
+    const raw = json.data ?? json;
+    const row = (Array.isArray(raw) ? raw[0] : raw) as Record<string, unknown>;
+    const fallback = await localPreview;
+    const hasRenderableUrl =
+      Boolean((row.imageAsset as { templateUrl?: string } | undefined)?.templateUrl) ||
+      Boolean(row.previewUrl ?? row.url);
+    return ReviewScreenshot.fromJSON({
+      ...row,
+      previewUrl: hasRenderableUrl ? (row.previewUrl ?? row.url ?? null) : fallback,
+    });
   }
 
   async deleteReviewScreenshot(iap: InAppPurchase, screenshot: ReviewScreenshot): Promise<void> {
@@ -353,6 +379,7 @@ export class RestInAppPurchaseRepository implements InAppPurchaseRepository {
       `/api/v1/iap/${iap.id}/images`;
     const body = new FormData();
     body.append('file', file, file.name);
+    const localPreview = readDataUrl(file);
     const res = await fetch(url, { method: 'POST', body });
     if (!res.ok) {
       throw new Error(`POST ${url} failed: ${res.status} ${await res.text().catch(() => '')}`);
@@ -360,7 +387,14 @@ export class RestInAppPurchaseRepository implements InAppPurchaseRepository {
     const json = normalizeLinks(await res.json().catch(() => ({}))) as { data?: unknown };
     const raw = json.data ?? json;
     const row = (Array.isArray(raw) ? raw[0] : raw) as Record<string, unknown>;
-    return InAppPurchaseImage.fromJSON(row);
+    const fallback = await localPreview;
+    const hasRenderableUrl =
+      Boolean((row.imageAsset as { templateUrl?: string } | undefined)?.templateUrl) ||
+      Boolean(row.previewUrl ?? row.url);
+    return InAppPurchaseImage.fromJSON({
+      ...row,
+      previewUrl: hasRenderableUrl ? (row.previewUrl ?? row.url ?? null) : fallback,
+    });
   }
 
   async deleteImage(iap: InAppPurchase, image: InAppPurchaseImage): Promise<void> {

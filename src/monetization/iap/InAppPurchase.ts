@@ -409,6 +409,7 @@ export class InAppPurchase {
       this.reviewScreenshot = created;
       this.isReviewScreenshotLoaded = true;
     });
+    await this.reload().catch(() => undefined);
     return created;
   }
 
@@ -611,6 +612,7 @@ export class InAppPurchase {
     }
     await this.requireRepo().deleteReviewScreenshot(this, this.reviewScreenshot);
     runInAction(() => { this.reviewScreenshot = null; });
+    await this.reload().catch(() => undefined);
   }
 
   setRepository(repo: InAppPurchaseRepository): void {
