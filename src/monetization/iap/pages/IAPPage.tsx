@@ -16,16 +16,6 @@ const STATUS_CLASS: Record<string, string> = {
 };
 
 function IAPRow({ iap }: { iap: InAppPurchase }) {
-  const submit = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    try { await iap.submit(); }
-    catch (err) { console.warn('[iap] submit failed:', err); }
-  };
-  const unsubmit = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    try { await iap.unsubmit(); }
-    catch (err) { console.warn('[iap] unsubmit failed:', err); }
-  };
   const remove = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!iap.canDelete) return;
@@ -46,12 +36,6 @@ function IAPRow({ iap }: { iap: InAppPurchase }) {
       </td>
       <td>
         <div style={{ display: 'flex', gap: 6 }}>
-          {iap.canSubmit && (
-            <button className="btn btn-primary btn-sm" onClick={submit}>Submit</button>
-          )}
-          {iap.canUnsubmit && (
-            <button className="btn btn-secondary btn-sm" onClick={unsubmit}>Cancel</button>
-          )}
           {iap.canDelete && (
             <button className="btn btn-secondary btn-sm" onClick={remove}>Delete</button>
           )}

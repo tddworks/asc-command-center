@@ -38,16 +38,6 @@ function TierRow({
     catch (err) { console.warn('[subscription] reorder failed:', err); }
   };
 
-  const submit = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    try { await sub.submit(); }
-    catch (err) { console.warn('[subscription] submit failed:', err); }
-  };
-  const unsubmit = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    try { await sub.unsubmit(); }
-    catch (err) { console.warn('[subscription] unsubmit failed:', err); }
-  };
   const remove = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!sub.canDelete) return;
@@ -88,8 +78,6 @@ function TierRow({
               </button>
             </>
           )}
-          {sub.canSubmit && <button className="btn btn-primary btn-sm" onClick={submit}>Submit</button>}
-          {sub.canUnsubmit && <button className="btn btn-secondary btn-sm" onClick={unsubmit}>Cancel</button>}
           {sub.canDelete && <button className="btn btn-secondary btn-sm" onClick={remove}>Delete</button>}
         </div>
       </td>
