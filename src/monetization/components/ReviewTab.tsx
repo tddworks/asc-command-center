@@ -53,6 +53,7 @@ function ReviewTabImpl<S extends ReviewScreenshotLike, P extends ProductWithRevi
 
   const [uploading, setUploading] = useState(false);
   const [shotError, setShotError] = useState<string | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -81,17 +82,37 @@ function ReviewTabImpl<S extends ReviewScreenshotLike, P extends ProductWithRevi
     }
   };
 
-  const onPickFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const uploadFile = async (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      setShotError('Only image files are supported.');
+      return;
+    }
     setUploading(true);
     setShotError(null);
     try { await product.uploadReviewScreenshot(file); }
     catch (err) { setShotError((err as Error).message); }
-    finally {
-      setUploading(false);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
+    finally { setUploading(false); }
+  };
+
+  const onPickFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await uploadFile(file);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  const onDragOver = (e: React.DragEvent) => {
+    if (!product.canUploadReviewScreenshot) return;
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+  const onDragLeave = () => setIsDragOver(false);
+  const onDrop = async (e: React.DragEvent) => {
+    if (!product.canUploadReviewScreenshot) return;
+    e.preventDefault();
+    setIsDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) await uploadFile(file);
   };
 
   const removeShot = async () => {
@@ -124,13 +145,18 @@ function ReviewTabImpl<S extends ReviewScreenshotLike, P extends ProductWithRevi
             <div className="loading"><span className="spinner" /><span>Loading screenshot…</span></div>
           ) : screenshot ? (
             <div
+              onDragOver={onDragOver}
+              onDragLeave={onDragLeave}
+              onDrop={onDrop}
               style={{
                 display: 'flex',
                 gap: 12,
                 alignItems: 'center',
                 padding: 12,
-                border: '1px solid var(--border)',
+                border: isDragOver ? '2px dashed var(--accent, #2563eb)' : '1px solid var(--border)',
                 borderRadius: 6,
+                background: isDragOver ? 'var(--accent-bg, rgba(37,99,235,0.06))' : undefined,
+                transition: 'background 80ms, border-color 80ms',
               }}
             >
               {(() => {
@@ -175,17 +201,26 @@ function ReviewTabImpl<S extends ReviewScreenshotLike, P extends ProductWithRevi
             </div>
           ) : (
             <div
+              onDragOver={onDragOver}
+              onDragLeave={onDragLeave}
+              onDrop={onDrop}
               style={{
                 display: 'flex',
                 gap: 12,
                 alignItems: 'center',
                 padding: 16,
-                border: '2px dashed var(--border)',
+                border: `2px dashed ${isDragOver ? 'var(--accent, #2563eb)' : 'var(--border)'}`,
                 borderRadius: 6,
+                background: isDragOver ? 'var(--accent-bg, rgba(37,99,235,0.06))' : undefined,
+                transition: 'background 80ms, border-color 80ms',
               }}
             >
               <div style={{ fontSize: 24, opacity: 0.5 }}>📷</div>
-              <span className="muted" style={{ flex: 1 }}>No screenshot uploaded yet.</span>
+              <span className="muted" style={{ flex: 1 }}>
+                {product.canUploadReviewScreenshot
+                  ? 'Drag an image here or click Upload.'
+                  : 'No screenshot uploaded yet.'}
+              </span>
               {product.canUploadReviewScreenshot && (
                 <>
                   <input

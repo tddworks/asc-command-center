@@ -55,6 +55,7 @@ function PromotionalImagesSectionImpl<
   const addInputRef = useRef<HTMLInputElement | null>(null);
   const replaceInputRef = useRef<HTMLInputElement | null>(null);
   const [replaceTarget, setReplaceTarget] = useState<I | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
 
   useEffect(() => {
     if (product.isImagesLoaded) return;
@@ -63,17 +64,38 @@ function PromotionalImagesSectionImpl<
     });
   }, [product]);
 
-  const onAdd = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+  const uploadFile = async (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      setError('Only image files are supported.');
+      return;
+    }
     setUploading(true);
     setError(null);
     try { await product.uploadImage(file); }
     catch (err) { setError((err as Error).message); }
-    finally {
-      setUploading(false);
-      if (addInputRef.current) addInputRef.current.value = '';
-    }
+    finally { setUploading(false); }
+  };
+
+  const onAdd = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    await uploadFile(file);
+    if (addInputRef.current) addInputRef.current.value = '';
+  };
+
+  const canDrop = !product.hasExistingImage && product.canUploadImage;
+  const onDragOver = (e: React.DragEvent) => {
+    if (!canDrop) return;
+    e.preventDefault();
+    setIsDragOver(true);
+  };
+  const onDragLeave = () => setIsDragOver(false);
+  const onDrop = async (e: React.DragEvent) => {
+    if (!canDrop) return;
+    e.preventDefault();
+    setIsDragOver(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) await uploadFile(file);
   };
 
   const onReplace = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -190,7 +212,25 @@ function PromotionalImagesSectionImpl<
             )}
 
             {!product.hasExistingImage && product.canUploadImage && (
-              <>
+              <div
+                onDragOver={onDragOver}
+                onDragLeave={onDragLeave}
+                onDrop={onDrop}
+                style={{
+                  display: 'flex',
+                  gap: 12,
+                  alignItems: 'center',
+                  padding: 16,
+                  border: `2px dashed ${isDragOver ? 'var(--accent, #2563eb)' : 'var(--border)'}`,
+                  borderRadius: 6,
+                  background: isDragOver ? 'var(--accent-bg, rgba(37,99,235,0.06))' : undefined,
+                  transition: 'background 80ms, border-color 80ms',
+                }}
+              >
+                <div style={{ fontSize: 24, opacity: 0.5 }}>🖼️</div>
+                <span className="muted" style={{ flex: 1 }}>
+                  Drag an image here or click Upload.
+                </span>
                 <input
                   ref={addInputRef}
                   type="file"
@@ -200,14 +240,13 @@ function PromotionalImagesSectionImpl<
                 />
                 <button
                   type="button"
-                  className="btn btn-secondary btn-sm"
+                  className="btn btn-primary btn-sm"
                   onClick={() => addInputRef.current?.click()}
                   disabled={uploading}
-                  style={{ alignSelf: 'flex-start' }}
                 >
-                  {uploading && !replaceTarget ? 'Uploading…' : '+ Add promotional image'}
+                  {uploading && !replaceTarget ? 'Uploading…' : 'Upload'}
                 </button>
-              </>
+              </div>
             )}
 
             <input

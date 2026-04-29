@@ -305,7 +305,10 @@ export class RestSubscriptionGroupRepository implements SubscriptionGroupReposit
   }
 
   async uploadReviewScreenshot(sub: Subscription, file: File): Promise<SubscriptionReviewScreenshot> {
-    const url = sub.affordances.uploadReviewScreenshot ?? `/api/v1/subscriptions/${sub.id}/review-screenshot`;
+    const url =
+      sub.affordances.uploadReviewScreenshot ??
+      sub.affordances.getReviewScreenshot ??
+      `/api/v1/subscriptions/${sub.id}/review-screenshot`;
     const body = new FormData();
     body.append('file', file, file.name);
     const res = await fetch(url, { method: 'POST', body });
@@ -336,7 +339,10 @@ export class RestSubscriptionGroupRepository implements SubscriptionGroupReposit
   }
 
   async uploadImage(sub: Subscription, file: File): Promise<SubscriptionImage> {
-    const url = sub.affordances.createImage ?? `/api/v1/subscriptions/${sub.id}/images`;
+    const url =
+      sub.affordances.createImage ??
+      sub.affordances.listImages ??
+      `/api/v1/subscriptions/${sub.id}/images`;
     const body = new FormData();
     body.append('file', file, file.name);
     const res = await fetch(url, { method: 'POST', body });
