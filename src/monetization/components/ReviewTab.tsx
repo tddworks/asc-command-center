@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { observer } from 'mobx-react-lite';
+import { UploadOverlay } from './UploadOverlay.tsx';
 
 export interface ReviewScreenshotLike {
   readonly fileName: string;
@@ -54,6 +55,9 @@ function ReviewTabImpl<S extends ReviewScreenshotLike, P extends ProductWithRevi
   const [uploading, setUploading] = useState(false);
   const [shotError, setShotError] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
+  /** Local-file preview rendered with an UploadOverlay while the upload
+   *  is in flight — mirrors iOS's `screenshot.fileURL` + UploadProgressView. */
+  const [uploadingPreview, setUploadingPreview] = useState<{ url: string; fileName: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   useEffect(() => {
@@ -87,11 +91,17 @@ function ReviewTabImpl<S extends ReviewScreenshotLike, P extends ProductWithRevi
       setShotError('Only image files are supported.');
       return;
     }
+    const previewUrl = URL.createObjectURL(file);
+    setUploadingPreview({ url: previewUrl, fileName: file.name });
     setUploading(true);
     setShotError(null);
     try { await product.uploadReviewScreenshot(file); }
     catch (err) { setShotError((err as Error).message); }
-    finally { setUploading(false); }
+    finally {
+      setUploading(false);
+      URL.revokeObjectURL(previewUrl);
+      setUploadingPreview(null);
+    }
   };
 
   const onPickFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -143,6 +153,34 @@ function ReviewTabImpl<S extends ReviewScreenshotLike, P extends ProductWithRevi
             <span className="muted">Backend does not expose review screenshots for this {config.subjectLabel}.</span>
           ) : !product.isReviewScreenshotLoaded ? (
             <div className="loading"><span className="spinner" /><span>Loading screenshot…</span></div>
+          ) : uploadingPreview ? (
+            <div
+              style={{
+                position: 'relative',
+                display: 'flex',
+                gap: 12,
+                alignItems: 'center',
+                padding: 12,
+                border: '1px solid var(--border)',
+                borderRadius: 6,
+                overflow: 'hidden',
+              }}
+            >
+              <img
+                src={uploadingPreview.url}
+                alt={uploadingPreview.fileName}
+                style={{
+                  maxWidth: 120, maxHeight: 160,
+                  border: '1px solid var(--border)',
+                  borderRadius: 6,
+                }}
+              />
+              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 4 }}>
+                <span className="cell-mono">{uploadingPreview.fileName}</span>
+                <span className="muted">Uploading to App Store Connect…</span>
+              </div>
+              <UploadOverlay />
+            </div>
           ) : screenshot ? (
             <div
               onDragOver={onDragOver}
