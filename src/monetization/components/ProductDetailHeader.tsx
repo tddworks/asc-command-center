@@ -65,14 +65,22 @@ export function ProductDetailHeader({
   submitHint,
 }: Props) {
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUnsubmitting, setIsUnsubmitting] = useState(false);
 
   const submit = async () => {
     setSubmitError(null);
-    try { await onSubmit(); } catch (err) { setSubmitError((err as Error).message); }
+    setIsSubmitting(true);
+    try { await onSubmit(); }
+    catch (err) { setSubmitError((err as Error).message); }
+    finally { setIsSubmitting(false); }
   };
   const unsubmit = async () => {
     setSubmitError(null);
-    try { await onUnsubmit(); } catch (err) { setSubmitError((err as Error).message); }
+    setIsUnsubmitting(true);
+    try { await onUnsubmit(); }
+    catch (err) { setSubmitError((err as Error).message); }
+    finally { setIsUnsubmitting(false); }
   };
 
   return (
@@ -96,13 +104,31 @@ export function ProductDetailHeader({
         </div>
         <div className="toolbar-right" style={{ display: 'flex', gap: 6 }}>
           {canSubmit && (
-            <button type="button" className="btn btn-primary btn-sm" onClick={submit}>
-              {isFirstTimeSubmission ? 'Submit with Next Version' : 'Submit for Review'}
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={submit}
+              disabled={isSubmitting || isUnsubmitting}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            >
+              {isSubmitting && <span className="spinner" style={{ width: 12, height: 12, borderWidth: 2 }} />}
+              {isSubmitting
+                ? (isFirstTimeSubmission ? 'Submitting…' : 'Submitting…')
+                : (isFirstTimeSubmission ? 'Submit with Next Version' : 'Submit for Review')}
             </button>
           )}
           {canUnsubmit && (
-            <button type="button" className="btn btn-secondary btn-sm" onClick={unsubmit}>
-              {isFirstTimeSubmission ? 'Remove from Next Version' : 'Cancel Submission'}
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={unsubmit}
+              disabled={isSubmitting || isUnsubmitting}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}
+            >
+              {isUnsubmitting && <span className="spinner" style={{ width: 12, height: 12, borderWidth: 2 }} />}
+              {isUnsubmitting
+                ? (isFirstTimeSubmission ? 'Removing…' : 'Cancelling…')
+                : (isFirstTimeSubmission ? 'Remove from Next Version' : 'Cancel Submission')}
             </button>
           )}
         </div>
