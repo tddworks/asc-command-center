@@ -14,6 +14,10 @@ import { AddLanguagesSheet } from './AddLanguagesSheet.tsx';
 interface Props<L extends LocalizationLike, P extends ProductWithLocalizations<L>> {
   product: P;
   config: LocalizationsConfig;
+  /** When true, render the toolbar + content directly (no outer `.card`).
+   *  Used when this view is hosted as a tab inside another card so we don't
+   *  end up with a card-in-card. */
+  bare?: boolean;
 }
 
 interface RowProps<L extends LocalizationLike, P extends ProductWithLocalizations<L>> {
@@ -250,7 +254,7 @@ function buildBatch<L extends LocalizationLike>(
 }
 
 function LocalizationsTabImpl<L extends LocalizationLike, P extends ProductWithLocalizations<L>>({
-  product, config,
+  product, config, bare = false,
 }: Props<L, P>) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [editingLocale, setEditingLocale] = useState<string | null>(null);
@@ -282,83 +286,86 @@ function LocalizationsTabImpl<L extends LocalizationLike, P extends ProductWithL
     ? [source, ...nonSourceLocales]
     : product.localizations;
 
-  return (
+  const inner = (
     <>
-      <div className="card">
-        <div className="toolbar">
-          <div className="toolbar-left">
-            <h3>Localizations</h3>
-            <span className="muted" style={{ marginLeft: 8 }}>
-              {product.localizations.length} language{product.localizations.length === 1 ? '' : 's'}
-              {incompleteCount > 0 && ` · ${incompleteCount} incomplete`}
-            </span>
-          </div>
-          <div className="toolbar-right">
-            {product.canCreateLocalization && (
-              <button
-                type="button"
-                className="btn btn-primary btn-sm"
-                onClick={() => setPickerOpen(true)}
-              >
-                + Add Languages
-              </button>
-            )}
-          </div>
+      <div className="toolbar">
+        <div className="toolbar-left">
+          <h3>Localizations</h3>
+          <span className="muted" style={{ marginLeft: 8 }}>
+            {product.localizations.length} language{product.localizations.length === 1 ? '' : 's'}
+            {incompleteCount > 0 && ` · ${incompleteCount} incomplete`}
+          </span>
         </div>
-
-        {product.localizations.length === 0 ? (
-          <div className="card-body" style={{ textAlign: 'center', padding: 32 }}>
-            <div style={{ fontSize: 32, opacity: 0.4 }}>🌐</div>
-            <h4 style={{ marginTop: 8 }}>No localizations yet</h4>
-            <p className="muted" style={{ marginTop: 4 }}>
-              Add at least one language before submitting for review.
-            </p>
-            {product.canCreateLocalization && (
-              <button
-                type="button"
-                className="btn btn-primary btn-sm"
-                style={{ marginTop: 12 }}
-                onClick={() => setPickerOpen(true)}
-              >
-                + Add Languages
-              </button>
-            )}
-          </div>
-        ) : (
-          <div className="table-wrapper">
-            <table>
-              <thead>
-                <tr>
-                  <th>Locale</th>
-                  <th>Display Name</th>
-                  <th>{config.descriptionFieldLabel ?? 'Description'}</th>
-                  <th style={{ textAlign: 'right' }}>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {orderedLocalizations.map((loc) => {
-                  const isSource = loc === source;
-                  return (
-                  <ObservedLocaleRow
-                    key={loc.id || loc.locale || `row-${orderedLocalizations.indexOf(loc)}`}
-                    product={product}
-                    loc={loc}
-                    isSource={isSource}
-                    nameBatch={isSource ? nameBatch : undefined}
-                    descriptionBatch={isSource ? descriptionBatch : undefined}
-                    config={config}
-                    editing={editingLocale === loc.locale}
-                    onEdit={() => setEditingLocale(loc.locale)}
-                    onDone={() => setEditingLocale(null)}
-                  />
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+        <div className="toolbar-right">
+          {product.canCreateLocalization && (
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={() => setPickerOpen(true)}
+            >
+              + Add Languages
+            </button>
+          )}
+        </div>
       </div>
 
+      {product.localizations.length === 0 ? (
+        <div className="card-body" style={{ textAlign: 'center', padding: 32 }}>
+          <div style={{ fontSize: 32, opacity: 0.4 }}>🌐</div>
+          <h4 style={{ marginTop: 8 }}>No localizations yet</h4>
+          <p className="muted" style={{ marginTop: 4 }}>
+            Add at least one language before submitting for review.
+          </p>
+          {product.canCreateLocalization && (
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              style={{ marginTop: 12 }}
+              onClick={() => setPickerOpen(true)}
+            >
+              + Add Languages
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="table-wrapper">
+          <table>
+            <thead>
+              <tr>
+                <th>Locale</th>
+                <th>Display Name</th>
+                <th>{config.descriptionFieldLabel ?? 'Description'}</th>
+                <th style={{ textAlign: 'right' }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {orderedLocalizations.map((loc) => {
+                const isSource = loc === source;
+                return (
+                <ObservedLocaleRow
+                  key={loc.id || loc.locale || `row-${orderedLocalizations.indexOf(loc)}`}
+                  product={product}
+                  loc={loc}
+                  isSource={isSource}
+                  nameBatch={isSource ? nameBatch : undefined}
+                  descriptionBatch={isSource ? descriptionBatch : undefined}
+                  config={config}
+                  editing={editingLocale === loc.locale}
+                  onEdit={() => setEditingLocale(loc.locale)}
+                  onDone={() => setEditingLocale(null)}
+                />
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </>
+  );
+
+  return (
+    <>
+      {bare ? inner : <div className="card">{inner}</div>}
       <AddLanguagesSheet
         open={pickerOpen}
         product={product}

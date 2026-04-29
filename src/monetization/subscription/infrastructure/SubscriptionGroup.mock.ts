@@ -603,6 +603,8 @@ export class MockSubscriptionGroupRepository implements SubscriptionGroupReposit
       setPrices: `/api/v1/subscriptions/${id}/price-schedule`,
       getReviewScreenshot: `/api/v1/subscriptions/${id}/review-screenshot`,
       uploadReviewScreenshot: `/api/v1/subscriptions/${id}/review-screenshot`,
+      listImages: `/api/v1/subscriptions/${id}/images`,
+      createImage: `/api/v1/subscriptions/${id}/images`,
       getAvailability: `/api/v1/subscriptions/${id}/availability`,
       setAvailability: `/api/v1/subscriptions/${id}/availability`,
       listIntroductoryOffers: `/api/v1/subscriptions/${id}/introductory-offers`,

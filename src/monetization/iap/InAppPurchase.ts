@@ -178,9 +178,21 @@ export class InAppPurchase {
   get canViewOfferCodes(): boolean { return 'listOfferCodes' in this.affordances; }
   get canCreateOfferCode(): boolean { return 'createOfferCode' in this.affordances; }
   get canViewReviewScreenshot(): boolean { return 'getReviewScreenshot' in this.affordances; }
-  get canUploadReviewScreenshot(): boolean { return 'uploadReviewScreenshot' in this.affordances; }
+  /** True when the IAP can accept a screenshot upload. Mirrors the
+   *  canSetAvailability fallback: backend may expose `getReviewScreenshot`
+   *  + `update` without a discrete `uploadReviewScreenshot` link. */
+  get canUploadReviewScreenshot(): boolean {
+    if ('uploadReviewScreenshot' in this.affordances) return true;
+    return this.canViewReviewScreenshot && this.canUpdate;
+  }
   get canViewImages(): boolean { return 'listImages' in this.affordances; }
-  get canCreateImage(): boolean { return 'createImage' in this.affordances; }
+  /** Same fallback shape as `canUploadReviewScreenshot` — POST on the
+   *  listImages URL accepts new uploads when the backend omits the
+   *  discrete `createImage` link. */
+  get canCreateImage(): boolean {
+    if ('createImage' in this.affordances) return true;
+    return this.canViewImages && this.canUpdate;
+  }
   /** True when the IAP can accept a new promotional image upload. Apple
    *  allows one completed image per IAP, so this drops to false once any
    *  loaded image is `isCompleted`. */

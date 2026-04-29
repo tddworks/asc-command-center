@@ -99,6 +99,8 @@ function TierRow({
 
 const ObservedTierRow = observer(TierRow);
 
+type GroupTab = 'tiers' | 'localizations';
+
 function GroupCard({
   group,
   onAddTier,
@@ -106,7 +108,7 @@ function GroupCard({
   group: SubscriptionGroup;
   onAddTier: (group: SubscriptionGroup) => void;
 }) {
-  const [locsOpen, setLocsOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<GroupTab>('tiers');
   const remove = async () => {
     if (!group.canDelete) return;
     if (!window.confirm(`Delete group "${group.referenceName}"?`)) return;
@@ -114,28 +116,29 @@ function GroupCard({
     catch (err) { console.warn('[subscription-group] delete failed:', err); }
   };
 
+  const tabs: ReadonlyArray<{ key: GroupTab; label: string; count: number; disabled?: boolean }> = [
+    { key: 'tiers', label: 'Tiers', count: group.tierCount },
+    {
+      key: 'localizations',
+      label: 'Localizations',
+      count: group.groupLocalizations.length,
+      disabled: !group.canViewGroupLocalizations,
+    },
+  ];
+
   return (
-    <>
-      <div className="card" style={{ marginBottom: 16 }}>
-        <div className="toolbar">
-          <div className="toolbar-left" style={{ gap: 12 }}>
-            <h3>{group.referenceName}</h3>
-            <StatPill
-              tone="neutral"
-              count={group.tierCount}
-              label={group.tierCount === 1 ? 'tier' : 'tiers'}
-            />
-          </div>
-          <div className="toolbar-right" style={{ display: 'flex', gap: 6 }}>
-            <button
-              type="button"
-              className="btn btn-secondary btn-sm"
-              onClick={() => setLocsOpen((open) => !open)}
-              disabled={!group.canViewGroupLocalizations}
-              title={group.canViewGroupLocalizations ? 'Group localizations' : 'Backend does not expose localizations'}
-            >
-              {locsOpen ? 'Hide Localizations' : 'Localizations'}
-            </button>
+    <div className="card" style={{ marginBottom: 16 }}>
+      <div className="toolbar">
+        <div className="toolbar-left" style={{ gap: 12 }}>
+          <h3>{group.referenceName}</h3>
+          <StatPill
+            tone="neutral"
+            count={group.tierCount}
+            label={group.tierCount === 1 ? 'tier' : 'tiers'}
+          />
+        </div>
+        <div className="toolbar-right" style={{ display: 'flex', gap: 6 }}>
+          {activeTab === 'tiers' && (
             <button
               type="button"
               className="btn btn-primary btn-sm"
@@ -145,12 +148,56 @@ function GroupCard({
             >
               + Add Subscription
             </button>
-            {group.canDelete && (
-              <button className="btn btn-secondary btn-sm" onClick={remove}>Delete Group</button>
-            )}
-          </div>
+          )}
+          {group.canDelete && (
+            <button className="btn btn-secondary btn-sm" onClick={remove}>Delete Group</button>
+          )}
         </div>
-        {group.subscriptions.length === 0 ? (
+      </div>
+
+      <div role="tablist" style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--border)', padding: '0 16px' }}>
+        {tabs.map((t) => {
+          const active = activeTab === t.key;
+          return (
+            <button
+              key={t.key}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => !t.disabled && setActiveTab(t.key)}
+              disabled={t.disabled}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                padding: '10px 14px',
+                cursor: t.disabled ? 'not-allowed' : 'pointer',
+                color: active ? 'var(--text-primary)' : 'var(--text-secondary)',
+                opacity: t.disabled ? 0.5 : 1,
+                fontWeight: active ? 600 : 500,
+                fontSize: 13,
+                borderBottom: active ? '2px solid var(--accent)' : '2px solid transparent',
+                marginBottom: -1,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: 6,
+              }}
+            >
+              {t.label}
+              <span style={{
+                fontSize: 11,
+                padding: '1px 6px',
+                borderRadius: 99,
+                background: active ? 'var(--accent-light)' : 'var(--bg)',
+                color: active ? 'var(--accent)' : 'var(--text-muted)',
+                fontWeight: 500,
+              }}>{t.count}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {activeTab === 'tiers' && (
+        group.subscriptions.length === 0 ? (
           <div className="empty-state">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
               <line x1="12" y1="5" x2="12" y2="19" />
@@ -195,10 +242,13 @@ function GroupCard({
               </tbody>
             </table>
           </div>
-        )}
-      </div>
-      {locsOpen && <GroupLocalizationsTab group={group} />}
-    </>
+        )
+      )}
+
+      {activeTab === 'localizations' && (
+        <GroupLocalizationsTab group={group} bare />
+      )}
+    </div>
   );
 }
 

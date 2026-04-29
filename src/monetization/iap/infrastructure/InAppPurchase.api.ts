@@ -305,7 +305,12 @@ export class RestInAppPurchaseRepository implements InAppPurchaseRepository {
   }
 
   async uploadReviewScreenshot(iap: InAppPurchase, file: File): Promise<ReviewScreenshot> {
-    const url = iap.affordances.uploadReviewScreenshot ?? `/api/v1/iap/${iap.id}/review-screenshot`;
+    // POST handles both create and replace on the same URL — fall back to
+    // the get URL when the backend omits a discrete upload link.
+    const url =
+      iap.affordances.uploadReviewScreenshot ??
+      iap.affordances.getReviewScreenshot ??
+      `/api/v1/iap/${iap.id}/review-screenshot`;
     const body = new FormData();
     body.append('file', file, file.name);
     const res = await fetch(url, { method: 'POST', body });
@@ -342,7 +347,10 @@ export class RestInAppPurchaseRepository implements InAppPurchaseRepository {
   }
 
   async uploadImage(iap: InAppPurchase, file: File): Promise<InAppPurchaseImage> {
-    const url = iap.affordances.createImage ?? `/api/v1/iap/${iap.id}/images`;
+    const url =
+      iap.affordances.createImage ??
+      iap.affordances.listImages ??
+      `/api/v1/iap/${iap.id}/images`;
     const body = new FormData();
     body.append('file', file, file.name);
     const res = await fetch(url, { method: 'POST', body });

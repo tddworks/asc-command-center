@@ -10,6 +10,7 @@ import { workspace } from '../../../workspace/workspaceInstance.ts';
 
 interface Props {
   group: SubscriptionGroup;
+  bare?: boolean;
 }
 
 /**
@@ -18,7 +19,7 @@ interface Props {
  * group-localization second field `customAppName` (the override shown in
  * the device's subscription management UI).
  */
-function GroupLocalizationsTabImpl({ group }: Props) {
+function GroupLocalizationsTabImpl({ group, bare }: Props) {
   useEffect(() => {
     if (group.isGroupLocalizationsLoaded) return;
     void group.loadLocalizations().catch((err) => {
@@ -29,13 +30,19 @@ function GroupLocalizationsTabImpl({ group }: Props) {
   return (
     <LocalizationsTab
       product={group}
+      bare={bare}
       config={{
         productLabel: group.referenceName,
         nameLimit: SUBSCRIPTION_GROUP_NAME_LIMIT,
         descriptionLimit: SUBSCRIPTION_GROUP_CUSTOM_APP_NAME_LIMIT,
+        // Reuse the tier-localization slot kinds so the AI plugin (which
+        // matches `subscriptionLocalization.name` / `.description`) lights
+        // up "AI Translate All" + per-row AI buttons here. Group + tier
+        // localizations are interchangeable for the AI translate prompt:
+        // both are short, user-visible localized strings.
         slotKinds: {
-          name: 'subscriptionGroupLocalization.name',
-          description: 'subscriptionGroupLocalization.customAppName',
+          name: 'subscriptionLocalization.name',
+          description: 'subscriptionLocalization.description',
         },
         primaryLocale: workspace.currentApp?.primaryLocale ?? 'en-US',
         descriptionFieldLabel: 'Custom App Name',
