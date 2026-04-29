@@ -260,6 +260,7 @@ export class InAppPurchase {
   get statusTone(): 'success' | 'info' | 'warning' | 'danger' | 'neutral' {
     switch (this.state) {
       case InAppPurchaseState.Approved: return 'success';
+      case InAppPurchaseState.ReadyToSubmit:
       case InAppPurchaseState.WaitingForReview:
       case InAppPurchaseState.InReview:
       case InAppPurchaseState.PendingBinaryApproval: return 'info';

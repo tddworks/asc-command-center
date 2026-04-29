@@ -256,6 +256,7 @@ export class Subscription {
   get statusTone(): 'success' | 'info' | 'warning' | 'danger' | 'neutral' {
     switch (this.state) {
       case SubscriptionState.Approved: return 'success';
+      case SubscriptionState.ReadyToSubmit:
       case SubscriptionState.WaitingForReview:
       case SubscriptionState.InReview:
       case SubscriptionState.PendingBinaryApproval: return 'info';

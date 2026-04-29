@@ -162,6 +162,7 @@ describe('InAppPurchase', () => {
     expect(new InAppPurchase(iapInit({ state: InAppPurchaseState.MissingMetadata })).statusTone).toBe('warning');
     expect(new InAppPurchase(iapInit({ state: InAppPurchaseState.Rejected })).statusTone).toBe('danger');
     expect(new InAppPurchase(iapInit({ state: InAppPurchaseState.WaitingForReview })).statusTone).toBe('info');
+    expect(new InAppPurchase(iapInit({ state: InAppPurchaseState.ReadyToSubmit })).statusTone).toBe('info');
   });
 
   // ── Mutators ──

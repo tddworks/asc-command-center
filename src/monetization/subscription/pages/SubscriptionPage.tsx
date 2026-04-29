@@ -12,7 +12,7 @@ import { StatPill } from '../../../shared/components/StatPill.tsx';
 
 const STATUS_CLASS: Record<string, string> = {
   success: 'live',
-  info: 'pending',
+  info: 'review',
   warning: 'pending',
   danger: 'rejected',
   neutral: 'draft',
