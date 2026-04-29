@@ -570,7 +570,8 @@ describe('InAppPurchase', () => {
   it('uploadImage reloads the IAP after success so state transitions land', async () => {
     // Adding the first image often transitions the IAP from MISSING_METADATA
     // to READY_TO_SUBMIT on the backend. Front-end pulls the new state by
-    // re-fetching the IAP after the upload completes.
+    // re-fetching the IAP via the parent app's collection (the asc-cli
+    // backend doesn't expose a single-IAP GET endpoint).
     const created = new InAppPurchaseImage({
       id: 'img-new', fileName: 'p.jpg', state: InAppPurchaseImageState.UploadComplete,
     });
@@ -581,7 +582,7 @@ describe('InAppPurchase', () => {
     }));
     const repo = stubRepo({
       uploadImage: vi.fn().mockResolvedValue(created),
-      get: vi.fn().mockResolvedValue(refreshed),
+      list: vi.fn().mockResolvedValue([refreshed]),
     });
     const iap = new InAppPurchase(iapInit({
       state: InAppPurchaseState.MissingMetadata,
@@ -590,7 +591,7 @@ describe('InAppPurchase', () => {
 
     await iap.uploadImage(new File([''], 'p.jpg'));
 
-    expect(repo.get).toHaveBeenCalledWith(iap.id);
+    expect(repo.list).toHaveBeenCalledWith(iap.appId);
     expect(iap.state).toBe(InAppPurchaseState.ReadyToSubmit);
     expect(iap.affordances.submit).toBe('/s');
     expect(iap.reviewNote).toBe('note from server');
@@ -610,7 +611,7 @@ describe('InAppPurchase', () => {
     }));
     const repo = stubRepo({
       images: vi.fn().mockResolvedValue([a]),
-      get: vi.fn().mockResolvedValue(refreshed),
+      list: vi.fn().mockResolvedValue([refreshed]),
     });
     const iap = new InAppPurchase(iapInit({
       state: InAppPurchaseState.ReadyToSubmit,
@@ -620,11 +621,11 @@ describe('InAppPurchase', () => {
 
     await iap.deleteImage(a);
 
-    expect(repo.get).toHaveBeenCalledWith(iap.id);
+    expect(repo.list).toHaveBeenCalledWith(iap.appId);
     expect(iap.state).toBe(InAppPurchaseState.MissingMetadata);
   });
 
-  it('reload merges state, hasSubmission, affordances, reviewNote, referenceName from repo.get', async () => {
+  it('reload finds the IAP in the parent app collection and merges header fields', async () => {
     const refreshed = new InAppPurchase(iapInit({
       referenceName: 'New Name',
       state: InAppPurchaseState.WaitingForReview,
@@ -632,7 +633,10 @@ describe('InAppPurchase', () => {
       reviewNote: 'updated',
       affordances: { unsubmit: '/u' },
     }));
-    const repo = stubRepo({ get: vi.fn().mockResolvedValue(refreshed) });
+    const other = new InAppPurchase(iapInit({
+      id: 'iap-other', state: InAppPurchaseState.Approved,
+    }));
+    const repo = stubRepo({ list: vi.fn().mockResolvedValue([other, refreshed]) });
     const iap = new InAppPurchase(iapInit({
       referenceName: 'Old Name',
       state: InAppPurchaseState.ReadyToSubmit,
@@ -643,13 +647,26 @@ describe('InAppPurchase', () => {
 
     await iap.reload();
 
-    expect(repo.get).toHaveBeenCalledWith(iap.id);
+    expect(repo.list).toHaveBeenCalledWith(iap.appId);
     expect(iap.referenceName).toBe('New Name');
     expect(iap.state).toBe(InAppPurchaseState.WaitingForReview);
     expect(iap.hasSubmission).toBe(true);
     expect(iap.reviewNote).toBe('updated');
     expect(iap.affordances.unsubmit).toBe('/u');
     expect('submit' in iap.affordances).toBe(false);
+  });
+
+  it('reload is a no-op when the IAP is no longer in the parent collection', async () => {
+    const repo = stubRepo({ list: vi.fn().mockResolvedValue([]) });
+    const iap = new InAppPurchase(iapInit({
+      state: InAppPurchaseState.ReadyToSubmit,
+      affordances: { submit: '/s' },
+    }), repo);
+
+    await iap.reload();
+
+    expect(iap.state).toBe(InAppPurchaseState.ReadyToSubmit);
+    expect(iap.affordances.submit).toBe('/s');
   });
 
   it('uploadImage throws when the affordance is missing', async () => {

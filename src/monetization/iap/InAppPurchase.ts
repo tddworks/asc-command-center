@@ -619,14 +619,19 @@ export class InAppPurchase {
     this.repository = repo;
   }
 
-  /** Re-fetch this IAP and merge the mutable header fields back onto
-   *  `this`. Used after operations that the backend may transition state
-   *  for — e.g. uploading the first promotional image bumps the IAP from
-   *  MISSING_METADATA to READY_TO_SUBMIT and adds a `submit` affordance.
-   *  Loaded children (images, localizations, ...) are intentionally left
-   *  alone — reload is for the IAP header, not its sub-aggregates. */
+  /** Re-fetch this IAP via the parent app's collection and merge the
+   *  mutable header fields back onto `this`. Used after operations the
+   *  backend may transition state for — e.g. uploading the first
+   *  promotional image bumps the IAP from MISSING_METADATA to
+   *  READY_TO_SUBMIT and adds a `submit` affordance. Goes through the
+   *  collection endpoint (`/api/v1/apps/:appId/iap`) because the asc-cli
+   *  backend doesn't expose a single-IAP GET. Loaded children (images,
+   *  localizations, ...) are intentionally left alone — reload is for
+   *  the IAP header, not its sub-aggregates. */
   async reload(): Promise<void> {
-    const fresh = await this.requireRepo().get(this.id);
+    const list = await this.requireRepo().list(this.appId);
+    const fresh = list.find((p) => p.id === this.id);
+    if (!fresh) return;
     runInAction(() => {
       this.referenceName = fresh.referenceName;
       this.state = fresh.state;
