@@ -407,6 +407,23 @@ describe('Subscription', () => {
     expect(closed.canUploadImage).toBe(false);
   });
 
+  it('canCreateImage is true for an editable subscription whose images are viewable, even without an explicit createImage link', () => {
+    const sub = new Subscription(subInit({
+      state: SubscriptionState.MissingMetadata,
+      affordances: { listImages: '/x', update: '/y' },
+    }));
+    expect(sub.canCreateImage).toBe(true);
+    expect(sub.canUploadImage).toBe(true);
+  });
+
+  it('canUploadReviewScreenshot is true for an editable subscription whose screenshot is viewable, even without explicit uploadReviewScreenshot', () => {
+    const sub = new Subscription(subInit({
+      state: SubscriptionState.MissingMetadata,
+      affordances: { getReviewScreenshot: '/x', update: '/y' },
+    }));
+    expect(sub.canUploadReviewScreenshot).toBe(true);
+  });
+
   it('canUploadImage is false once a completed image exists (Apple allows one)', async () => {
     const completed = new SubscriptionImage({
       id: 'img-1', fileName: 'a.png', state: SubscriptionImageState.Approved,

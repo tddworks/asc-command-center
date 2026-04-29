@@ -177,9 +177,18 @@ export class Subscription {
   }
   get canSetPrices(): boolean { return 'setPrices' in this.affordances; }
   get canViewReviewScreenshot(): boolean { return 'getReviewScreenshot' in this.affordances; }
-  get canUploadReviewScreenshot(): boolean { return 'uploadReviewScreenshot' in this.affordances; }
+  /** Same fallback shape as canSetAvailability — POST on the
+   *  getReviewScreenshot URL accepts new uploads when the backend omits
+   *  the discrete uploadReviewScreenshot link. */
+  get canUploadReviewScreenshot(): boolean {
+    if ('uploadReviewScreenshot' in this.affordances) return true;
+    return this.canViewReviewScreenshot && this.canUpdate;
+  }
   get canViewImages(): boolean { return 'listImages' in this.affordances; }
-  get canCreateImage(): boolean { return 'createImage' in this.affordances; }
+  get canCreateImage(): boolean {
+    if ('createImage' in this.affordances) return true;
+    return this.canViewImages && this.canUpdate;
+  }
   get canUploadImage(): boolean { return this.canCreateImage && !this.hasExistingImage; }
   get hasExistingImage(): boolean { return this.images.some((img) => img.isCompleted); }
   get canViewAvailability(): boolean { return 'getAvailability' in this.affordances; }
