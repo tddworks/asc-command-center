@@ -4,6 +4,7 @@ import type { SubscriptionAvailability } from './SubscriptionAvailability.ts';
 import type { SubscriptionPriceSchedule } from './SubscriptionPriceSchedule.ts';
 import type { SubscriptionPricePointPage } from './SubscriptionPricePoint.ts';
 import type { SubscriptionReviewScreenshot } from './SubscriptionReviewScreenshot.ts';
+import type { SubscriptionImage } from './SubscriptionImage.ts';
 import type {
   CodeEnvironment,
   OfferMode,
@@ -125,6 +126,11 @@ export interface SubscriptionRepository {
   reviewScreenshot(sub: Subscription): Promise<SubscriptionReviewScreenshot | null>;
   uploadReviewScreenshot(sub: Subscription, file: File): Promise<SubscriptionReviewScreenshot>;
   deleteReviewScreenshot(sub: Subscription, screenshot: SubscriptionReviewScreenshot): Promise<void>;
+
+  // ── Promotional images ──
+  images(sub: Subscription): Promise<SubscriptionImage[]>;
+  uploadImage(sub: Subscription, file: File): Promise<SubscriptionImage>;
+  deleteImage(sub: Subscription, image: SubscriptionImage): Promise<void>;
 
   // ── Availability ──
   availability(sub: Subscription): Promise<SubscriptionAvailability | null>;

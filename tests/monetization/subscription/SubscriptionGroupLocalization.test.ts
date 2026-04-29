@@ -86,4 +86,20 @@ describe('SubscriptionGroupLocalization', () => {
     const loc = SubscriptionGroupLocalization.fromJSON({ id: 'l-2', locale: 'fr-FR', name: 'X' });
     expect(loc.customAppName).toBeNull();
   });
+
+  // ── LocalizationLike adapter (lets shared LocalizationsTab render groups) ──
+
+  it('description aliases customAppName', () => {
+    const loc = new SubscriptionGroupLocalization({ id: 'l-1', locale: 'en-US', name: 'X', customAppName: 'Bundle Override' });
+    expect(loc.description).toBe('Bundle Override');
+    loc.setDescription('Different Override');
+    expect(loc.customAppName).toBe('Different Override');
+    loc.setDescription(null);
+    expect(loc.customAppName).toBeNull();
+  });
+
+  it('descriptionRemaining matches customAppNameRemaining', () => {
+    const loc = new SubscriptionGroupLocalization({ id: 'l-1', locale: 'en-US', name: 'X', customAppName: 'WorldApp' });
+    expect(loc.descriptionRemaining).toBe(loc.customAppNameRemaining);
+  });
 });

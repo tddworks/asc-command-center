@@ -7,6 +7,7 @@ import { IAPCustomerEligibility, InAppPurchaseOfferCode } from '../InAppPurchase
 import { CodeEnvironment, IAPOneTimeUseCodeBatch } from '../OneTimeUseCodeBatch.ts';
 import { IAPCustomCode } from '../IAPCustomCode.ts';
 import { ReviewScreenshot } from '../ReviewScreenshot.ts';
+import { InAppPurchaseImage, InAppPurchaseImageState } from '../InAppPurchaseImage.ts';
 import type {
   CreateInAppPurchaseInput,
   CreateInAppPurchaseLocalizationInput,
@@ -26,6 +27,7 @@ export class MockInAppPurchaseRepository implements InAppPurchaseRepository {
    *  detail page reflects every add/delete/update without re-fetching. */
   private localizationsByIap = new Map<string, InAppPurchaseLocalization[]>();
   private screenshotByIap = new Map<string, ReviewScreenshot | null>();
+  private imagesByIap = new Map<string, InAppPurchaseImage[]>();
   private availabilityByIap = new Map<string, IAPAvailability>();
   private offerCodesByIap = new Map<string, InAppPurchaseOfferCode[]>();
   private batchesByCode = new Map<string, IAPOneTimeUseCodeBatch[]>();
@@ -34,6 +36,7 @@ export class MockInAppPurchaseRepository implements InAppPurchaseRepository {
   private priceScheduleByIap = new Map<string, IAPPriceSchedule | null>();
   private nextLocId = 100;
   private nextShotId = 200;
+  private nextImgId = 300;
 
   async list(appId: string): Promise<InAppPurchase[]> {
     if (!this.byApp.has(appId)) {
@@ -337,6 +340,44 @@ export class MockInAppPurchaseRepository implements InAppPurchaseRepository {
     this.screenshotByIap.set(iap.id, null);
   }
 
+  // ── Promotional images ──
+
+  async images(iap: InAppPurchase): Promise<InAppPurchaseImage[]> {
+    return [...(this.imagesByIap.get(iap.id) ?? [])];
+  }
+
+  async uploadImage(iap: InAppPurchase, file: File): Promise<InAppPurchaseImage> {
+    const id = `img-${this.nextImgId++}`;
+    // Read the file as a data URL so the page can preview the upload
+    // immediately. Real backends sign a CDN URL and Apple flips state to
+    // UPLOAD_COMPLETE → WAITING_FOR_REVIEW once their pipeline accepts the
+    // bytes.
+    const previewUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(file);
+    });
+    const created = new InAppPurchaseImage({
+      id,
+      fileName: file.name,
+      fileSize: file.size,
+      state: InAppPurchaseImageState.UploadComplete,
+      previewUrl,
+      affordances: { delete: `/api/v1/iap-images/${id}` },
+    });
+    const list = this.imagesByIap.get(iap.id) ?? [];
+    list.push(created);
+    this.imagesByIap.set(iap.id, list);
+    return created;
+  }
+
+  async deleteImage(iap: InAppPurchase, image: InAppPurchaseImage): Promise<void> {
+    const list = this.imagesByIap.get(iap.id);
+    if (!list) return;
+    this.imagesByIap.set(iap.id, list.filter((img) => img !== image));
+  }
+
   private localizationAffordances(id: string): Record<string, string> {
     return {
       update: `/api/v1/iap-localizations/${id}`,
@@ -378,6 +419,8 @@ export class MockInAppPurchaseRepository implements InAppPurchaseRepository {
       createLocalization: `/api/v1/iap/${id}/localizations`,
       getReviewScreenshot: `/api/v1/iap/${id}/review-screenshot`,
       uploadReviewScreenshot: `/api/v1/iap/${id}/review-screenshot`,
+      listImages: `/api/v1/iap/${id}/images`,
+      createImage: `/api/v1/iap/${id}/images`,
       getPriceSchedule: `/api/v1/iap/${id}/price-schedule`,
       setPrice: `/api/v1/iap/${id}/price-schedule`,
       getAvailability: `/api/v1/iap/${id}/availability`,

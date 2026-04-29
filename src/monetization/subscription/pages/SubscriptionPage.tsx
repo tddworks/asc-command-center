@@ -6,7 +6,7 @@ import type { Subscription } from '../Subscription.ts';
 import type { SubscriptionGroup } from '../SubscriptionGroup.ts';
 import { CreateSubscriptionGroupModal } from '../components/CreateSubscriptionGroupModal.tsx';
 import { CreateSubscriptionModal } from '../components/CreateSubscriptionModal.tsx';
-import { GroupLocalizationsPanel } from '../components/GroupLocalizationsPanel.tsx';
+import { GroupLocalizationsTab } from '../components/GroupLocalizationsTab.tsx';
 import { SubscriptionDetail } from '../components/SubscriptionDetail.tsx';
 import { StatPill } from '../../../shared/components/StatPill.tsx';
 
@@ -115,88 +115,90 @@ function GroupCard({
   };
 
   return (
-    <div className="card" style={{ marginBottom: 16 }}>
-      <div className="toolbar">
-        <div className="toolbar-left" style={{ gap: 12 }}>
-          <h3>{group.referenceName}</h3>
-          <StatPill
-            tone="neutral"
-            count={group.tierCount}
-            label={group.tierCount === 1 ? 'tier' : 'tiers'}
-          />
+    <>
+      <div className="card" style={{ marginBottom: 16 }}>
+        <div className="toolbar">
+          <div className="toolbar-left" style={{ gap: 12 }}>
+            <h3>{group.referenceName}</h3>
+            <StatPill
+              tone="neutral"
+              count={group.tierCount}
+              label={group.tierCount === 1 ? 'tier' : 'tiers'}
+            />
+          </div>
+          <div className="toolbar-right" style={{ display: 'flex', gap: 6 }}>
+            <button
+              type="button"
+              className="btn btn-secondary btn-sm"
+              onClick={() => setLocsOpen((open) => !open)}
+              disabled={!group.canViewGroupLocalizations}
+              title={group.canViewGroupLocalizations ? 'Group localizations' : 'Backend does not expose localizations'}
+            >
+              {locsOpen ? 'Hide Localizations' : 'Localizations'}
+            </button>
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={() => onAddTier(group)}
+              disabled={!group.canCreateSubscription}
+              title={group.canCreateSubscription ? 'Add a subscription tier' : 'Backend does not allow adding tiers'}
+            >
+              + Add Subscription
+            </button>
+            {group.canDelete && (
+              <button className="btn btn-secondary btn-sm" onClick={remove}>Delete Group</button>
+            )}
+          </div>
         </div>
-        <div className="toolbar-right" style={{ display: 'flex', gap: 6 }}>
-          <button
-            type="button"
-            className="btn btn-secondary btn-sm"
-            onClick={() => setLocsOpen((open) => !open)}
-            disabled={!group.canViewGroupLocalizations}
-            title={group.canViewGroupLocalizations ? 'Group localizations' : 'Backend does not expose localizations'}
-          >
-            {locsOpen ? 'Hide Localizations' : 'Localizations'}
-          </button>
-          <button
-            type="button"
-            className="btn btn-primary btn-sm"
-            onClick={() => onAddTier(group)}
-            disabled={!group.canCreateSubscription}
-            title={group.canCreateSubscription ? 'Add a subscription tier' : 'Backend does not allow adding tiers'}
-          >
-            + Add Subscription
-          </button>
-          {group.canDelete && (
-            <button className="btn btn-secondary btn-sm" onClick={remove}>Delete Group</button>
-          )}
-        </div>
+        {group.subscriptions.length === 0 ? (
+          <div className="empty-state">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+              <line x1="12" y1="5" x2="12" y2="19" />
+              <line x1="5" y1="12" x2="19" y2="12" />
+            </svg>
+            <h3>No tiers in this group yet</h3>
+            <p>Add a subscription tier — pick a product ID, name, and renewal period.</p>
+            <button
+              type="button"
+              className="btn btn-primary btn-sm"
+              onClick={() => onAddTier(group)}
+              disabled={!group.canCreateSubscription}
+              title={group.canCreateSubscription ? 'Add a subscription tier' : 'Backend does not allow adding tiers'}
+            >
+              + Add Subscription
+            </button>
+          </div>
+        ) : (
+          <div className="table-wrapper">
+            <table>
+              <thead>
+                <tr>
+                  <th>Tier</th>
+                  <th>Product ID</th>
+                  <th>Period</th>
+                  <th>Level</th>
+                  <th>Family</th>
+                  <th>State</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {group.subscriptions.map((sub, idx, arr) => (
+                  <ObservedTierRow
+                    key={sub.id}
+                    sub={sub}
+                    group={group}
+                    isFirst={idx === 0}
+                    isLast={idx === arr.length - 1}
+                  />
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
-      {group.subscriptions.length === 0 ? (
-        <div className="empty-state">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="12" y1="5" x2="12" y2="19" />
-            <line x1="5" y1="12" x2="19" y2="12" />
-          </svg>
-          <h3>No tiers in this group yet</h3>
-          <p>Add a subscription tier — pick a product ID, name, and renewal period.</p>
-          <button
-            type="button"
-            className="btn btn-primary btn-sm"
-            onClick={() => onAddTier(group)}
-            disabled={!group.canCreateSubscription}
-            title={group.canCreateSubscription ? 'Add a subscription tier' : 'Backend does not allow adding tiers'}
-          >
-            + Add Subscription
-          </button>
-        </div>
-      ) : (
-        <div className="table-wrapper">
-          <table>
-            <thead>
-              <tr>
-                <th>Tier</th>
-                <th>Product ID</th>
-                <th>Period</th>
-                <th>Level</th>
-                <th>Family</th>
-                <th>State</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {group.subscriptions.map((sub, idx, arr) => (
-                <ObservedTierRow
-                  key={sub.id}
-                  sub={sub}
-                  group={group}
-                  isFirst={idx === 0}
-                  isLast={idx === arr.length - 1}
-                />
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
-      {locsOpen && <GroupLocalizationsPanel group={group} />}
-    </div>
+      {locsOpen && <GroupLocalizationsTab group={group} />}
+    </>
   );
 }
 

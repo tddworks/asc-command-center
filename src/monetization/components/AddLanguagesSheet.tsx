@@ -470,14 +470,14 @@ function AddLanguagesSheetImpl<L extends LocalizationLike, P extends ProductWith
                     </div>
                     <div>
                       <label className="form-label" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                        <span>Description</span>
+                        <span>{config.descriptionFieldLabel ?? 'Description'}</span>
                         <span className="form-hint">{c.description.length}/{config.descriptionLimit}</span>
                       </label>
                       <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
                         <input
                           className="form-input"
                           value={c.description}
-                          placeholder="Short description"
+                          placeholder={config.descriptionPlaceholder ?? 'Short description'}
                           onChange={(e) => updateContent(c.locale, { description: e.target.value })}
                           disabled={c.status === 'saving' || c.status === 'saved'}
                           style={{ flex: 1 }}

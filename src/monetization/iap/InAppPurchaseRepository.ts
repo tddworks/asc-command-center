@@ -27,6 +27,7 @@ export interface CreateInAppPurchaseOfferCodeInput {
   prices?: OfferCodePriceInput[];
 }
 import type { ReviewScreenshot } from './ReviewScreenshot.ts';
+import type { InAppPurchaseImage } from './InAppPurchaseImage.ts';
 
 export interface CreateInAppPurchaseInput {
   appId: string;
@@ -87,6 +88,11 @@ export interface InAppPurchaseRepository {
   reviewScreenshot(iap: InAppPurchase): Promise<ReviewScreenshot | null>;
   uploadReviewScreenshot(iap: InAppPurchase, file: File): Promise<ReviewScreenshot>;
   deleteReviewScreenshot(iap: InAppPurchase, screenshot: ReviewScreenshot): Promise<void>;
+
+  // ── Promotional images ──
+  images(iap: InAppPurchase): Promise<InAppPurchaseImage[]>;
+  uploadImage(iap: InAppPurchase, file: File): Promise<InAppPurchaseImage>;
+  deleteImage(iap: InAppPurchase, image: InAppPurchaseImage): Promise<void>;
 
   // ── Offer codes ──
   offerCodes(iap: InAppPurchase): Promise<InAppPurchaseOfferCode[]>;

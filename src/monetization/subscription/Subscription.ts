@@ -5,6 +5,7 @@ import type { SubscriptionAvailability } from './SubscriptionAvailability.ts';
 import type { SubscriptionPriceSchedule } from './SubscriptionPriceSchedule.ts';
 import type { SubscriptionPricePointPage } from './SubscriptionPricePoint.ts';
 import type { SubscriptionReviewScreenshot } from './SubscriptionReviewScreenshot.ts';
+import type { SubscriptionImage } from './SubscriptionImage.ts';
 import type {
   OfferMode,
   SubscriptionCustomerEligibility,
@@ -105,6 +106,11 @@ export class Subscription {
   winBackOffers: WinBackOffer[] = [];
   isWinBackOffersLoaded = false;
 
+  /** Promotional images for the App Store product page. Apple allows one
+   *  completed image per subscription. */
+  images: SubscriptionImage[] = [];
+  isImagesLoaded = false;
+
   repository: SubscriptionRepository | null;
 
   constructor(init: SubscriptionInit, repository: SubscriptionRepository | null = null) {
@@ -172,6 +178,10 @@ export class Subscription {
   get canSetPrices(): boolean { return 'setPrices' in this.affordances; }
   get canViewReviewScreenshot(): boolean { return 'getReviewScreenshot' in this.affordances; }
   get canUploadReviewScreenshot(): boolean { return 'uploadReviewScreenshot' in this.affordances; }
+  get canViewImages(): boolean { return 'listImages' in this.affordances; }
+  get canCreateImage(): boolean { return 'createImage' in this.affordances; }
+  get canUploadImage(): boolean { return this.canCreateImage && !this.hasExistingImage; }
+  get hasExistingImage(): boolean { return this.images.some((img) => img.isCompleted); }
   get canViewAvailability(): boolean { return 'getAvailability' in this.affordances; }
   get canSetAvailability(): boolean {
     if ('setAvailability' in this.affordances) return true;
@@ -376,6 +386,59 @@ export class Subscription {
     }
     await this.requireRepo().deleteReviewScreenshot(this, this.reviewScreenshot);
     runInAction(() => { this.reviewScreenshot = null; });
+  }
+
+  // ── Promotional images ──
+
+  async loadImages(): Promise<SubscriptionImage[]> {
+    if (!this.canViewImages) {
+      runInAction(() => {
+        this.images = [];
+        this.isImagesLoaded = true;
+      });
+      return [];
+    }
+    const list = await this.requireRepo().images(this);
+    runInAction(() => {
+      this.images = list;
+      this.isImagesLoaded = true;
+    });
+    return list;
+  }
+
+  async uploadImage(file: File): Promise<SubscriptionImage> {
+    if (!this.canCreateImage) {
+      throw new Error(`Subscription ${this.id} cannot upload promotional image (no createImage affordance)`);
+    }
+    if (this.hasExistingImage) {
+      throw new Error(`Subscription ${this.id} already has a promotional image (Apple allows one)`);
+    }
+    const created = await this.requireRepo().uploadImage(this, file);
+    runInAction(() => { this.images = [...this.images, created]; });
+    return created;
+  }
+
+  async replaceImage(old: SubscriptionImage, file: File): Promise<SubscriptionImage> {
+    if (!old.canDelete) {
+      throw new Error(`Image ${old.id} cannot be deleted (no delete affordance)`);
+    }
+    const repo = this.requireRepo();
+    await repo.deleteImage(this, old);
+    const fresh = await repo.uploadImage(this, file);
+    runInAction(() => {
+      this.images = this.images.filter((img) => img !== old).concat(fresh);
+    });
+    return fresh;
+  }
+
+  async deleteImage(image: SubscriptionImage): Promise<void> {
+    if (!image.canDelete) {
+      throw new Error(`Image ${image.id} cannot be deleted (no delete affordance)`);
+    }
+    await this.requireRepo().deleteImage(this, image);
+    runInAction(() => {
+      this.images = this.images.filter((img) => img !== image);
+    });
   }
 
   // ── Offers ──

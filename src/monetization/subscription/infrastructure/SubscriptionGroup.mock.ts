@@ -6,6 +6,7 @@ import { SubscriptionAvailability, SubscriptionTerritoryAvailability } from '../
 import { SubscriptionPriceSchedule, SubscriptionTerritoryPrice } from '../SubscriptionPriceSchedule.ts';
 import { SubscriptionPricePoint, type SubscriptionPricePointPage } from '../SubscriptionPricePoint.ts';
 import { SubscriptionReviewScreenshot } from '../SubscriptionReviewScreenshot.ts';
+import { SubscriptionImage, SubscriptionImageState } from '../SubscriptionImage.ts';
 import {
   CodeEnvironment,
   OfferMode,
@@ -40,6 +41,7 @@ export class MockSubscriptionGroupRepository implements SubscriptionGroupReposit
   private groupLocalizationsByGroup = new Map<string, SubscriptionGroupLocalization[]>();
   private nextGroupLocId = 700;
   private screenshotByTier = new Map<string, SubscriptionReviewScreenshot | null>();
+  private imagesByTier = new Map<string, SubscriptionImage[]>();
   private availabilityByTier = new Map<string, SubscriptionAvailability>();
   private priceScheduleByTier = new Map<string, SubscriptionPriceSchedule | null>();
   private offerCodesBySub = new Map<string, SubscriptionOfferCode[]>();
@@ -47,6 +49,7 @@ export class MockSubscriptionGroupRepository implements SubscriptionGroupReposit
   private customCodesByOfferCode = new Map<string, SubscriptionCustomCode[]>();
   private nextLocId = 500;
   private nextShotId = 600;
+  private nextImgId = 800;
 
   async list(appId: string): Promise<SubscriptionGroup[]> {
     if (!this.groupsByApp.has(appId)) {
@@ -268,6 +271,40 @@ export class MockSubscriptionGroupRepository implements SubscriptionGroupReposit
 
   async deleteReviewScreenshot(sub: Subscription, _screenshot: SubscriptionReviewScreenshot): Promise<void> {
     this.screenshotByTier.set(sub.id, null);
+  }
+
+  // ── Promotional images ──
+
+  async images(sub: Subscription): Promise<SubscriptionImage[]> {
+    return [...(this.imagesByTier.get(sub.id) ?? [])];
+  }
+
+  async uploadImage(sub: Subscription, file: File): Promise<SubscriptionImage> {
+    const id = `sub-img-${this.nextImgId++}`;
+    const previewUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '');
+      reader.onerror = () => reject(reader.error);
+      reader.readAsDataURL(file);
+    });
+    const created = new SubscriptionImage({
+      id,
+      fileName: file.name,
+      fileSize: file.size,
+      state: SubscriptionImageState.UploadComplete,
+      previewUrl,
+      affordances: { delete: `/api/v1/subscription-images/${id}` },
+    });
+    const list = this.imagesByTier.get(sub.id) ?? [];
+    list.push(created);
+    this.imagesByTier.set(sub.id, list);
+    return created;
+  }
+
+  async deleteImage(sub: Subscription, image: SubscriptionImage): Promise<void> {
+    const list = this.imagesByTier.get(sub.id);
+    if (!list) return;
+    this.imagesByTier.set(sub.id, list.filter((img) => img !== image));
   }
 
   // ── Availability ──

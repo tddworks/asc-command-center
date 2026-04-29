@@ -8,6 +8,10 @@ import {
 import { SubscriptionLocalization } from '../../../src/monetization/subscription/SubscriptionLocalization.ts';
 import { SubscriptionPriceSchedule } from '../../../src/monetization/subscription/SubscriptionPriceSchedule.ts';
 import { SubscriptionReviewScreenshot } from '../../../src/monetization/subscription/SubscriptionReviewScreenshot.ts';
+import {
+  SubscriptionImage,
+  SubscriptionImageState,
+} from '../../../src/monetization/subscription/SubscriptionImage.ts';
 import { SubscriptionAvailability, SubscriptionTerritoryAvailability } from '../../../src/monetization/subscription/SubscriptionAvailability.ts';
 import { SubscriptionPricePoint } from '../../../src/monetization/subscription/SubscriptionPricePoint.ts';
 import {
@@ -34,6 +38,9 @@ function stubRepo(overrides: Partial<SubscriptionRepository> = {}): Subscription
     reviewScreenshot: vi.fn().mockResolvedValue(null),
     uploadReviewScreenshot: vi.fn(),
     deleteReviewScreenshot: vi.fn().mockResolvedValue(undefined),
+    images: vi.fn().mockResolvedValue([]),
+    uploadImage: vi.fn(),
+    deleteImage: vi.fn().mockResolvedValue(undefined),
     availability: vi.fn().mockResolvedValue(null),
     setAvailability: vi.fn().mockResolvedValue(undefined),
     introductoryOffers: vi.fn().mockResolvedValue([]),
@@ -382,6 +389,150 @@ describe('Subscription', () => {
     const repo = stubRepo();
     const sub = new Subscription(subInit(), repo);
     await expect(sub.deleteReviewScreenshot()).rejects.toThrow(/no review screenshot to delete/);
+  });
+
+  // ── Promotional images ──
+
+  it('canViewImages / canCreateImage / canUploadImage map to affordances', () => {
+    const open = new Subscription(subInit({
+      affordances: { listImages: '/x', createImage: '/y' },
+    }));
+    expect(open.canViewImages).toBe(true);
+    expect(open.canCreateImage).toBe(true);
+    expect(open.canUploadImage).toBe(true);
+
+    const closed = new Subscription(subInit({ affordances: {} }));
+    expect(closed.canViewImages).toBe(false);
+    expect(closed.canCreateImage).toBe(false);
+    expect(closed.canUploadImage).toBe(false);
+  });
+
+  it('canUploadImage is false once a completed image exists (Apple allows one)', async () => {
+    const completed = new SubscriptionImage({
+      id: 'img-1', fileName: 'a.png', state: SubscriptionImageState.Approved,
+    });
+    const repo = stubRepo({ images: vi.fn().mockResolvedValue([completed]) });
+    const sub = new Subscription(subInit({
+      affordances: { listImages: '/x', createImage: '/y' },
+    }), repo);
+    await sub.loadImages();
+
+    expect(sub.hasExistingImage).toBe(true);
+    expect(sub.canUploadImage).toBe(false);
+  });
+
+  it('loadImages short-circuits to [] when affordance is missing', async () => {
+    const repo = stubRepo();
+    const sub = new Subscription(subInit({ affordances: {} }), repo);
+
+    const result = await sub.loadImages();
+
+    expect(result).toEqual([]);
+    expect(sub.isImagesLoaded).toBe(true);
+    expect(repo.images).not.toHaveBeenCalled();
+  });
+
+  it('loadImages populates images from the repo', async () => {
+    const a = new SubscriptionImage({ id: 'img-1', fileName: 'a.png', state: SubscriptionImageState.Approved });
+    const repo = stubRepo({ images: vi.fn().mockResolvedValue([a]) });
+    const sub = new Subscription(subInit({ affordances: { listImages: '/x' } }), repo);
+
+    await sub.loadImages();
+
+    expect(sub.images).toEqual([a]);
+    expect(sub.isImagesLoaded).toBe(true);
+  });
+
+  it('uploadImage appends the created image, gates on canCreateImage and one-image limit', async () => {
+    const created = new SubscriptionImage({
+      id: 'img-new', fileName: 'p.jpg', state: SubscriptionImageState.UploadComplete,
+    });
+    const repo = stubRepo({ uploadImage: vi.fn().mockResolvedValue(created) });
+    const sub = new Subscription(subInit({
+      affordances: { listImages: '/x', createImage: '/y' },
+    }), repo);
+
+    const file = new File(['jpg'], 'p.jpg', { type: 'image/jpeg' });
+    await sub.uploadImage(file);
+
+    expect(repo.uploadImage).toHaveBeenCalledWith(sub, file);
+    expect(sub.images).toContain(created);
+  });
+
+  it('uploadImage throws when affordance missing', async () => {
+    const repo = stubRepo();
+    const sub = new Subscription(subInit({ affordances: {} }), repo);
+    await expect(sub.uploadImage(new File([''], 'a.jpg'))).rejects.toThrow(/cannot upload promotional image/);
+    expect(repo.uploadImage).not.toHaveBeenCalled();
+  });
+
+  it('uploadImage throws when a completed image already exists', async () => {
+    const completed = new SubscriptionImage({
+      id: 'img-1', fileName: 'a.png', state: SubscriptionImageState.Approved,
+    });
+    const repo = stubRepo({ images: vi.fn().mockResolvedValue([completed]) });
+    const sub = new Subscription(subInit({
+      affordances: { listImages: '/x', createImage: '/y' },
+    }), repo);
+    await sub.loadImages();
+
+    await expect(sub.uploadImage(new File([''], 'a.jpg'))).rejects.toThrow(/already has a promotional image/);
+    expect(repo.uploadImage).not.toHaveBeenCalled();
+  });
+
+  it('replaceImage deletes the old image then uploads the new one', async () => {
+    const old = new SubscriptionImage({
+      id: 'img-old', fileName: 'old.jpg', state: SubscriptionImageState.Approved,
+      affordances: { delete: '/d' },
+    });
+    const fresh = new SubscriptionImage({
+      id: 'img-new', fileName: 'new.jpg', state: SubscriptionImageState.UploadComplete,
+    });
+    const repo = stubRepo({
+      images: vi.fn().mockResolvedValue([old]),
+      uploadImage: vi.fn().mockResolvedValue(fresh),
+    });
+    const sub = new Subscription(subInit({
+      affordances: { listImages: '/x', createImage: '/y' },
+    }), repo);
+    await sub.loadImages();
+
+    const file = new File(['jpg'], 'new.jpg', { type: 'image/jpeg' });
+    const result = await sub.replaceImage(old, file);
+
+    expect(repo.deleteImage).toHaveBeenCalledWith(sub, old);
+    expect(repo.uploadImage).toHaveBeenCalledWith(sub, file);
+    expect(result).toBe(fresh);
+    expect(sub.images).not.toContain(old);
+    expect(sub.images).toContain(fresh);
+  });
+
+  it('deleteImage prunes the list and gates on canDelete', async () => {
+    const a = new SubscriptionImage({
+      id: 'img-1', fileName: 'a.png', state: SubscriptionImageState.Approved,
+      affordances: { delete: '/d' },
+    });
+    const repo = stubRepo({ images: vi.fn().mockResolvedValue([a]) });
+    const sub = new Subscription(subInit({ affordances: { listImages: '/x' } }), repo);
+    await sub.loadImages();
+
+    await sub.deleteImage(a);
+
+    expect(repo.deleteImage).toHaveBeenCalledWith(sub, a);
+    expect(sub.images).toEqual([]);
+  });
+
+  it('deleteImage throws when image cannot be deleted', async () => {
+    const noDelete = new SubscriptionImage({
+      id: 'img-1', fileName: 'a.png', state: SubscriptionImageState.Approved,
+      affordances: {},
+    });
+    const repo = stubRepo({ images: vi.fn().mockResolvedValue([noDelete]) });
+    const sub = new Subscription(subInit({ affordances: { listImages: '/x' } }), repo);
+    await sub.loadImages();
+
+    await expect(sub.deleteImage(noDelete)).rejects.toThrow(/cannot be deleted/);
+    expect(repo.deleteImage).not.toHaveBeenCalled();
   });
 
   // ── Availability ──
