@@ -150,7 +150,7 @@ Domain classes (e.g., `src/app/App.ts`) expose five kinds of members:
 
 ### Styling
 
-CSS lives in `src/styles/` (`theme.css`, `base.css`, `layout.css`, `components.css`, `utilities.css`) and is imported from `src/main.tsx` so Vite bundles/hashes it. Static runtime assets (icons, device frames) go in `public/` and resolve at absolute paths like `/frames/iPhone 17.png`.
+CSS lives in `src/styles/` (`theme.css`, `base.css`, `layout.css`, `components.css`, `utilities.css`) and is imported from `src/main.tsx` so Vite bundles/hashes it. Static runtime assets (icons, logos) go in `public/` and resolve at absolute paths like `/logo.png`.
 
 ### TypeScript notes
 

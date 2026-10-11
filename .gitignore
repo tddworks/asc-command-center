@@ -25,3 +25,6 @@ npm-debug.log*
 
 # Apple App Store Connect OpenAPI spec (download from Apple, not redistributed)
 docs/app_store_connect_api_openapi.json
+
+# Apple device bezels (not redistributable); unused by the app — the ASC Pro plugin serves its own
+public/frames/
