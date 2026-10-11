@@ -1193,15 +1193,15 @@ describe('InAppPurchase', () => {
     // submission set `submitWithNextAppStoreVersion: true` and expose a
     // `removeFromNextVersion` link instead of the old `unsubmit`.
     const iap = InAppPurchase.fromJSON({
-      id: '6764009834',
-      appId: '6760926018',
+      id: '1000000001',
+      appId: '1000000002',
       referenceName: 'ASC Premium Unlock',
-      productId: 'onegai.BriRus.asc_cli_premium_unlock',
+      productId: 'com.example.app.premium_unlock',
       type: 'NON_CONSUMABLE',
       state: 'READY_TO_SUBMIT',
       isFirstTimeSubmission: true,
       submitWithNextAppStoreVersion: true,
-      affordances: { removeFromNextVersion: '/api/v1/iap/6764009834/unsubmit' },
+      affordances: { removeFromNextVersion: '/api/v1/iap/1000000001/unsubmit' },
     });
 
     expect(iap.hasSubmission).toBe(true);

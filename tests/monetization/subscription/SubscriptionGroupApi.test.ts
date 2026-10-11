@@ -25,7 +25,7 @@ describe('RestSubscriptionGroupRepository.create', () => {
 
   it('hydrates from the asc backend shape — { data: [ { _links, id, referenceName } ] }', async () => {
     stubBackend({
-      '/api/v1/apps/6760926018/subscription-groups': () =>
+      '/api/v1/apps/1000000002/subscription-groups': () =>
         jsonResponse({
           data: [
             {
@@ -37,7 +37,7 @@ describe('RestSubscriptionGroupRepository.create', () => {
                 listSubscriptions:     { href: '/api/v1/subscription-groups/22058599/subscriptions', method: 'GET' },
                 update:                { href: '/api/v1/subscription-groups/22058599', method: 'PATCH' },
               },
-              appId: '6760926018',
+              appId: '1000000002',
               id: '22058599',
               referenceName: 'ASC CLI Subscriptions',
             },
@@ -46,10 +46,10 @@ describe('RestSubscriptionGroupRepository.create', () => {
     });
     const repo = new RestSubscriptionGroupRepository();
 
-    const group = await repo.create({ appId: '6760926018', referenceName: 'ASC CLI Subscriptions' });
+    const group = await repo.create({ appId: '1000000002', referenceName: 'ASC CLI Subscriptions' });
 
     expect(group.id).toBe('22058599');
-    expect(group.appId).toBe('6760926018');
+    expect(group.appId).toBe('1000000002');
     expect(group.referenceName).toBe('ASC CLI Subscriptions');
     expect(group.canCreateSubscription).toBe(true);
     expect(group.canDelete).toBe(true);

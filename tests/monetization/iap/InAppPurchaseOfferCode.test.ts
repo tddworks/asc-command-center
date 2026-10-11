@@ -159,7 +159,7 @@ describe('InAppPurchaseOfferCode', () => {
     const code = new InAppPurchaseOfferCode({
       id: 'oc-1', iapId: 'iap-1', name: 'WELCOME',
       customerEligibilities: [], isActive: true,
-      affordances: { appId: '6749677184' },
+      affordances: { appId: '1000000003' },
     });
     code.setRepository(repo);
     const b = batch('batch-1', 3);
@@ -167,9 +167,9 @@ describe('InAppPurchaseOfferCode', () => {
     const csv = await code.downloadCodes(b);
 
     expect(csv).toBe(
-      'ABC123,https://apps.apple.com/redeem?ctx=offercodes&id=6749677184&code=ABC123\n' +
-      'DEF456,https://apps.apple.com/redeem?ctx=offercodes&id=6749677184&code=DEF456\n' +
-      'GHI789,https://apps.apple.com/redeem?ctx=offercodes&id=6749677184&code=GHI789',
+      'ABC123,https://apps.apple.com/redeem?ctx=offercodes&id=1000000003&code=ABC123\n' +
+      'DEF456,https://apps.apple.com/redeem?ctx=offercodes&id=1000000003&code=DEF456\n' +
+      'GHI789,https://apps.apple.com/redeem?ctx=offercodes&id=1000000003&code=GHI789',
     );
     expect(repo.oneTimeUseCodeValues).toHaveBeenCalledWith(code, b);
   });

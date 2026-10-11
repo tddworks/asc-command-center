@@ -209,10 +209,10 @@ describe('SubscriptionOfferCode', () => {
       id: 'c-8', subscriptionId: 'sub-1', name: 'X',
       offerMode: OfferMode.FreeTrial, duration: SubscriptionDuration.OneMonth,
       numberOfPeriods: 1, customerEligibilities: [],
-      isActive: true, affordances: { appId: '6749677184' },
+      isActive: true, affordances: { appId: '1000000003' },
     });
     expect(code.redemptionUrl).toBe(
-      'https://apps.apple.com/redeem?ctx=offercodes&id=6749677184&code=CODE',
+      'https://apps.apple.com/redeem?ctx=offercodes&id=1000000003&code=CODE',
     );
   });
 
