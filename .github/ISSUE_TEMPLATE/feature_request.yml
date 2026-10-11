@@ -1,0 +1,50 @@
+name: Feature request
+description: Something you're trying to do in App Store Connect that this UI makes hard — start from the problem, not the fix.
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time. **Please describe the problem before any solution.**
+        A request for a solution ("add a bulk-edit button") hides the real need ("I update the same What's New text in 12 locales every release"), and the right fix is often different — the [XY problem](https://xyproblem.info). Tell us what you were doing and what got in the way; your idea comes last.
+
+  - type: textarea
+    id: moment
+    attributes:
+      label: What were you doing?
+      description: The moment it came up — which release task, which page.
+      placeholder: "I was preparing version 2.1 for review across three apps…"
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What got in the way?
+      description: The problem in your own words. What did you want to happen, and what happened instead? How often, and what does it cost you?
+    validations:
+      required: true
+
+  - type: textarea
+    id: workaround
+    attributes:
+      label: What do you do today instead?
+      description: Your workaround, if any — App Store Connect's website, the `asc` CLI, a script… It shows us what actually matters.
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: An idea for how the UI could help (optional)
+      description: Welcome, but optional — we'll design from the problem above, and may land somewhere else.
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you send
+      options:
+        - label: I described the problem and the moment, not only a solution.
+          required: true
+        - label: I searched the existing issues.
+          required: true
+        - label: Screenshots and text contain no keys, IDs or app data I don't want public.
+          required: true
