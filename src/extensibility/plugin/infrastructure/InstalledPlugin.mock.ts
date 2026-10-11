@@ -4,7 +4,7 @@ import type { InstalledPluginRepository } from '../InstalledPluginRepository.ts'
 
 /**
  * MockInstalledPluginRepository — fixtures mirror the real shape `/api/v1/plugins`
- * and `/api/v1/plugins/market` ship. Two installed (ASC Pro + Screenshot Studio) and three
+ * and `/api/v1/plugins/market` ship. One installed (ASC Pro) and three
  * marketplace entries so mock-mode looks realistic and exercises both code paths.
  *
  * Install/uninstall mutate the in-memory state so the page can be smoke-tested
@@ -23,7 +23,6 @@ export class MockInstalledPluginRepository implements InstalledPluginRepository 
    *  always-latest version so the mock can simulate "update available"). */
   private installedVersions = new Map<string, string>([
     ['ASCPro', '0.9.0'],          // marketplace ships 1.0.0 → outdated
-    ['ScreenshotStudio', '1.5.0'],
     ['discord-notify', '1.2.0'],
     ['slack-alerts', '2.1.0'],
     ['analytics-pro', '1.5.0'],
