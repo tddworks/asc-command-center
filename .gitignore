@@ -1,0 +1,27 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+*.tsbuildinfo
+
+# Test coverage
+coverage/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+*.p8
+
+# Logs
+*.log
+npm-debug.log*
+
+# Editors & OS
+.idea/
+.vscode/
+.DS_Store
+
+# Apple App Store Connect OpenAPI spec (download from Apple, not redistributed)
+docs/app_store_connect_api_openapi.json

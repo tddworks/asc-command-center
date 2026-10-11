@@ -40,3 +40,7 @@ Cake-slice features grouped by bounded context (`app-catalog`, `release`, `monet
 ## Coverage
 
 Coverage is collected by `@vitest/coverage-v8` and uploaded to Codecov on every push and PR. The HTML report lives at `coverage/index.html` after `npm run test:coverage` for local drilling.
+
+## License
+
+Licensed under the [Apache License, Version 2.0](LICENSE). See [`NOTICE`](NOTICE) for attribution.
