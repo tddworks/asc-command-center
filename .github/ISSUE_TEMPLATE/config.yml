@@ -1,0 +1,11 @@
+blank_issues_enabled: false
+contact_links:
+  - name: asc CLI issues
+    url: https://github.com/tddworks/asc-cli/issues
+    about: Problems with the asc command or asc web-server itself.
+  - name: Contributing guide
+    url: https://github.com/tddworks/asc-command-center/blob/main/CONTRIBUTING.md
+    about: Running the app in mock mode, tests, and how the code is organised.
+  - name: Report a security vulnerability
+    url: https://github.com/tddworks/asc-command-center/security/advisories/new
+    about: Please report security issues privately, not as a public issue.

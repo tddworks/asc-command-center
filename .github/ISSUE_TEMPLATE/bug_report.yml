@@ -1,0 +1,71 @@
+name: Bug report
+description: The UI shows something wrong, or doesn't do what it says.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. **What you saw and what you expected** help most — please don't only suggest a fix; the cause is often somewhere else.
+        If the problem is in what `asc` itself returns (the same thing happens on the command line), report it at [tddworks/asc-cli](https://github.com/tddworks/asc-cli/issues) instead.
+
+  - type: textarea
+    id: did
+    attributes:
+      label: What did you do?
+      description: Steps, from opening the UI. Which page, which app and version?
+      placeholder: "1. Open In-App Purchases\n2. Select an IAP in Ready to Submit\n3. …"
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+      description: And how do you know — what do App Store Connect or the `asc` CLI say?
+      placeholder: "The IAP to show as submitted, as `asc iap list` reports…"
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: What happened instead?
+      description: A screenshot helps. Hide app names, IDs and customer data you don't want public.
+    validations:
+      required: true
+
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Data mode
+      description: Shown in the header. Mock mode uses built-in fixtures; rest mode talks to `asc web-server`.
+      options:
+        - Rest (real data from asc web-server)
+        - Mock (built-in fixtures)
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Where you ran it, browser, and asc version
+      placeholder: "cc.asccli.app (or npm run dev) · Safari 26 · asc 1.4.0"
+    validations:
+      required: true
+
+  - type: textarea
+    id: log
+    attributes:
+      label: Command log or console output (optional)
+      description: From the header's command log, or the browser console. Check for keys, IDs and app data before pasting.
+      render: text
+
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Before you send
+      options:
+        - label: I searched the existing issues.
+          required: true
+        - label: Screenshots and logs contain no keys, Key IDs, Issuer IDs or app data I don't want public.
+          required: true
