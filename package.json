@@ -25,17 +25,17 @@
     "test:coverage": "vitest run --coverage"
   },
   "dependencies": {
-    "mobx": "^6.15.0",
-    "mobx-react-lite": "^4.1.1",
-    "react": "^19.1.0",
-    "react-dom": "^19.1.0",
+    "mobx": "^7.0.6",
+    "mobx-react-lite": "^5.1.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
     "react-router-dom": "^7.5.0"
   },
   "devDependencies": {
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.3.0",
-    "@types/react": "^19.1.0",
-    "@types/react-dom": "^19.1.0",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^4.4.1",
     "@vitest/coverage-v8": "^5.0.3",
     "jsdom": "^26.1.0",
