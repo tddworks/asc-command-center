@@ -1,7 +1,7 @@
 /**
  * Centralized registry of App Store locales.
  *
- * Mirrors `Languages.allAppStoreLocales` in the iOS reference
+ * Mirrors `Languages.allAppStoreLocales` in the native iOS reference
  * (`LanguageSwitcher/Languages.swift`):
  * the canonical list of locale codes Apple's App Store accepts for app
  * metadata localization.
